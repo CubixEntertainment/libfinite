@@ -7,13 +7,25 @@
 #include <vulkan/vulkan_wayland.h>
 #include <wayland-client.h>
 #include <cglm/cglm.h>
+#include "protocols/xdg-shell-client-protocol.h"
 
+/*
+    Render method actively being used
 
+    Note that Unity is a development only tool
+*/
 enum finite_render_type {
     FIN_RENDERER_UNITY,
     FIN_RENDERER_VULKAN,
     FIN_RENDERER_OPENGL
 };
+
+enum finite_render_engine {
+    FIN_RENDER_ENGINE_UNITY,
+    FIN_RENDER_ENGINE_GODOT,
+    FIN_RENDER_ENGINE_UNKNOWN
+};
+
 
 /*
     Basic information about the renderer.
@@ -22,16 +34,43 @@ struct finite_render_info {
     struct wl_display *display;
     struct wl_surface *surface;
     struct wl_compositor *island; // Islands is the Infinite compositor
+    struct xdg_wm_base *base;
     uint32_t version;
     uint16_t engineVersion;
     char clientName;
-    char engine;
+    enum finite_render_engine engine;
     VkInstance vk_instance;
     VkSurfaceKHR vk_surface;
-    finite_render_type renderMode;
+    enum finite_render_type renderMode;
 };
 
-struct finite_render_info *finite_render_info_create(enum finite_render_type *renderMode, char *wayland_device, uint32_t version);
+/*
+    Additional Details about the swapchain
+*/
+struct finite_render_swapchain {
+    VkDevice vk_device;
+    VkSwapchainKHR vk_swapchain;
+    uint32_t imageCount;
+    VkImage *imageHandles;
+}
+
+/*
+    An actual window
+*/
+struct finite_render_window {
+    struct finite_render_info *info;
+    struct wl_surface *wl_surface;
+    struct xdg_surface *surface;
+    struct xdg_toplevel *toplevel;
+    VkSurfaceKHR vk_surface;
+    VkDevice vk_device;
+    VkQueue vk_queue;
+    VkExtent2D *vk_extent;
+    struct finite_render_swapchain *swapchain;
+};
+
+struct finite_render_info *finite_render_info_create(enum finite_render_type *renderMode, char *wayland_device, char *name, uint32_t version, enum finite_render_engine engine, uint32_t engine_version);
+struct finite_render_window *finite_render_window_create(struct finite_render_info *info);
 int finite_render_backend_set(int *renderMode);
 uint32_t finite_render_create_version(int major, int minor, int patch);
 void finite_render_info_remove(struct finite_render_info *render);
