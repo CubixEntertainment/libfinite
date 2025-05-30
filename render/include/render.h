@@ -26,6 +26,15 @@ enum finite_render_engine {
     FIN_RENDER_ENGINE_UNKNOWN
 };
 
+enum finite_render_sample_size {
+    FIN_RENDER_AA_1_BIT,
+    FIN_RENDER_AA_2_BIT,
+    FIN_RENDER_AA_4_BIT,
+    FIN_RENDER_AA_8_BIT,
+    FIN_RENDER_AA_16_BIT,
+    FIN_RENDER_AA_32_BIT,
+    FIN_RENDER_AA_64_BIT
+};
 
 /*
     Basic information about the renderer.
@@ -45,14 +54,28 @@ struct finite_render_info {
 };
 
 /*
+    details about the pipeline
+*/
+
+struct finite_render_pipeline {
+    VkPipeline vk_pipeline;
+    VkPipelineLayout vk_pipelineLayout;
+};
+
+/*
     Additional Details about the swapchain
 */
 struct finite_render_swapchain {
+    struct finite_render_pipeline *pipeline;
     VkDevice vk_device;
     VkSwapchainKHR vk_swapchain;
     uint32_t imageCount;
-    VkImage *imageHandles;
-}
+    VkImage *vk_imageHandles;
+    VkImageView *vk_imageViews;
+    VkFormat *vk_format;
+    VkFormat *vk_depthFormat;
+
+};
 
 /*
     An actual window
@@ -64,13 +87,42 @@ struct finite_render_window {
     struct xdg_toplevel *toplevel;
     VkSurfaceKHR vk_surface;
     VkDevice vk_device;
+    VkPhysicalDevice vk_pDevice;
     VkQueue vk_queue;
     VkExtent2D *vk_extent;
+};
+
+/*
+    Images to be rendered 
+*/
+struct finite_render_image {
+    VkImage vk_image;
+    VkDeviceMemory vk_memory;
+    VkImageView vk_view;
+};
+
+/*
+    The actual renderer
+*/
+struct finite_render {
+    struct finite_render_window *window;
     struct finite_render_swapchain *swapchain;
+    struct finite_render_pipeline *pipeline;
+    uint32_t framebuf_count; // ? unused?
+    bool withMSAA;
+    VkRenderPass vk_renderPass;
+    VkFramebuffer vk_frameBuf;
+    enum finite_render_sample_size sampleCount; // for MSAA
 };
 
 struct finite_render_info *finite_render_info_create(enum finite_render_type *renderMode, char *wayland_device, char *name, uint32_t version, enum finite_render_engine engine, uint32_t engine_version);
+bool finite_render_info_name(struct finite_render_info *info, char *name);
 struct finite_render_window *finite_render_window_create(struct finite_render_info *info);
 int finite_render_backend_set(int *renderMode);
 uint32_t finite_render_create_version(int major, int minor, int patch);
+struct finite_render *finite_render_create(struct finite_render_window *window, struct finite_render_swapchain *swapchain, bool withMSAA, enum finite_render_sample_size size);
+struct finite_render_image *finite_render_msaa_image_create(struct finite_render *render);
+struct finite_render_image *finite_render_depth_image_create(struct finite_render *render);
+struct finite_render_pipeline *finite_render_pipeline_create(struct finite_render *render);
+void finite_render_frame(struct finite_render *render, struct finite_render_info *info);
 void finite_render_info_remove(struct finite_render_info *render);
