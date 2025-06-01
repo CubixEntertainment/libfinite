@@ -18,7 +18,31 @@ struct finite_render_vulkan_pipeline_layout_config {
     uint32_t _layout; // variables with _ preceeding them are count ints
     VkPushConstantRange *push_consts;
     uint32_t _pushes;
+    VkDescriptorSetLayout vk_descLayout;
 };
+
+
+/*
+    # finite_render_vulkan_shader_box
+
+    A set of vertex and fragment shader
+*/
+struct finite_render_vulkan_shader_box {
+    VkShaderModule vk_vertShader;
+    VkShaderModule vk_fragShader;
+    VkDevice vk_device;
+    bool isOwner; 
+};
+
+struct finite_render_vulkan_uniform_mvp {
+    mat4 mvp;
+};
+
+struct finite_render_vulkan_uniform_light {
+    vec3 light_dir;
+    float _padding; // pad to 16 bytes (required!)
+};
+
 
 VkSampleCountFlagBits finite_render_vulkan_get_sample_size_from_type(enum finite_render_sample_size size);
 
@@ -31,6 +55,14 @@ void finite_render_vulkan_framebuffers_create(struct finite_render *render, stru
 struct finite_render_swapchain *finite_render_vulkan_swapchain_create(struct finite_render_window *window);
 
 VkPipelineLayout finite_render_pipeline_layout_create(struct finite_render *render, struct finite_render_vulkan_pipeline_layout_config *config);
+
+VkVertexInputBindingDescription finite_render_vulkan_vertex_binding_desc_create();
+
+struct finite_render_vulkan_shader_box *finite_render_shader_box_create(struct finite_render_window *window, char *vertPath, char *fragPath, bool withGLSL);
+
+void finite_render_shader_box_remove(struct finite_render_vulkan_shader_box *box);
+
+VkResult finite_render_vulkan_sync_objects_create(VkDevice device, struct finite_render *render)
 
 // *getNextFrame
 // vkAcquireNextImageKHR to grab next frame

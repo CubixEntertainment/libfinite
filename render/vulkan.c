@@ -1,5 +1,49 @@
 #include "render/include/vulkan.h"
 
+static char* read_file(const char* path, size_t* out_size) {
+    FILE* file = fopen(path, "rb");
+    if (!file) return NULL;
+
+    fseek(file, 0, SEEK_END);
+    size_t size = ftell(file);
+    rewind(file);
+
+    char* buffer = malloc(size);
+    fread(buffer, 1, size, file);
+    fclose(file);
+
+    if (out_size) *out_size = size;
+    return buffer;
+}
+
+static VkShaderModule vk_create_shader_module(VkDevice device, const char* path) {
+    size_t _size;
+    char* code = read_file(path, &_size);
+
+    if (!code) {
+        // TODO: Error our with finite_log()
+        return VK_NULL_HANDLE;
+    };
+
+    VkShaderModuleCreateInfo create_info = {
+        .sType = VK_STRUCTURE_TYPE_SHADER_MODULE_CREATE_INFO,
+        .codeSize = _size,
+        .pCode = (const uint32_t*) code,
+    };
+
+    VkShaderModule shader_module;
+    VkResult res = vkCreateShaderModule(device, &create_info, NULL, &shader_module);
+    
+    if (res != VK_SUCCESS) {
+        // TODO: Error our with finite_log()
+        return VK_NULL_HANDLE;
+    };
+
+    free(code);
+    return shader_module;
+}
+
+
 /*
     finite_render_vulkan_get_sample_size_from_type    
 
@@ -107,6 +151,7 @@ VkDevice finite_render_vulkan_device_create(struct finite_render_info *info, str
 
     vkGetDeviceQueue(device, fIndex, 0, window->vk_queue);
     window->vk_pDevice = pDevice;
+    window->fIndex = fIndex;
 
     return device;
 }
@@ -261,14 +306,18 @@ struct finite_render_vulkan_pipeline_layout_config  *finite_render_pipeline_layo
                     .descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER,
                     .descriptorCount = 1,
                     .stageFlags = VK_SHADER_STAGE_VERTEX_BIT,
-                    .pImmutableSamplers = NULL
                 },
                 {
                     .binding = 1,
+                    .descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER,
+                    .descriptorCount = 1,
+                    .stageFlags = VK_SHADER_STAGE_FRAGMENT_BIT,
+                },
+                {
+                    .binding = 2,
                     .descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER,
                     .descriptorCount = 1,
                     .stageFlags = VK_SHADER_STAGE_FRAGMENT_BIT,
-                    .pImmutableSamplers = NULL
                 }
             };
 
@@ -278,6 +327,13 @@ struct finite_render_vulkan_pipeline_layout_config  *finite_render_pipeline_layo
                 .size = sizeof(mat4) // matrix from cglm
             };
 
+
+            VkDescriptorSetLayoutCreateInfo layoutInfo = {
+                .sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO,
+                .bindingCount = 3,
+                .pBindings = default_bindings
+            };
+            vkCreateDescriptorSetLayout(render->window->vk_device, &layoutInfo, NULL, config->vk_descLayout);
             config->push_consts = &default_pc;
             config->_pushes = 1;
             config->set_layout = &default_bindings;
@@ -292,14 +348,18 @@ struct finite_render_vulkan_pipeline_layout_config  *finite_render_pipeline_layo
                     .descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER,
                     .descriptorCount = 1,
                     .stageFlags = VK_SHADER_STAGE_VERTEX_BIT,
-                    .pImmutableSamplers = NULL
                 },
                 {
                     .binding = 1,
+                    .descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER,
+                    .descriptorCount = 1,
+                    .stageFlags = VK_SHADER_STAGE_FRAGMENT_BIT,
+                },
+                {
+                    .binding = 2,
                     .descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER,
                     .descriptorCount = 1,
                     .stageFlags = VK_SHADER_STAGE_FRAGMENT_BIT,
-                    .pImmutableSamplers = NULL
                 }
             };
 
@@ -309,6 +369,12 @@ struct finite_render_vulkan_pipeline_layout_config  *finite_render_pipeline_layo
                 .size = sizeof(mat4) // matrix from cglm
             };
 
+            VkDescriptorSetLayoutCreateInfo layoutInfo = {
+                .sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO,
+                .bindingCount = 3,
+                .pBindings = default_bindings
+            };
+            vkCreateDescriptorSetLayout(render->window->vk_device, &layoutInfo, NULL, config->vk_descLayout);
             config->push_consts = &default_pc;
             config->_pushes = 1;
             config->set_layout = &default_bindings;
@@ -317,6 +383,7 @@ struct finite_render_vulkan_pipeline_layout_config  *finite_render_pipeline_layo
         
         default:
             config->push_consts = NULL;
+            config->vk_descLayout = NULL;
             config->_pushes = 0;
             config->set_layout = NULL;
             config->_layout = 0;
@@ -361,4 +428,135 @@ VkPipelineLayout finite_render_pipeline_layout_create(struct finite_render *rend
     }
 
     return layout;
+}
+
+/*
+    # finite_render_shader_box_create()
+
+    Creates a shader set based on the inputted shader path
+
+    @note This call returns a `finite_render_vulkan_shader_box` but does not set the render.pipeline.shaderBox to any specific value.
+    As a developer, you may need to manually set it to the return value of this function
+
+    @param window The window to be associated with the shaders
+    @param vertPath The path to the vertex shader
+    @param fragPath The path to the fragment shader
+    @param withGLSL Allow the shader box to automatically compile GLSL shaders
+*/
+struct finite_render_vulkan_shader_box *finite_render_shader_box_create(struct finite_render_window *window, char *vertPath, char *fragPath, bool withGLSL) {
+    if (!vertPath || !fragPath) {
+        // TODO: Error out with finite_log()
+        return NULL;
+    }
+
+    struct finite_render_vulkan_shader_box *shader_box = calloc(1, sizeof(struct finite_render_vulkan_shader_box));
+    if (!shader_box) {
+        // TODO: Error out with finite_log()
+        return NULL;
+    }
+
+    shader_box->vk_vertShader = vk_create_shader_module(window->vk_device, vertPath);
+    shader_box->vk_fragShader = vk_create_shader_module(window->vk_device, fragPath);
+    shader_box->isOwner = true; // makes it so we can handle cleanup automatically instead of trusting devs to clean up on their own.
+
+    if (shader_box->vk_vertShader == VK_NULL_HANDLE || shader_box->vk_fragShader == VK_NULL_HANDLE) {
+        if (shader_box->vk_vertShader) {
+            vkDestroyShaderModule(window->vk_device, shader_box->vk_vertShader, NULL);
+        }
+        if (shader_box->vk_fragShader) {
+            vkDestroyShaderModule(window->vk_device, shader_box->vk_fragShader, NULL);
+        }
+        free(shader_box);
+        // TODO: Error out with finite_log()
+        return NULL;
+    }
+
+    shader_box->vk_device = window->vk_device;
+    return shader_box;
+}
+
+/*
+    # finite_render_shader_box_remove
+
+    Attempts to automatically remove a shader_box
+*/
+void finite_render_shader_box_remove(struct finite_render_vulkan_shader_box *box) {
+    if (!box) {
+        // TODO: Log out with finite_log();
+        return;
+    }
+    if (box->isOwner) {
+        vkDestroyShaderModule(box->vk_device, box->vk_vertShader, NULL);
+        vkDestroyShaderModule(box->vk_device, box->vk_fragShader, NULL);
+    }
+
+    free(box);
+}
+
+
+/*
+    # finite_render_vulkan_binding_desc_create
+
+    TODO: Write docs
+*/
+
+VkVertexInputBindingDescription finite_render_vulkan_vertex_binding_desc_create() {
+    VkVertexInputBindingDescription binding = {0};
+    binding.binding = 0;
+    binding.stride = sizeof(struct finite_render_vertex);
+    binding.inputRate = VK_VERTEX_INPUT_RATE_VERTEX;
+    return binding;
+}
+
+VkVertexInputAttributeDescription *finite_render_vulkan_vertex_attribute_desc_create() {
+    VkVertexInputAttributeDescription attributes[3];
+
+    // Position
+    attributes[0].binding = 0;
+    attributes[0].location = 0;
+    attributes[0].format = VK_FORMAT_R32G32B32_SFLOAT;
+    attributes[0].offset = offsetof(struct finite_render_vertex, position);
+
+    // Normal
+    attributes[1].binding = 0;
+    attributes[1].location = 1;
+    attributes[1].format = VK_FORMAT_R32G32B32_SFLOAT;
+    attributes[1].offset = offsetof(struct finite_render_vertex, normal);
+
+    // UV
+    attributes[2].binding = 0;
+    attributes[2].location = 2;
+    attributes[2].format = VK_FORMAT_R32G32_SFLOAT;
+    attributes[2].offset = offsetof(struct finite_render_vertex, uv);
+
+    return &attributes;
+}
+
+VkResult finite_render_vulkan_sync_objects_create(VkDevice device, struct finite_render *render) {
+    VkSemaphoreCreateInfo semaphoreInfo = {
+        .sType = VK_STRUCTURE_TYPE_SEMAPHORE_CREATE_INFO,
+    };
+
+    VkFenceCreateInfo fenceInfo = {
+        .sType = VK_STRUCTURE_TYPE_FENCE_CREATE_INFO,
+        .flags = VK_FENCE_CREATE_SIGNALED_BIT,  // Start signaled so first frame doesn't hang
+    };
+
+    for (size_t i = 0; i < MAX_FRAMES_IN_FLIGHT; i++) {
+        if (vkCreateSemaphore(device, &semaphoreInfo, NULL, &render->frames[i].imageAvailableSemaphores[i]) != VK_SUCCESS ||
+            vkCreateSemaphore(device, &semaphoreInfo, NULL, &render->frames[i].renderFinishedSemaphores[i]) != VK_SUCCESS ||
+            vkCreateFence(device, &fenceInfo, NULL, &render->frames[i].inFlightFences[i]) != VK_SUCCESS) {
+            return VK_ERROR_INITIALIZATION_FAILED;
+        }
+    }
+
+    return VK_SUCCESS;
+}
+
+void finite_render_vulkan_sync_objects_remove(struct finite_render *render) {
+    for (size_t i = 0; i < MAX_FRAMES_IN_FLIGHT; i++) {
+        vkDestroySemaphore(render->window->vk_device, render->frames[i].imageAvailableSemaphores[i], NULL);
+        vkDestroySemaphore(render->window->vk_device, render->frames[i].renderFinishedSemaphores[i], NULL);
+        vkDestroyFence(render->window->vk_device, render->frames[i].inFlightFences[i], NULL);
+    }
 }

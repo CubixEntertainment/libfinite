@@ -203,11 +203,15 @@ struct finite_render_info *finite_render_info_create(enum finite_render_type *re
     }
 
     // finally set some values and return
-    // TODO: These should be from params
     render->clientName = name;
     render->version = version;
     render->engine = engine;
     render->engineVersion = engine_version;
+
+    // create default clear values that we can customize later
+    // TODO: create finite_set_clear_colors()
+    render->vk_clearValues[0] = (VkClearValue){ .color = {{0.1f, 0.1f, 0.1f, 1.0f}} };
+    render->vk_clearValues[1] = (VkClearValue){ .depthStencil = {1.0f, 0} };
 
     return render;
 }
@@ -293,7 +297,7 @@ struct finite_render_window *finite_render_window_create(struct finite_render_in
 }
 
 /*
-    # finite_renderer_create
+    # finite_render_create
 
     Creates a renderer to handle converting image data to images that can be sent to the swapchain for rendering
 
@@ -408,6 +412,29 @@ struct finite_render *finite_render_create(struct finite_render_window *window, 
     render->sampleCount = size;
     render->swapchain = swapchain;
     render->window = window;
+    
+
+    // now try to setup depth and msaa
+    if (withDepth) {
+        swapchain->depthImage = finite_render_depth_image_create(render);
+        if (!swapchain->depthImage) {
+            // TODO: Error out with finite_log()
+            return NULL;
+        }
+
+        // update the swapchain after the image is added
+        render->swapchain = swapchain;
+    }
+    if (withMSAA) {
+        swapchain->msaaImage = finite_render_msaa_image_create(render);
+        if (!swapchain->msaaImage) {
+            // TODO: Error out with finite_log()
+            return NULL;
+        }
+
+        // update the swapchain after the image is added
+        render->swapchain = swapchain;
+    }
 
     return render;
 }
@@ -610,8 +637,19 @@ struct finite_render_pipeline *finite_render_pipeline_create(struct finite_rende
     VkPipelineShaderStageCreateInfo shader_info[] = { vert_info, frag_info };
 
     // pre-input setup
+    // TODO: grab binding info from user input
+    // >> Add optional attributes (e.g., tangents, bone weights) 
+    // >> Move this into finite_render_vertex_format_create()
+    // >> Add support for interleaved vs. deinterleaved vertex data
+    VkVertexInputBindingDescription bindingDesc = finite_render_vulkan_vertex_binding_desc_create();
+    VkVertexInputAttributeDescription *attributeDesc = finite_render_vulkan_vertex_attribute_desc_create();
+
     VkPipelineVertexInputStateCreateInfo input_info = {
-        .sType = VK_STRUCTURE_TYPE_PIPELINE_VERTEX_INPUT_STATE_CREATE_INFO
+        .sType = VK_STRUCTURE_TYPE_PIPELINE_VERTEX_INPUT_STATE_CREATE_INFO,
+        .vertexBindingDescriptionCount = 1,
+        .pVertexBindingDescriptions = &bindingDesc,
+        .vertexAttributeDescriptionCount = 3,
+        .pVertexAttributeDescriptions = attributeDesc
     };
 
     // assemble input
@@ -729,5 +767,179 @@ void finite_render_info_remove(struct finite_render_info *render) {
     vkDestroyInstance(render->vk_instance, NULL);
     wl_display_disconnect(render->display);
     free(render);
+}
+
+/*
+    # finite_render_command_buffer_pool_create()
+
+    Creates a command pool.
+
+    @param render The renderer associated with the command pool.
+*/
+void finite_render_command_buffer_pool_create(struct finite_render *render) {
+    VkCommandPoolCreateInfo poolInfo = {
+        .sType = VK_STRUCTURE_TYPE_COMMAND_POOL_CREATE_INFO,
+        .flags = VK_COMMAND_POOL_CREATE_RESET_COMMAND_BUFFER_BIT, // TODO: grab from user input
+        .queueFamilyIndex = render->window->fIndex
+    };
+
+    VkResult res = vkCreateCommandPool(render->window->vk_device, &poolInfo, NULL, render->vk_commandPool);
+    if (res != VK_SUCCESS) {
+        // TODO: Error out with finite_log()
+        return;
+    }
+}
+
+/*
+    # finite_render_command_buffer_create()
+
+    Allocates a new command buffer.
+
+    @param render The renderer assocaited with the command buffer. Must have a valid command pool attached to it.
+*/
+void finite_render_command_buffer_create(struct finite_render *render, uint32_t frameIndex) {
+    // grab the sync frame
+    struct finite_render_frame_sync *frame = &render->frames[frameIndex];
+
+    VkCommandBufferAllocateInfo alloc_info = {
+        .sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO,
+        .commandPool = render->vk_commandPool,
+        .level = VK_COMMAND_BUFFER_LEVEL_PRIMARY,
+        .commandBufferCount = 1
+    };
+
+    VkResult res = vkAllocateCommandBuffers(render->window->vk_device, &alloc_info, &frame->primaryCommandBuffer);
+    if (res != VK_SUCCESS) {
+        // TODO: Error our with finite_log()
+        return;
+    }
+
+    // support multithreading
+    alloc_info.level = VK_COMMAND_BUFFER_LEVEL_SECONDARY;
+    alloc_info.commandBufferCount = 4;
+
+    VkResult res = vkAllocateCommandBuffers(render->window->vk_device, &alloc_info, &frame->secondaryCommandBuffers);
+    if (res != VK_SUCCESS) {
+        // TODO: Error our with finite_log()
+        return;
+    }
+
+}
+
+/*
+    # finite_render_command_buffer_record()
+
+    Records commands to the command buffer.
+
+    @param render The renderer assocaited with the command buffer. Must have a valid command buffer attached to it.
+    @param frameIndex The index of the current sync frame.
+    @param index The index of the current command buffer to focus on. Should be an imageIndex.
+    @param draw_fn An optional callback to handle drawing
+*/
+void finite_render_command_buffer_record(struct finite_render *render, uint32_t frameIndex, uint32_t index, void (*draw_fn)(struct finite_render_state *state), void *data ) {
+    struct finite_render_frame_sync *frame = &render->frames[frameIndex];
+
+
+    VkCommandBufferBeginInfo begin_info = {
+        .sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO
+    };
+
+    vkBeginCommandBuffer(frame->primaryCommandBuffer, &begin_info);
+
+    VkRenderPassBeginInfo pass_info = {
+        .sType = VK_STRUCTURE_TYPE_RENDER_PASS_BEGIN_INFO,
+        .renderPass = render->vk_renderPass,
+        .framebuffer = render->vk_frameBuf[index],
+        .renderArea = {
+            .offset = {0, 0},
+            .extent = render->window->vk_extent
+        },
+        .clearValueCount = 2,
+        .pClearValues = render->window->info->vk_clearValues
+    };
+
+    vkCmdBeginRenderPass(frame->primaryCommandBuffer, &pass_info, VK_SUBPASS_CONTENTS_INLINE);
+
+    // use the draw callback if passed
+    if (draw_fn) {
+        struct finite_render_state state = {
+            .vk_cmdBuf = frame->primaryCommandBuffer,
+            .imageIndex = index,
+            .frameIndex = frameIndex,
+            .data = data
+        };
+        draw_fn(&state);
+    }
+
+    vkCmdEndRenderPass(frame->primaryCommandBuffer);
+    vkEndCommandBuffer(frame->primaryCommandBuffer);
+}
+
+/*
+    # finite_render_frame()
+
+    Attempts to render a single frame.
+
+    @param render The renderer assocaited with the command buffer. Must have a valid command buffer and the necessary semaphores and fences attached
+    @param frameIndex The index of the current sync frame
+    @param index The current imageIndex to render
+*/
+void finite_render_frame(struct finite_render *render, uint32_t frameIndex, uint32_t index) {
+    struct finite_render_frame_sync *frame = &render->frames[frameIndex];
+
+    VkSubmitInfo submitInfo = {
+        .sType = VK_STRUCTURE_TYPE_SUBMIT_INFO,
+        .waitSemaphoreCount = 1,
+        .pWaitSemaphores = frame->imageAvailableSemaphores,
+        .pWaitDstStageMask = (VkPipelineStageFlags[]){VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT},
+        .commandBufferCount = 1,
+        .pCommandBuffers = render->vk_commandBuffer[index],
+        .signalSemaphoreCount = 1,
+        .pSignalSemaphores = frame->renderFinishedSemaphores
+    };
+
+    vkResetFences(render->window->vk_device, 1, &frame->inFlightFences);
+    vkQueueSubmit(render->window->vk_queue, 1, &submitInfo, frame->inFlightFences);
+
+    VkPresentInfoKHR presentInfo = {
+        .sType = VK_STRUCTURE_TYPE_PRESENT_INFO_KHR,
+        .waitSemaphoreCount = 1,
+        .pWaitSemaphores = frame->renderFinishedSemaphores,
+        .swapchainCount = 1,
+        .pSwapchains = &render->swapchain,
+        .pImageIndices = &index
+    };
+
+    vkQueuePresentKHR(render->vk_presentQueue, &presentInfo);
+}
+
+/*
+    # islands_default_render_loop()
+
+    Starts the default render loop which supports up to four parallel processes.
+
+    @note You can pass an optional draw callback to give yourself fine-grained controll of the drawing and secondary buffers without needing to handle everything yourself.
+
+    @param render The renderer assocaited with the command buffer. Must have a valid command pool attached to it.
+    @param draw_fn A callback to handle drawing. Passes back a finite_render_state.
+    @param data Optional, additional data.
+*/
+void islands_default_render_loop(struct finite_render *render, void (*draw_fn)(struct finite_render_state *state), void* data) {
+    struct finite_render_frame_sync *frame = &render->frames[render->currentFrame];
+
+    vkWaitForFences(render->window->vk_device, 1, &frame->inFlightFences, VK_TRUE, UINT64_MAX);
+
+    uint32_t imageIndex;
+    vkAcquireNextImageKHR(render->window->vk_device, render, UINT64_MAX,frame->imageAvailableSemaphores, VK_NULL_HANDLE, &imageIndex);
+
+    vkResetFences(render->window->vk_device, 1, &frame->inFlightFences);
+
+    // Wrap normal render loop
+    finite_render_command_buffer_pool_create(render);
+    finite_render_command_buffer_create(render, render->currentFrame);
+    finite_render_command_buffer_record(render, render->currentFrame, imageIndex, draw_fn, data);
+    islands_submit_frame(render, render->currentFrame, imageIndex);
+
+    render->currentFrame = (render->currentFrame + 1) % MAX_FRAMES_IN_FLIGHT;
 }
 

@@ -9,6 +9,10 @@
 #include <cglm/cglm.h>
 #include "protocols/xdg-shell-client-protocol.h"
 
+#ifndef MAX_FRAMES_IN_FLIGHT
+#define MAX_FRAMES_IN_FLIGHT 2
+#endif
+
 /*
     Render method actively being used
 
@@ -51,6 +55,7 @@ struct finite_render_info {
     VkInstance vk_instance;
     VkSurfaceKHR vk_surface;
     enum finite_render_type renderMode;
+    VkClearValue *vk_clearValues;
 };
 
 /*
@@ -58,6 +63,7 @@ struct finite_render_info {
 */
 
 struct finite_render_pipeline {
+    struct finite_render_vulkan_shader_box *shader_box;
     VkPipeline vk_pipeline;
     VkPipelineLayout vk_pipelineLayout;
 };
@@ -65,8 +71,20 @@ struct finite_render_pipeline {
 /*
     Additional Details about the swapchain
 */
+
+/*
+    Images to be rendered 
+*/
+struct finite_render_image {
+    VkImage vk_image;
+    VkDeviceMemory vk_memory;
+    VkImageView vk_view;
+};
+
 struct finite_render_swapchain {
     struct finite_render_pipeline *pipeline;
+    struct finite_render_image *msaaImage;
+    struct finite_render_image *depthImage;
     VkDevice vk_device;
     VkSwapchainKHR vk_swapchain;
     uint32_t imageCount;
@@ -85,6 +103,7 @@ struct finite_render_window {
     struct wl_surface *wl_surface;
     struct xdg_surface *surface;
     struct xdg_toplevel *toplevel;
+    uint32_t fIndex;
     VkSurfaceKHR vk_surface;
     VkDevice vk_device;
     VkPhysicalDevice vk_pDevice;
@@ -92,13 +111,25 @@ struct finite_render_window {
     VkExtent2D *vk_extent;
 };
 
-/*
-    Images to be rendered 
-*/
-struct finite_render_image {
-    VkImage vk_image;
-    VkDeviceMemory vk_memory;
-    VkImageView vk_view;
+struct finite_render_vertex {
+    float position[3];
+    float normal[3];
+    float uv[2];
+};
+
+struct finite_render_frame_sync {
+    VkSemaphore imageAvailableSemaphores[MAX_FRAMES_IN_FLIGHT];
+    VkSemaphore renderFinishedSemaphores[MAX_FRAMES_IN_FLIGHT];
+    VkFence inFlightFences[MAX_FRAMES_IN_FLIGHT];
+    VkCommandBuffer primaryCommandBuffer;
+    VkCommandBuffer secondaryCommandBuffers[4] // up to 4x parallel computing out the box
+};
+
+struct finite_render_state {
+    VkCommandBuffer vk_cmdBuf;
+    uint32_t frameIndex;
+    uint32_t imageIndex;
+    void *data;
 };
 
 /*
@@ -111,8 +142,19 @@ struct finite_render {
     uint32_t framebuf_count; // ? unused?
     bool withMSAA;
     VkRenderPass vk_renderPass;
-    VkFramebuffer vk_frameBuf;
+    VkFramebuffer *vk_frameBuf;
     enum finite_render_sample_size sampleCount; // for MSAA
+    VkCommandPool vk_commandPool;
+    VkCommandBuffer *vk_commandBuffer;
+    VkQueue vk_presentQueue; // graphics queue is in the window
+
+    struct finite_render_frame_sync frames[MAX_FRAMES_IN_FLIGHT];
+    uint32_t currentFrame;
+
+    // Simple profiling (timestamp queries)
+    // TODO: Integrate this into finite_log
+    VkQueryPool timestampQueryPool;
+    uint64_t frameTimestamps[MAX_FRAMES_IN_FLIGHT][2];
 };
 
 struct finite_render_info *finite_render_info_create(enum finite_render_type *renderMode, char *wayland_device, char *name, uint32_t version, enum finite_render_engine engine, uint32_t engine_version);
@@ -123,6 +165,11 @@ uint32_t finite_render_create_version(int major, int minor, int patch);
 struct finite_render *finite_render_create(struct finite_render_window *window, struct finite_render_swapchain *swapchain, bool withMSAA, enum finite_render_sample_size size);
 struct finite_render_image *finite_render_msaa_image_create(struct finite_render *render);
 struct finite_render_image *finite_render_depth_image_create(struct finite_render *render);
-struct finite_render_pipeline *finite_render_pipeline_create(struct finite_render *render);
-void finite_render_frame(struct finite_render *render, struct finite_render_info *info);
+struct finite_render_pipeline *finite_render_pipeline_create(struct finite_render *render, VkShaderModule *vertShader, VkShaderModule *fragShader, VkPipelineLayout *layout);
 void finite_render_info_remove(struct finite_render_info *render);
+
+
+void finite_render_command_buffer_pool_create(struct finite_render *render);
+void finite_render_command_buffer_create(struct finite_render *render);
+void finite_render_command_buffer_record(struct finite_render *render, uint32_t index, void (*draw_fn)(VkCommandBuffer));
+void finite_render_frame(struct finite_render *render, uint32_t index);
