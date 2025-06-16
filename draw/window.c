@@ -34,8 +34,8 @@ FiniteShell *finite_shell_init(char *device) {
         device = "wayland-0";
     }
 
-    FiniteShell *shell = {0};
-
+    FiniteShell *shell = calloc(1, sizeof(FiniteShell));
+    printf("%s", device);
     shell->display = wl_display_connect(device);
     if (!shell->display) {
         printf("[Finite] - Unable to attach to the window\n"); // TODO create a finite_log function

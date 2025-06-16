@@ -88,16 +88,16 @@ void finite_draw_set_font(FiniteShell *shell, char *font_name, bool isItalics, b
     
     @note `finite_draw_set_font()` should be called before drawing text for the first time.
 */
-void finite_draw_set_text(FiniteShell *shell, char *text, FiniteColorGroup color) {
+void finite_draw_set_text(FiniteShell *shell, char *text, FiniteColorGroup *color) {
     if (!shell->cr) {
         shell->cr = cairo_create(shell->cairo_surface);
     }
 
     cairo_t *cr = shell->cr;
 
-    cairo_set_source_rgb(cr, color.r, color.g, color.b);
-    if (color.a) {
-        cairo_set_source_rgba(cr, color.r, color.g, color.b, color.a);
+    cairo_set_source_rgb(cr, color->r, color->g, color->b);
+    if (color->a) {
+        cairo_set_source_rgba(cr, color->r, color->g, color->b, color->a);
     }
     cairo_show_text(cr, text);
 }
@@ -204,4 +204,20 @@ void finite_draw_rect(FiniteShell *shell, double x, double y, double width, doub
     }
 
     cairo_fill(cr);
+}
+
+bool finite_draw_finish(FiniteShell *shell, int width, int height, int stride, bool withAlpha) {
+    cairo_destroy(shell->cr);    
+    enum wl_shm_format form = (withAlpha) ? WL_SHM_FORMAT_ARGB8888 : WL_SHM_FORMAT_XRGB8888;
+    shell->buffer = wl_shm_pool_create_buffer(shell->pool, 0, width, height, stride, form);
+    if (!shell->buffer) {
+        printf("[Home] - Unable to create window geometry with NULL information.\n");
+        wl_display_disconnect(shell->display);
+        return false;
+    }
+
+   wl_surface_attach(shell->isle_surface, shell->buffer, 0,0);
+   wl_surface_damage(shell->isle_surface, 0,0, UINT32_MAX, UINT32_MAX); // tell the surface to redraw
+   wl_surface_commit(shell->isle_surface);
+   return true;
 }

@@ -93,6 +93,6 @@ FiniteShell *finite_shell_init(char *device);
 void finite_window_init(FiniteShell *shell);
 void finite_overlay_init(FiniteShell *shell, int layer, char *name);
 void finite_window_size_set(FiniteShell *shell, int xPos, int yPos, int width, int height);
-
+bool finite_draw_finish(FiniteShell *shell, int width, int height, int stride, bool withAlpha);
 
 #endif

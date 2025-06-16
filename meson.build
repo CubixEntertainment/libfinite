@@ -1,7 +1,7 @@
 project(
     'libfinite',
     'c',
-    version: '0.1.1-dev'
+    version: '0.1.4-dev'
 )
 
 cc = meson.get_compiler('c')
@@ -22,6 +22,11 @@ xdg_shell = custom_target('xdg-shell',
       '&&',
       'wayland-scanner', 'private-code', '@INPUT@', '@OUTPUT1@'
     ],
+    install: true,
+    install_dir: [
+      join_paths(get_option('includedir'), 'finite/protocols'),
+      get_option('datadir')
+    ]
 )
 
 # build layer-shell
@@ -33,6 +38,11 @@ layer_shell = custom_target('layer-shell',
       '&&',
       'wayland-scanner', 'private-code', '@INPUT@', '@OUTPUT1@'
     ],
+    install: true,
+    install_dir: [
+      join_paths(get_option('includedir'), 'finite/protocols'),
+      get_option('datadir') 
+    ]
 )
 
 inc = include_directories('include')

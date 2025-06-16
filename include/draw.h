@@ -29,7 +29,7 @@ void finite_draw_rounded_rectangle(FiniteShell *shell, double x, double y, doubl
 
 // cairo wrappers
 void finite_draw_set_font(FiniteShell *shell, char *font_name, bool isItalics, bool isBold, int size);
-void finite_draw_set_text(FiniteShell *shell, char *text, FiniteColorGroup color);
+void finite_draw_set_text(FiniteShell *shell, char *text, FiniteColorGroup *color);
 void finite_draw_set_draw_position(FiniteShell *shell, double x, double y);
 void finite_draw_text_group(FiniteShell *shell, FiniteTextGroup *groups, double x, double y);
 
