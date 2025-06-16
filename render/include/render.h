@@ -69,10 +69,6 @@ struct finite_render_pipeline {
 };
 
 /*
-    Additional Details about the swapchain
-*/
-
-/*
     Images to be rendered 
 */
 struct finite_render_image {
@@ -81,6 +77,9 @@ struct finite_render_image {
     VkImageView vk_view;
 };
 
+/*
+    Additional Details about the swapchain
+*/
 struct finite_render_swapchain {
     struct finite_render_pipeline *pipeline;
     struct finite_render_image *msaaImage;
@@ -173,3 +172,5 @@ void finite_render_command_buffer_pool_create(struct finite_render *render);
 void finite_render_command_buffer_create(struct finite_render *render);
 void finite_render_command_buffer_record(struct finite_render *render, uint32_t index, void (*draw_fn)(VkCommandBuffer));
 void finite_render_frame(struct finite_render *render, uint32_t index);
+
+void finite_render_cleanup(struct finite_render *render);

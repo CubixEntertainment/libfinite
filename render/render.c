@@ -943,3 +943,49 @@ void islands_default_render_loop(struct finite_render *render, void (*draw_fn)(s
     render->currentFrame = (render->currentFrame + 1) % MAX_FRAMES_IN_FLIGHT;
 }
 
+
+void finite_render_cleanup(struct finite_render *render) {
+    // clean vk objects first then free allocated objects
+    struct finite_render_window *win = render->window;
+    struct finite_render_swapchain *swapchain = render->swapchain;
+    struct finite_render_info *info = win->info;
+    VkDevice dev = win->vk_device
+    vkDeviceWaitIdle(dev);
+
+    for (uint32_t i = 0; i < MAX_FRAMES_IN_FLIGHT; ++i) {
+        vkDestroySemaphore(dev, render->frames[i].imageAvailableSemaphores, NULL);
+        vkDestroySemaphore(dev, render->frames[i].renderFinishedSemaphores, NULL);
+        vkDestroySemaphore(dev, render->frames[i].inFlightFences, NULL);
+    }
+
+    if (render->vk_frameBuf) {
+        for (uint32_t i = 0; i < 4; ++i) {
+            vkDestroyFramebuffer(dev, render->vk_frameBuf[i], NULL);
+        }
+        free(render->vk_frameBuf);
+    }
+
+    // TODO vkImage cleaning
+
+    vkDestroyPipeline(dev, render->pipeline->vk_pipeline, NULL);
+    vkDestroyPipelineLayout(dev, render->pipeline->vk_pipelineLayout, NULL);
+    vkDestroyRenderPass(dev, render->vk_renderPass, NULL);
+
+    vkDestroyShaderModule(dev, render->pipeline->shader_box->vk_vertShader, NULL);
+    vkDestroyShaderModule(dev, render->pipeline->shader_box->vk_fragShader, NULL);
+
+    vkDestroyCommandPool(dev, render->vk_commandPool, NULL);
+    vkDestroySwapchainKHR(dev, render->swapchain->vk_swapchain, NULL);
+
+    wl_display_disconnect(info->display);
+
+    free(render->pipeline->shader_box);
+    free(render->pipeline);
+    free(render->frames);
+    free(render->swapchain->depthImage);
+    free(render->swapchain->msaaImage);
+    free(info);
+    free(win);
+    free(swapchain);
+    free(render);
+}
