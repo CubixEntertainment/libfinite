@@ -48,7 +48,7 @@ int finite_shm_allocate_shm_file(size_t size) {
 	return fd;
 }
 
-void finte_shm_alloc(FiniteShell *shell) {
+void finite_shm_alloc(FiniteShell *shell) {
     if (!shell) {
         // if no shell throw an error
         printf("[Finite] - Unable to manage shared memory on NULL. \n"); // TODO create a finite_log function
