@@ -29,55 +29,55 @@ const struct xdg_surface_listener surface_listener = {
     
     Returns an initialized FiniteShell. An initialized finite shell has all it wayland properties bound.
 */
-FiniteShell finite_shell_init(char *device) {
+FiniteShell *finite_shell_init(char *device) {
     if (!device) {
         device = "wayland-0";
     }
 
-    FiniteShell shell = {0};
+    FiniteShell *shell = {0};
 
-    shell.display = wl_display_connect(device);
-    if (!shell.display) {
+    shell->display = wl_display_connect(device);
+    if (!shell->display) {
         printf("[Finite] - Unable to attach to the window\n"); // TODO create a finite_log function
         return;
     }
 
-    shell.registry = wl_display_get_registry(shell.display);
-    if (!shell.registry) {
+    shell->registry = wl_display_get_registry(shell->display);
+    if (!shell->registry) {
         printf("[Finite] - Unable to attach to the window\n"); // TODO create a finite_log function
-        wl_display_disconnect(shell.display);
+        wl_display_disconnect(shell->display);
         return;
     }
 
     printf("[Finite] - Registry created.\n");
     printf("[Finite] - Adding listeners to registry.\n");
-    wl_registry_add_listener(shell.registry, &registry_listener, &shell); // pass the shell to store the globals
-    wl_display_roundtrip(shell.display);
+    wl_registry_add_listener(shell->registry, &registry_listener, &shell); // pass the shell to store the globals
+    wl_display_roundtrip(shell->display);
 
-    if (!shell.isle) {
+    if (!shell->isle) {
         printf("[Finite] - Unable to find a compositor\n");
-        wl_display_disconnect(shell.display);
+        wl_display_disconnect(shell->display);
         return;
     }
 
-    if (!shell.base) {
+    if (!shell->base) {
         printf("[Finite] - Unable to find a xdg_wm_base\n");
-        wl_display_disconnect(shell.display);
+        wl_display_disconnect(shell->display);
         return;
     }
 
-    if (!shell.output) {
+    if (!shell->output) {
         printf("[Finite] - Unable to find a wl_output");
-        wl_display_disconnect(shell.display);
+        wl_display_disconnect(shell->display);
         return;
     }
 
     printf("[Finite] - Compositor with xdg found. Adding new surface\n");
 
-    shell.isle_surface = wl_compositor_create_surface(shell.isle);
-    if (!shell.isle_surface) {
+    shell->isle_surface = wl_compositor_create_surface(shell->isle);
+    if (!shell->isle_surface) {
         printf("[Finite] - Unable to create a wl_surface with the given compsositor (Is it still running?)\n");
-        wl_display_disconnect(shell.display);
+        wl_display_disconnect(shell->display);
         return;
     }
 
@@ -95,6 +95,7 @@ void finite_window_init(FiniteShell *shell) {
     if (!shell) {
         // if no shell throw an error
         printf("[Finite] - Unable to attach to a NULL shell. \n"); // TODO create a finite_log function
+        shell = NULL;
         return;
     }
 
@@ -102,8 +103,8 @@ void finite_window_init(FiniteShell *shell) {
     if (!shell->surface) {
         printf("[Home] - Unable to create a xdg_surface.\n");
         wl_display_disconnect(shell->display);
-        free(shell);
-        return 1;
+        shell = NULL;
+        return;
     }
 
     xdg_surface_add_listener(shell->surface, &surface_listener, shell);
@@ -114,8 +115,8 @@ void finite_window_init(FiniteShell *shell) {
     if (!shell->window) {
         printf("[Home] - Unable to create a window.\n");
         wl_display_disconnect(shell->display);
-        free(shell);
-        return 1;
+        shell = NULL;
+        return;
     }
 
     printf("[Home] - Initialization Done.\n");
@@ -130,7 +131,7 @@ void finite_window_init(FiniteShell *shell) {
     if (!shell->details) {
         printf("[Home] - Unable to create window geometry with NULL information.\n");
         wl_display_disconnect(shell->display);
-        free(shell);
+        shell = NULL;
         return 1;
     }
 
@@ -147,11 +148,13 @@ void finite_overlay_init(FiniteShell *shell, int layer, char *name) {
     if (!shell) {
         // if no shell throw an error
         printf("[Finite] - Unable to attach to a NULL shell. \n"); // TODO create a finite_log function
+        shell = NULL;
         return;
     }
 
     if (!shell->shell) {
         printf("[Finite] - Unable to access Layer Shell. (Does this environment support it?)");
+        shell = NULL;
         return;
     }
 
@@ -162,6 +165,7 @@ void finite_overlay_init(FiniteShell *shell, int layer, char *name) {
 
     if (!shell->layer_surface) {
         printf("[Finite] - Unable to attach a NULL layer_surface a shell. \n"); 
+        shell = NULL;
         return;
     }
 

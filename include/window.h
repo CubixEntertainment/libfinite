@@ -89,8 +89,10 @@ void window_close_handle(void *data, struct xdg_toplevel *xdg_toplevel);
 void window_bounds_handle(void *data, struct xdg_toplevel *xdg_toplevel, int32_t width, int32_t height);
 void window_capable_handle(void *data, struct xdg_toplevel *xdg_toplevel, struct wl_array *capabilities);
 
-FiniteShell finite_shell_init(char *device);
+FiniteShell *finite_shell_init(char *device);
 void finite_window_init(FiniteShell *shell);
 void finite_overlay_init(FiniteShell *shell, int layer, char *name);
+void finite_window_size_set(FiniteShell *shell, int xPos, int yPos, int width, int height);
+
 
 #endif
