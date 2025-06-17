@@ -1,4 +1,4 @@
-#include "../include/window.h"
+#include "../include/draw/window.h"
 #include <unistd.h>
 
 /*

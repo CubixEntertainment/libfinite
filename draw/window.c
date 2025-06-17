@@ -1,4 +1,4 @@
-#include "../include/window.h"
+#include "../include/draw/window.h"
 
 // create a registry_listener struct for future use
 const struct wl_registry_listener registry_listener = {
@@ -133,7 +133,7 @@ void finite_window_init(FiniteShell *shell) {
         printf("[Finite] - Unable to create window geometry with NULL information.\n");
         wl_display_disconnect(shell->display);
         shell = NULL;
-        return 1;
+        return;
     }
 
     wl_surface_commit(shell->isle_surface);

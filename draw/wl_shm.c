@@ -1,4 +1,4 @@
-#include "../include/wl_shm.h"
+#include "../include/draw/wl_shm.h"
 
 static void randname(char *buf) {
 	struct timespec ts;

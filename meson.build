@@ -1,17 +1,17 @@
 project(
     'libfinite',
     'c',
-    version: '0.1.7-dev'
+    version: '0.1.8-dev'
 )
 
 cc = meson.get_compiler('c')
 
 # cglm_dep = dependency('cglm', fallback : 'cglm', 'cglm_dep')
-wayland_client = dependency('wayland-client')
+wayland_client = dependency('wayland-client', required: true)
 # gls = dependency('glslang')
-wayland_protos = dependency('wayland-protocols', version: '>=1.24', default_options: ['tests=false'])
-cairo = dependency('cairo')
-# inc = include_directories('redner/include')
+wayland_protos = dependency('wayland-protocols', version: '>=1.24', default_options: ['tests=false'], required: true)
+cairo = dependency('cairo', required: true)
+evdev = dependency('libevdev', required: true)
 
 # build xdg
 xdg_shell = custom_target('xdg-shell',
@@ -50,7 +50,8 @@ inc = include_directories('include')
 deps = [
     wayland_client,
     wayland_protos,
-    cairo
+    cairo,
+    evdev
 ]
 
 src = [
@@ -74,9 +75,10 @@ libfinite = library(
 
 # install the draw headers
 headers = [
-    'include/draw.h',
-    'include/window.h',
-    'include/wl_shm.h'
+    'include/draw/draw.h',
+    'include/draw/cairo.h',
+    'include/draw/window.h',
+    'include/draw/wl_shm.h'
 ]
 
 install_headers(headers, subdir: 'finite')
