@@ -188,7 +188,7 @@ void finite_draw_rect(FiniteShell *shell, double x, double y, double width, doub
     cairo_t *cr = shell->cr;
     
     if (color && pat) {
-        printf("[Finite] - finite_draw_rect() may not have multiple fill values.");
+        printf("[Finite] - finite_draw_rect() may not have multiple fill values.\n");
         return;
     }
 
@@ -196,14 +196,19 @@ void finite_draw_rect(FiniteShell *shell, double x, double y, double width, doub
 
     if (pat) {
         cairo_set_source(cr, pat);
+        cairo_fill(cr);
     } else {
-        cairo_set_source_rgb(cr, color->r, color->g, color->b);
-        if (color->a) {
-            cairo_set_source_rgba(cr, color->r, color->g, color->b, color->a);
+        if (color) {
+            cairo_set_source_rgb(cr, color->r, color->g, color->b);
+            cairo_fill(cr);
+            if (color->a) {
+                cairo_set_source_rgba(cr, color->r, color->g, color->b, color->a);
+                cairo_fill(cr);
+            }
+        } else {
+            printf("[Finite] - Unable to fill. (Did you define a color or a pattern?)");
         }
     }
-
-    cairo_fill(cr);
 }
 
 bool finite_draw_finish(FiniteShell *shell, int width, int height, int stride, bool withAlpha) {
@@ -211,7 +216,7 @@ bool finite_draw_finish(FiniteShell *shell, int width, int height, int stride, b
     enum wl_shm_format form = (withAlpha) ? WL_SHM_FORMAT_ARGB8888 : WL_SHM_FORMAT_XRGB8888;
     shell->buffer = wl_shm_pool_create_buffer(shell->pool, 0, width, height, stride, form);
     if (!shell->buffer) {
-        printf("[Home] - Unable to create window geometry with NULL information.\n");
+        printf("[Finite] - Unable to create window geometry with NULL information.\n");
         wl_display_disconnect(shell->display);
         return false;
     }

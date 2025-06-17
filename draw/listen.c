@@ -11,6 +11,11 @@ void islands_registry_handle(void *data, struct wl_registry* registry, uint32_t 
     // we want to save the found compositor so that we can attach it to the finite_render_info event
     if (strcmp(interface, wl_compositor_interface.name) == 0) {
         shell->isle = wl_registry_bind(registry, id, &wl_compositor_interface, 4);
+        if (!shell->isle) {
+            printf("Something went wrong?\n");
+        } else {
+            printf("%p\n", shell->isle);
+        }
     }
     if (strcmp(interface, xdg_wm_base_interface.name) == 0) {
         shell->base = wl_registry_bind(registry, id, &xdg_wm_base_interface, 1);
@@ -24,7 +29,7 @@ void islands_registry_handle(void *data, struct wl_registry* registry, uint32_t 
     if (strcmp(interface, zwlr_layer_shell_v1_interface.name) == 0) {
         shell->shell = wl_registry_bind(registry, id, &zwlr_layer_shell_v1_interface, 4);
     }
-}
+}   
 
 // exists to satisfy the spec
 void islands_registry_handle_remove(void *data, struct wl_registry* registry, uint32_t id) {
@@ -42,9 +47,9 @@ void islands_output_handle(void *data, struct wl_output *output, int32_t x, int3
 
 void islands_mode_handle(void *data, struct wl_output *output, uint32_t flags, int32_t width, int32_t height, int32_t refresh) {
     FiniteShell *shell = data;
-    FiniteWindowInfo *det = {0};
+    FiniteWindowInfo *det = calloc(1, sizeof(FiniteWindowInfo));
     if (!det) {
-        printf("[Home] - Unable to allocate memory for the window details");
+        printf("[Finite] - Unable to allocate memory for the window details\n");
         shell->details = NULL;
         return;
     }
@@ -57,7 +62,7 @@ void islands_mode_handle(void *data, struct wl_output *output, uint32_t flags, i
     det->output = output;
     shell->details = det;
     
-    printf("[Home] - Set window info to %d x %d at (%d,%d)\n", det->width, det->height, det->xPos, det->yPos);
+    printf("[Finite] - Set window info to %d x %d at (%d,%d)\n", det->width, det->height, det->xPos, det->yPos);
 }
 
 void islands_scale_handle(void *data, struct wl_output *wl_output, int32_t factor) {
@@ -72,12 +77,12 @@ void islands_done_handle(void *data, struct wl_output *wl_output) {
     Handle XDG
 */
 void window_configure_handle(void *data,struct xdg_toplevel *xdg_toplevel,int32_t width,int32_t height,struct wl_array *states) {
-    printf("[Home] - Desired sizing: %d x %d", width, height);
+    printf("[Finite] - Desired sizing: %d x %d\n", width, height);
 }
 
 void window_close_handle(void *data, struct xdg_toplevel *xdg_toplevel) {
     FiniteShell *shell = data;
-    printf("[Home] - Close Requested.");
+    printf("[Finite] - Close Requested.\n");
     cairo_surface_destroy(shell->cairo_surface);
     munmap(shell->pool_data, shell->pool_size);
     close(shell->shm_fd);
@@ -100,9 +105,9 @@ void window_capable_handle(void *data, struct xdg_toplevel *xdg_toplevel, struct
 
 void surface_configure_handle(void *data, struct xdg_surface *xdg_surface, uint32_t serial) {
     FiniteShell *shell = data;
-    printf("[Home] - ack_configure request is sending\n");
+    printf("[Finite] - ack_configure request is sending\n");
     xdg_surface_ack_configure(xdg_surface, serial);
-    printf("[Home] - ack_configure request was sent.\n");
+    printf("[Finite] - ack_configure request was sent.\n");
 
     FiniteWindowInfo *det = shell->details;
 

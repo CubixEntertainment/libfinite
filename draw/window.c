@@ -35,41 +35,42 @@ FiniteShell *finite_shell_init(char *device) {
     }
 
     FiniteShell *shell = calloc(1, sizeof(FiniteShell));
-    printf("%s", device);
+    printf("[Finite] - Device: %s\n", device);
     shell->display = wl_display_connect(device);
     if (!shell->display) {
         printf("[Finite] - Unable to attach to the window\n"); // TODO create a finite_log function
-        return;
+        return NULL;
     }
 
     shell->registry = wl_display_get_registry(shell->display);
     if (!shell->registry) {
         printf("[Finite] - Unable to attach to the window\n"); // TODO create a finite_log function
         wl_display_disconnect(shell->display);
-        return;
+        return NULL;
     }
 
     printf("[Finite] - Registry created.\n");
     printf("[Finite] - Adding listeners to registry.\n");
-    wl_registry_add_listener(shell->registry, &registry_listener, &shell); // pass the shell to store the globals
+    wl_registry_add_listener(shell->registry, &registry_listener, shell); // pass the shell to store the globals
     wl_display_roundtrip(shell->display);
-
+    printf("[Finite] - Compositor is at memory address %p\n", shell->isle);
     if (!shell->isle) {
         printf("[Finite] - Unable to find a compositor\n");
         wl_display_disconnect(shell->display);
-        return;
+        free(shell);
+        return NULL;
     }
 
     if (!shell->base) {
         printf("[Finite] - Unable to find a xdg_wm_base\n");
         wl_display_disconnect(shell->display);
-        return;
+        return NULL;
     }
 
     if (!shell->output) {
         printf("[Finite] - Unable to find a wl_output");
         wl_display_disconnect(shell->display);
-        return;
+        return NULL;
     }
 
     printf("[Finite] - Compositor with xdg found. Adding new surface\n");
@@ -78,7 +79,7 @@ FiniteShell *finite_shell_init(char *device) {
     if (!shell->isle_surface) {
         printf("[Finite] - Unable to create a wl_surface with the given compsositor (Is it still running?)\n");
         wl_display_disconnect(shell->display);
-        return;
+        return NULL;
     }
 
     printf("[Finite] - Created a surface safely.\n");
@@ -98,10 +99,10 @@ void finite_window_init(FiniteShell *shell) {
         shell = NULL;
         return;
     }
-
+    printf("[Finite] - Attempting to make a window");
     shell->surface = xdg_wm_base_get_xdg_surface(shell->base, shell->isle_surface);
     if (!shell->surface) {
-        printf("[Home] - Unable to create a xdg_surface.\n");
+        printf("[Finite] - Unable to create a xdg_surface.\n");
         wl_display_disconnect(shell->display);
         shell = NULL;
         return;
@@ -109,27 +110,27 @@ void finite_window_init(FiniteShell *shell) {
 
     xdg_surface_add_listener(shell->surface, &surface_listener, shell);
 
-    printf("[Home] - Attempting to get a toplevel \n");
+    printf("[Finite] - Attempting to get a toplevel \n");
 
     shell->window = xdg_surface_get_toplevel(shell->surface);
     if (!shell->window) {
-        printf("[Home] - Unable to create a window.\n");
+        printf("[Finite] - Unable to create a window.\n");
         wl_display_disconnect(shell->display);
         shell = NULL;
         return;
     }
 
-    printf("[Home] - Initialization Done.\n");
+    printf("[Finite] - Initialization Done.\n");
 
     xdg_toplevel_add_listener(shell->window, &toplevel_listener, shell);
 
-    printf("[Home] - Setting window size.\n");
+    printf("[Finite] - Setting window size.\n");
     // grab screen size and store it
     wl_output_add_listener(shell->output, &output_listener, shell);
 
     wl_display_roundtrip(shell->display);
     if (!shell->details) {
-        printf("[Home] - Unable to create window geometry with NULL information.\n");
+        printf("[Finite] - Unable to create window geometry with NULL information.\n");
         wl_display_disconnect(shell->display);
         shell = NULL;
         return 1;
@@ -137,6 +138,7 @@ void finite_window_init(FiniteShell *shell) {
 
     wl_surface_commit(shell->isle_surface);
     wl_display_roundtrip(shell->display);
+    printf("[Finite] - Window made.");
 }
 
 /*
@@ -183,7 +185,7 @@ void finite_window_size_set(FiniteShell *shell, int xPos, int yPos, int width, i
     FiniteWindowInfo *det = shell->details;
 
     if (!det) {
-        printf("[Home] - Unable to allocate memory for the window details");
+        printf("[Finite] - Unable to allocate memory for the window details");
         shell->details = NULL;
         return;
     }
@@ -196,5 +198,5 @@ void finite_window_size_set(FiniteShell *shell, int xPos, int yPos, int width, i
     det->output = shell->output;
     shell->details = det;
     
-    printf("[Home] - Set window info to %d x %d at (%d,%d)\n", det->width, det->height, det->xPos, det->yPos);
+    printf("[Finite] - Set window info to %d x %d at (%d,%d)\n", det->width, det->height, det->xPos, det->yPos);
 }

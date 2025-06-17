@@ -8,6 +8,6 @@
 #include "window.h"
 
 int finite_shm_allocate_shm_file(size_t size);
-void finite_shm_alloc(FiniteShell *shell);
+void finite_shm_alloc(FiniteShell *shell, bool withAlpha);
 
 #endif

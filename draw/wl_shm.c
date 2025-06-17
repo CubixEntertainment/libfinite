@@ -48,31 +48,38 @@ int finite_shm_allocate_shm_file(size_t size) {
 	return fd;
 }
 
-void finite_shm_alloc(FiniteShell *shell) {
+void finite_shm_alloc(FiniteShell *shell, bool withAlpha) {
     if (!shell) {
         // if no shell throw an error
         printf("[Finite] - Unable to manage shared memory on NULL. \n"); // TODO create a finite_log function
         return;
     }
-
+	printf("[Finite] - Attempting to allocate the shm\n");
     FiniteWindowInfo *det = shell->details;
-    const int width = det->width, height = det->height;
+	const int width = det->width, height = det->height;
 
-    const int stride = width * 4; // stride must be four to comply with the spec
+    int stride;
+	if (withAlpha) {
+		stride = cairo_format_stride_for_width(CAIRO_FORMAT_ARGB32, width);
+	} else {
+		stride = cairo_format_stride_for_width(CAIRO_FORMAT_RGB24, width);
+	}
 
     int pool_size = height * stride;
 
     shell->shm_fd = finite_shm_allocate_shm_file(pool_size);
 
     shell->pool_data = mmap(NULL, pool_size, PROT_READ | PROT_WRITE, MAP_SHARED, shell->shm_fd, 0);
-
-    shell->pool = wl_shm_create_pool(shell->shm, shell->shm_fd, pool_size);
-
-    shell->pool_size = pool_size;
      
     if (shell->pool_data == MAP_FAILED || shell->shm_fd < 0) {
-        printf("[Home] - Unable to allocate needed memory.\n");
+        printf("[Finite] - Unable to allocate needed memory.\n");
         wl_display_disconnect(shell->display);
-        return 1;
+        return;
     }
+
+	shell->pool = wl_shm_create_pool(shell->shm, shell->shm_fd, pool_size);
+
+    shell->pool_size = pool_size;
+
+	printf("[Finite] - Shared memory allocated: %dx%d, stride=%d, size=%d, ptr=%p\n", width, height, stride, pool_size, shell->pool_data);
 }
