@@ -1,4 +1,5 @@
 #include "include/input/input.h"
+#include "include/input/keyboard.h"
 
 // create a registry_listener struct for future use
 const struct wl_registry_listener registry_listener = {
@@ -49,8 +50,6 @@ FiniteKeyboard *finite_input_keyboard_init(char *device) {
 
     FiniteKeyboard *keyboard = calloc(1, sizeof(FiniteKeyboard));
     keyboard->input = input;
-    // free the input we allocated and make a reference to the new one
-    free(input);
     FiniteInput *input = keyboard->input;
 
     keyboard->keyboard = wl_seat_get_keyboard(keyboard->input->seat);
@@ -65,4 +64,79 @@ FiniteKeyboard *finite_input_keyboard_init(char *device) {
     return keyboard;
 }
 
-bool finite_input_keyboard_key_down();
+static uint16_t finite_key_to_evdev(FiniteKey key) {
+    size_t count = sizeof(finite_key_lookup) / sizeof(finite_key_lookup[0]);
+    for (size_t i = 0; i < count; i++) {
+        if (finite_key_lookup[i].key == key) {
+            return finite_key_lookup[i].evdev_code;
+        }
+    }
+    return UINT16_MAX; // Not found
+}
+
+
+bool finite_key_valid(FiniteKey key) {
+    return finite_key_to_evdev(key) != UINT16_MAX;
+}
+
+
+// ALWAYS check the that the key is valid with finite_key_valid
+bool finite_key_down(FiniteKey key, FiniteKeyboard *board) {
+    if (!board) {
+        printf("[Finite] - Unable to get input from NULL device");
+        return false;
+    }
+    if (key == FINITE_KEY_INVALID) {
+        printf("[Finite] - Unable to get input from Invalid key");
+        return false;
+    }
+
+    uint16_t evdev_key = finite_key_to_evdev(key);
+    if (evdev_key == UINT16_MAX) {
+        printf("[Finite] - Unable to get input from Invalid key");
+        return false;
+    }
+
+    return board->keys_down[evdev_key];
+}
+
+// ALWAYS check the that the key is valid with finite_key_valid
+bool finite_key_up(FiniteKey key, FiniteKeyboard *board) {
+    if (!board) {
+        printf("[Finite] - Unable to get input from NULL device");
+        return false;
+    }
+    if (key == FINITE_KEY_INVALID) {
+        printf("[Finite] - Unable to get input from Invalid key");
+        return false;
+    }
+
+    uint16_t evdev_key = finite_key_to_evdev(key);
+    if (evdev_key == UINT16_MAX) {
+        printf("[Finite] - Unable to get input from Invalid key");
+        return false;
+    }
+
+    return board->keys_up[evdev_key];
+}
+
+FiniteKey finite_key_from_string(const char *name) {
+    size_t count = sizeof(finite_key_lookup) / sizeof(finite_key_lookup[0]);
+    for (size_t i = 0; i < count; i++) {
+        if (strcasecmp(name, finite_key_lookup[i].name) == 0) {
+            return finite_key_lookup[i].key;
+        }
+    }
+    return FINITE_KEY_INVALID;
+}
+
+
+char *finite_key_string_from_key(FiniteKey key) {
+    size_t count = sizeof(finite_key_lookup) / sizeof(finite_key_lookup[0]);
+    for (size_t i = 0; i < count; i++) {
+        if (finite_key_lookup[i].key == key) {
+            return finite_key_lookup[i].name;
+        }
+    }
+    return "Invalid";
+}
