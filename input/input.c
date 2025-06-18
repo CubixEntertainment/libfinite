@@ -1,25 +1,26 @@
 #include "include/input/input.h"
-#include "include/input/keyboard.h"
 
 // create a registry_listener struct for future use
-const struct wl_registry_listener registry_listener = {
-    .global = islands_registry_handle,
-    .global_remove = islands_registry_handle_remove
+const struct wl_registry_listener key_registry_listener = {
+    .global = islands_key_registry_handle,
+    .global_remove = islands_key_registry_handle_remove
 };
 
 const struct wl_keyboard_listener keys_listener = {
     .key = islands_key_handle,
     .modifiers = islands_key_mod_handle,
     .keymap = islands_key_map_handle,
-    .enter = NULL,
+    .enter = islands_key_enter_handle,
     .leave = NULL,
     .repeat_info = NULL
 };
 
-FiniteKeyboard *finite_input_keyboard_init(char *device) {
-    FiniteInput *input = calloc(1, sizeof(FiniteInput));
+FiniteKeyboard *finite_input_keyboard_init(struct wl_display *device) {
+    FiniteKeyboard *keyboard = calloc(1, sizeof(FiniteKeyboard));
+    keyboard->input = calloc(1, sizeof(FiniteInput));
+    FiniteInput *input = keyboard->input;
 
-    input->display = wl_display_connect(device);
+    input->display = device;
     if (!input->display) {
         printf("[Finite] - Unable to attach to display");
         free(input);
@@ -33,7 +34,7 @@ FiniteKeyboard *finite_input_keyboard_init(char *device) {
         return NULL;
     }
 
-    wl_registry_add_listener(input->registry, &registry_listener, input);
+    wl_registry_add_listener(input->registry, &key_registry_listener, input);
     wl_display_roundtrip(input->display);
 
     if (!input->isle) {
@@ -47,10 +48,6 @@ FiniteKeyboard *finite_input_keyboard_init(char *device) {
         free(input);
         return NULL;
     }
-
-    FiniteKeyboard *keyboard = calloc(1, sizeof(FiniteKeyboard));
-    keyboard->input = input;
-    FiniteInput *input = keyboard->input;
 
     keyboard->keyboard = wl_seat_get_keyboard(keyboard->input->seat);
     if (!keyboard->keyboard) {
@@ -131,7 +128,7 @@ FiniteKey finite_key_from_string(const char *name) {
 }
 
 
-char *finite_key_string_from_key(FiniteKey key) {
+const char *finite_key_string_from_key(FiniteKey key) {
     size_t count = sizeof(finite_key_lookup) / sizeof(finite_key_lookup[0]);
     for (size_t i = 0; i < count; i++) {
         if (finite_key_lookup[i].key == key) {
@@ -139,4 +136,24 @@ char *finite_key_string_from_key(FiniteKey key) {
         }
     }
     return "Invalid";
+}
+
+void finite_keyboard_destroy(FiniteKeyboard *board) {
+    wl_keyboard_destroy(board->keyboard);
+    wl_seat_destroy(board->input->seat);
+    wl_registry_destroy(board->input->registry);
+    wl_display_disconnect(board->input->display);
+
+    xkb_state_unref(board->xkb_state);
+    xkb_keymap_unref(board->xkb_keymap);
+    xkb_context_unref(board->xkb_ctx);
+
+    free(board->input);
+    free(board);
+
+    printf("[Finite] - Keyboard cleaned.");
+}
+
+void finite_input_poll_keys(FiniteKeyboard *board) {
+    wl_display_dispatch_pending(board->input->display);
 }

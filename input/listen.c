@@ -1,5 +1,6 @@
-#include "include/input/input.h"
+#include "include/input/input-core.h"
 #include <unistd.h>
+#include <string.h>
 #include <sys/mman.h>
 
 /*
@@ -7,7 +8,7 @@
 
     This handles new connections to the registry so we can find the compositor
 */
-void islands_registry_handle(void *data, struct wl_registry* registry, uint32_t id, const char* interface, uint32_t version) {
+void islands_key_registry_handle(void *data, struct wl_registry* registry, uint32_t id, const char* interface, uint32_t version) {
     FiniteInput *input = data;
     // we want to save the found compositor so that we can attach it to the finite_render_info event
     if (strcmp(interface, wl_compositor_interface.name) == 0) {
@@ -24,13 +25,13 @@ void islands_registry_handle(void *data, struct wl_registry* registry, uint32_t 
 }   
 
 // exists to satisfy the spec
-void islands_registry_handle_remove(void *data, struct wl_registry* registry, uint32_t id) {
+void islands_key_registry_handle_remove(void *data, struct wl_registry* registry, uint32_t id) {
     return;
 }
 
 void islands_key_map_handle(void *data, struct wl_keyboard *keyboard, uint32_t format, int fd, uint32_t size) {
     FiniteKeyboard *board = data;
-
+    printf("[Finite] - Attempting to map\n");
     // verify the passed keyboard is the keyboard this event is handling
     if (keyboard != board->keyboard) {
         printf("[Finite] - Keyboard beind handled by islands_key_map_handle does not match the given FiniteKeyboard.");
@@ -62,6 +63,7 @@ void islands_key_map_handle(void *data, struct wl_keyboard *keyboard, uint32_t f
 }
 
 void islands_key_handle(void *data, struct wl_keyboard *keyboard, uint32_t serial, uint32_t time, uint32_t key, uint32_t state) {
+    printf("[Finite] - Attempting to handle keys\n");
     // handle key input
     FiniteKeyboard *input = data;
 
@@ -81,6 +83,7 @@ void islands_key_handle(void *data, struct wl_keyboard *keyboard, uint32_t seria
 }
 
 void islands_key_mod_handle(void *data, struct wl_keyboard *keyboard, uint32_t serial, uint32_t mods_depressed, uint32_t mods_latched, uint32_t mods_locked, uint32_t group) {
+    printf("[Finite] - Attempting to handle modifiers. \n");
     // the only thing handled by default is if the meta key is pressed we want to call the suspend process and homescreen calls. For now let's just pass a message saying they've been called
     FiniteKeyboard *input = data;
 
@@ -95,4 +98,10 @@ void islands_key_mod_handle(void *data, struct wl_keyboard *keyboard, uint32_t s
     if (xkb_state_mod_name_is_active(input->xkb_state, XKB_MOD_NAME_LOGO, XKB_STATE_MODS_DEPRESSED)) {
         printf("Home key was pressed!\n");
     }
+}
+
+void islands_key_enter_handle(void *data, struct wl_keyboard *keyboard, uint32_t serial, struct wl_surface *surface, struct wl_array *keys) {
+    // optional: log or store focus info
+    printf("[Finite] - Keyboard focus received\n");
+    (void)data; (void)keyboard; (void)serial; (void)surface; (void)keys;
 }

@@ -1,12 +1,10 @@
-#include <xkbcommon.h>
+#ifndef __KEYBOARD_H__
+#define __KEYBOARD_H__
+
+#include <xkbcommon/xkbcommon.h>
 #include <strings.h>
 #include <linux/input-event-codes.h>
-
-typedef struct {
-    const char *name;
-    FiniteKey key;
-    uint16_t evdev_code;
-} FiniteKeyMapping;
+#include "input-core.h"
 
 // this is what AI should be used for
 typedef enum {
@@ -136,7 +134,14 @@ typedef enum {
     FINITE_KEY_COUNT
 } FiniteKey;
 
-extern const FiniteKeyMapping finite_key_lookup[] = {
+
+typedef struct {
+    const char *name;
+    FiniteKey key;
+    uint16_t evdev_code;
+} FiniteKeyMapping;
+
+const FiniteKeyMapping finite_key_lookup[] = {
     // Letters
     { "A", FINITE_KEY_A, KEY_A }, { "B", FINITE_KEY_B, KEY_B }, { "C", FINITE_KEY_C, KEY_C },
     { "D", FINITE_KEY_D, KEY_D }, { "E", FINITE_KEY_E, KEY_E }, { "F", FINITE_KEY_F, KEY_F },
@@ -224,7 +229,7 @@ extern const FiniteKeyMapping finite_key_lookup[] = {
     { "KpPeriod",     FINITE_KEY_KP_PERIOD, KEY_KPDOT },
 };
 
-FiniteKeyboard *finite_input_keyboard_init(char *device);
+FiniteKeyboard *finite_input_keyboard_init(struct wl_display *device);
 bool finite_key_down(FiniteKey key, FiniteKeyboard *board);
 bool finite_key_up(FiniteKey key, FiniteKeyboard *board);
 bool finite_key_valid(FiniteKey key);
@@ -234,5 +239,11 @@ bool finite_key_pressed(FiniteKey key);
 bool finite_key_released(FiniteKey key);
 
 // conversion
-char *finite_key_string_from_key(FiniteKey key);
+const char *finite_key_string_from_key(FiniteKey key);
 FiniteKey finite_key_from_string(const char *name);
+
+// lifecycle
+void finite_keyboard_destroy(FiniteKeyboard *board);
+void finite_input_poll_keys(FiniteKeyboard *board);
+
+#endif

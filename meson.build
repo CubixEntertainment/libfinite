@@ -1,7 +1,7 @@
 project(
     'libfinite',
     'c',
-    version: '0.1.8-dev'
+    version: '0.2.2-dev'
 )
 
 cc = meson.get_compiler('c')
@@ -12,6 +12,8 @@ wayland_client = dependency('wayland-client', required: true)
 wayland_protos = dependency('wayland-protocols', version: '>=1.24', default_options: ['tests=false'], required: true)
 cairo = dependency('cairo', required: true)
 evdev = dependency('libevdev', required: true)
+# use 1.6.0 for now...
+xkb = dependency('xkbcommon', version: '>=1.6.0', fallback: 'libxkbcommon', required: true)
 
 # build xdg
 xdg_shell = custom_target('xdg-shell',
@@ -51,7 +53,8 @@ deps = [
     wayland_client,
     wayland_protos,
     cairo,
-    evdev
+    evdev,
+    xkb
 ]
 
 src = [
@@ -61,12 +64,15 @@ src = [
     'draw/wl_shm.c',
     'draw/listen.c',
     'draw/draw.c',
+
+    'input/input.c',
+    'input/listen.c'
 ]
 
 libfinite = library(
     'libfinite', 
     src, 
-    version : '0.1.1', 
+    version : '0.2.2', 
     soversion : '1', 
     dependencies: deps,
     install: true,
@@ -78,7 +84,11 @@ headers = [
     'include/draw/draw.h',
     'include/draw/cairo.h',
     'include/draw/window.h',
-    'include/draw/wl_shm.h'
+    'include/draw/wl_shm.h',
+
+    'include/input/input.h',
+    'include/input/input-core.h',
+    'include/input/keyboard.h'
 ]
 
 install_headers(headers, subdir: 'finite')
@@ -89,7 +99,7 @@ pkgconfig.generate(
     libfinite,
     name: 'libfinite',
     description: 'The Cubix Infinite Development Library',
-    version: '0.1.1',
+    version: '0.2.2',
     filebase: 'finite',
     subdirs: 'finite',
     requires: ['wayland-client', 'wayland-protocols', 'cairo']
