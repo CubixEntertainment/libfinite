@@ -21,6 +21,13 @@ typedef struct {
 } FiniteInput;
 
 typedef struct {
+    uint16_t id;
+    bool isHeld;
+    bool isDown;
+    bool isUp;
+} FiniteKeyState;
+
+typedef struct {
     FiniteInput *input;
 
     struct wl_keyboard *keyboard;
@@ -28,7 +35,7 @@ typedef struct {
     struct xkb_keymap *xkb_keymap;
     struct xkb_state  *xkb_state;
 
-    bool keys[256];
+    FiniteKeyState keys[256];
     bool keys_down[256];
     bool keys_up[256];
 } FiniteKeyboard;

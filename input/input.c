@@ -71,11 +71,9 @@ static uint16_t finite_key_to_evdev(FiniteKey key) {
     return UINT16_MAX; // Not found
 }
 
-
 bool finite_key_valid(FiniteKey key) {
     return finite_key_to_evdev(key) != UINT16_MAX;
 }
-
 
 // ALWAYS check the that the key is valid with finite_key_valid
 bool finite_key_down(FiniteKey key, FiniteKeyboard *board) {
@@ -94,7 +92,7 @@ bool finite_key_down(FiniteKey key, FiniteKeyboard *board) {
         return false;
     }
 
-    return board->keys_down[evdev_key];
+    return board->keys[evdev_key].isDown;
 }
 
 // ALWAYS check the that the key is valid with finite_key_valid
@@ -114,7 +112,38 @@ bool finite_key_up(FiniteKey key, FiniteKeyboard *board) {
         return false;
     }
 
-    return board->keys_up[evdev_key];
+    return board->keys[evdev_key].isUp;
+}
+
+// ALWAYS check the that the key is valid with finite_key_valid
+bool finite_key_pressed(FiniteKey key, FiniteKeyboard *board) {
+    if (!board) {
+        printf("[Finite] - Unable to get input from NULL device");
+        return false;
+    }
+    if (key == FINITE_KEY_INVALID) {
+        printf("[Finite] - Unable to get input from Invalid key");
+        return false;
+    }
+
+    uint16_t evdev_key = finite_key_to_evdev(key);
+    if (evdev_key == UINT16_MAX) {
+        printf("[Finite] - Unable to get input from Invalid key");
+        return false;
+    }  
+
+    if (board->keys[evdev_key].isDown && !board->keys[evdev_key].isHeld) {
+        // then set isHeld to true
+        board->keys[evdev_key].isHeld = true;
+    }
+
+    if (board->keys[evdev_key].isUp && board->keys[evdev_key].isHeld) {
+        // then set isHeld to false
+        board->keys[evdev_key].isHeld = false;
+        return true;
+    }
+
+    return false;
 }
 
 FiniteKey finite_key_from_string(const char *name) {

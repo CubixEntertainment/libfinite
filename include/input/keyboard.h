@@ -234,9 +234,7 @@ bool finite_key_down(FiniteKey key, FiniteKeyboard *board);
 bool finite_key_up(FiniteKey key, FiniteKeyboard *board);
 bool finite_key_valid(FiniteKey key);
 
-// TODO -> create a call back system
-bool finite_key_pressed(FiniteKey key);
-bool finite_key_released(FiniteKey key);
+bool finite_key_pressed(FiniteKey key, FiniteKeyboard *board);
 
 // conversion
 const char *finite_key_string_from_key(FiniteKey key);

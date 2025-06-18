@@ -74,9 +74,8 @@ void islands_key_handle(void *data, struct wl_keyboard *keyboard, uint32_t seria
     }
 
     if (key < 256) {
-        input->keys[key] = (state == WL_KEYBOARD_KEY_STATE_PRESSED);
-        input->keys_down[key] = (state == WL_KEYBOARD_KEY_STATE_PRESSED);
-        input->keys_up[key] = (state == WL_KEYBOARD_KEY_STATE_RELEASED);
+        input->keys[key].isDown = (state == WL_KEYBOARD_KEY_STATE_PRESSED);
+        input->keys[key].isUp = (state == WL_KEYBOARD_KEY_STATE_RELEASED);
     } else {
         printf("[Finite] - Key %d is out of range for supported keys. Ignoring.", key);
     }
