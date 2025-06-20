@@ -11,7 +11,7 @@ int main() {
 
     if (!myShell) {
         printf("Unable to init shell");
-        free(myShell); // if error catching, be sure to free myShell
+        return 1;
     }
 
     // to draw windows make a window
@@ -19,7 +19,7 @@ int main() {
 
     if (!myShell) {
         printf("Unable to make shell");
-        free(myShell); // if error catching, be sure to free myShell
+        return 1;
     }
 
     /* 
@@ -87,4 +87,6 @@ int main() {
     // now just keep the window alive
     while (wl_display_dispatch(myShell->display) != -1) {}
     // no need to free at the end since thats handled internally
+    
+    wl_display_disconnect(myShell->display);
 }
