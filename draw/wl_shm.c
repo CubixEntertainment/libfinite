@@ -83,4 +83,6 @@ void finite_shm_alloc(FiniteShell *shell, bool withAlpha) {
         printf("[Finite] - Unable to create window geometry with NULL information.\n");
         return;
     }
+
+	shell->stride = stride;
 }
