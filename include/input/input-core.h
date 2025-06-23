@@ -62,5 +62,6 @@ void islands_key_map_handle(void *data, struct wl_keyboard *keyboard, uint32_t f
 void islands_key_handle(void *data, struct wl_keyboard *keyboard, uint32_t serial, uint32_t time, uint32_t key, uint32_t state);
 void islands_key_mod_handle(void *data, struct wl_keyboard *keyboard, uint32_t serial, uint32_t mods_depressed, uint32_t mods_latched, uint32_t mods_locked, uint32_t group);
 void islands_key_enter_handle(void *data, struct wl_keyboard *keyboard, uint32_t serial, struct wl_surface *surface, struct wl_array *keys);
+void islands_key_leave_handler(void *data, struct wl_keyboard *keyboard, uint32_t serial, struct wl_surface *surface);
 
 #endif

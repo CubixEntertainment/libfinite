@@ -6,6 +6,9 @@
 #include <linux/input-event-codes.h>
 #include "input-core.h"
 
+// FiniteShell should be defined by window.h
+typedef struct FiniteShell FiniteShell;
+
 // this is what AI should be used for
 typedef enum {
     // Letters
@@ -242,6 +245,6 @@ FiniteKey finite_key_from_string(const char *name);
 
 // lifecycle
 void finite_keyboard_destroy(FiniteKeyboard *board);
-void finite_input_poll_keys(FiniteKeyboard *board);
+void finite_input_poll_keys(FiniteKeyboard *board, FiniteShell *shell);
 
 #endif

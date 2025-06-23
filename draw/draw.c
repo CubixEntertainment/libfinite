@@ -1,4 +1,5 @@
 #include "../include/draw/cairo.h"
+#include <unistd.h>
 
 # define M_PI		3.14159265358979323846	/* pi */
 # define M_PI_2		1.57079632679489661923	/* pi/2 */
@@ -50,7 +51,7 @@ void finite_draw_rounded_rectangle(FiniteShell *shell, double x, double y, doubl
 //         double alpha = 0.05 + (0.15 * i / layers);  // Increasing opacity
 //         double grow = i;  // Expand outward
 
-//         finite_draw_rounded_rectangle(shell, x - grow, y - grow, width + grow * 2, height + grow * 2, radius + grow);
+//         finite_draw_rounded_rectangle(shell, x - grow, y - grow, width + grow * 2, height + grow * 2, radius + grow, true);
 //         cairo_pattern_t *pat = cairo_pattern_create_linear (0.0, (double)(height), (double)width, 0.0);
 //         cairo_pattern_add_color_stop_rgba(pat, 0, 0.506, 0.35, 0.137, alpha);
 //         cairo_pattern_add_color_stop_rgba(pat, 0.7, 0.195, 0.195, 0.195, alpha);
@@ -74,11 +75,11 @@ void finite_draw_set_font(FiniteShell *shell, char *font_name, bool isItalics, b
     enum _cairo_font_slant slant;
     enum _cairo_font_weight bold;
 
-    slant = (isItalics = true) ? CAIRO_FONT_SLANT_ITALIC : CAIRO_FONT_WEIGHT_NORMAL;
-    bold = (isBold = true) ? CAIRO_FONT_WEIGHT_BOLD : CAIRO_FONT_SLANT_NORMAL;
+    slant = (isItalics) ? CAIRO_FONT_SLANT_ITALIC : CAIRO_FONT_SLANT_NORMAL;
+    bold = (isBold) ? CAIRO_FONT_WEIGHT_BOLD : CAIRO_FONT_WEIGHT_NORMAL;
 
     cairo_select_font_face(cr, font_name, slant, bold);
-    cairo_set_font_size(cr, 24);
+    cairo_set_font_size(cr, size);
 }
 
 /*
@@ -130,7 +131,7 @@ void finite_draw_set_draw_position(FiniteShell *shell, double x, double y) {
 
     @note `finite_draw_set_draw_position` does not impact this function.
 */
-void finite_draw_text_group(FiniteShell *shell, FiniteTextGroup *groups, double x, double y) {
+void finite_draw_text_group(FiniteShell *shell, FiniteTextGroup *groups, double x, double y, size_t n) {
     if (!shell->cr) {
         shell->cr = cairo_create(shell->cairo_surface);
     }
@@ -138,8 +139,6 @@ void finite_draw_text_group(FiniteShell *shell, FiniteTextGroup *groups, double 
     cairo_t *cr = shell->cr;
 
     cairo_text_extents_t ext;
-
-    size_t n = (&groups)[1] - groups;
 
     for (int i = 0; i < n; i++) {
         cairo_set_source_rgb(cr, groups[i].r,groups[i].g, groups[i].b);
@@ -161,13 +160,15 @@ void finite_draw_text_group(FiniteShell *shell, FiniteTextGroup *groups, double 
     @param endX,endY The end coordinates of the gradient
     @param points A pointer to an array of `FiniteGradientPoint`s
 */
-cairo_pattern_t *finite_draw_pattern_linear(double startX, double startY, double endX, double endY, FiniteGradientPoint *points) {
+cairo_pattern_t *finite_draw_pattern_linear(double startX, double startY, double endX, double endY, FiniteGradientPoint *points, size_t n) {
     cairo_pattern_t *pat = cairo_pattern_create_linear(startX, startY, endX, endY);
 
-    size_t n = (&points)[1] - points;
-
     for (int i = 0; i < n; i++) {
-        cairo_pattern_add_color_stop_rgb (pat, points[i].stop, points[i].r, points[i].g, points[i].b);
+        if (points[i].a) {
+            cairo_pattern_add_color_stop_rgba(pat, points[i].stop, points[i].r, points[i].g, points[i].b, points[i].a);
+        } else {
+            cairo_pattern_add_color_stop_rgb (pat, points[i].stop, points[i].r, points[i].g, points[i].b);
+        }
     }
 
     return pat;
@@ -181,11 +182,19 @@ cairo_pattern_t *finite_draw_pattern_linear(double startX, double startY, double
     @note You can choose to use a gradient pattern or a `FiniteColorGroup` but you may not use both. Having both defined will return an error.
 */ 
 void finite_draw_rect(FiniteShell *shell, double x, double y, double width, double height, FiniteColorGroup *color, cairo_pattern_t *pat) {
+    if (!shell || !shell->cairo_surface) {
+        printf("[Finite] - Invalid shell or cairo_surface\n");
+        return;
+    }
+
+    
     if (!shell->cr) {
         shell->cr = cairo_create(shell->cairo_surface);
     }
 
     cairo_t *cr = shell->cr;
+    printf("Checks: %f %f %f %f\n", width, height, x, y);
+
     
     if (color && pat) {
         printf("[Finite] - finite_draw_rect() may not have multiple fill values.\n");
@@ -199,12 +208,12 @@ void finite_draw_rect(FiniteShell *shell, double x, double y, double width, doub
         cairo_fill(cr);
     } else {
         if (color) {
-            cairo_set_source_rgb(cr, color->r, color->g, color->b);
-            cairo_fill(cr);
             if (color->a) {
                 cairo_set_source_rgba(cr, color->r, color->g, color->b, color->a);
-                cairo_fill(cr);
+            } else {
+                cairo_set_source_rgb(cr, color->r, color->g, color->b);
             }
+            cairo_fill(cr);
         } else {
             printf("[Finite] - Unable to fill. (Did you define a color or a pattern?)");
         }
@@ -212,17 +221,50 @@ void finite_draw_rect(FiniteShell *shell, double x, double y, double width, doub
 }
 
 bool finite_draw_finish(FiniteShell *shell, int width, int height, int stride, bool withAlpha) {
-    cairo_destroy(shell->cr);    
-    enum wl_shm_format form = (withAlpha) ? WL_SHM_FORMAT_ARGB8888 : WL_SHM_FORMAT_XRGB8888;
-    shell->buffer = wl_shm_pool_create_buffer(shell->pool, 0, width, height, stride, form);
+    printf("Checks: %d %d %d %d\n", width, height, stride, withAlpha);
+    cairo_destroy(shell->cr); 
+    shell->cr = NULL;
+
+    if (!shell->pool) {
+        printf("[Finite] - No SHM pool allocated. Cannot create buffer.\n");
+        return false;
+    }
+
+    printf("Surface status: %s\n", cairo_status_to_string(cairo_surface_status(shell->cairo_surface)));
+
+    if (shell->buffer) {
+        wl_buffer_destroy(shell->buffer);
+        shell->buffer = NULL;
+    }
+
+    enum wl_shm_format form = WL_SHM_FORMAT_ARGB8888;
+    shell->buffer = wl_shm_pool_create_buffer(shell->pool, 0, shell->details->width, shell->details->height, shell->stride, form);
+
+    cairo_surface_flush(shell->cairo_surface);
+    cairo_surface_mark_dirty(shell->cairo_surface);
+
     if (!shell->buffer) {
         printf("[Finite] - Unable to create window geometry with NULL information.\n");
         wl_display_disconnect(shell->display);
         return false;
     }
 
-   wl_surface_attach(shell->isle_surface, shell->buffer, 0,0);
-   wl_surface_damage(shell->isle_surface, 0,0, UINT32_MAX, UINT32_MAX); // tell the surface to redraw
-   wl_surface_commit(shell->isle_surface);
+    wl_surface_attach(shell->isle_surface, shell->buffer, 0,0);
+    wl_surface_damage(shell->isle_surface, 0,0, shell->details->width, shell->details->height); // tell the surface to redraw
+    wl_surface_commit(shell->isle_surface);
    return true;
+}
+
+void finite_draw_cleanup(FiniteShell *shell) {
+    printf("[Finite] - Close Requested.\n");
+    cairo_surface_destroy(shell->cairo_surface);
+    munmap(shell->pool_data, shell->pool_size);
+    close(shell->shm_fd);
+    wl_buffer_destroy(shell->buffer);
+    wl_shm_pool_destroy(shell->pool);
+    wl_shm_destroy(shell->shm);
+    wl_display_disconnect(shell->display);
+    free(shell->pool_data);
+    free(shell->details);
+    free(shell);
 }

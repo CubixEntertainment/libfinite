@@ -12,6 +12,38 @@
 #include "xdg-shell-client-protocol.h" // from wayland scanner
 #include "layer-shell-client-protocol.h" // from wayland scanner
 
+typedef enum {
+    FINITE_DIRECTION_UP,
+    FINITE_DIRECTION_DOWN,
+    FINITE_DIRECTION_LEFT,
+    FINITE_DIRECTION_RIGHT,
+    FINITE_DIRECTION_LEFT_UP,
+    FINITE_DIRECTION_LEFT_DOWN,
+    FINITE_DIRECTION_RIGHT_UP,
+    FINITE_DIRECTION_RIGHT_DOWN
+} FiniteDirectionType;
+
+typedef struct {
+    int left;
+    int right;
+    int down;
+    int up;
+    // optional diagonals
+    int leftUp;
+    int rightUp;
+    int leftDown;
+    int rightDown;
+} FiniteBtnRelationShips;
+
+typedef struct {
+    bool isActive;
+    int id;
+    FiniteBtnRelationShips *relations;
+    void (*on_select_callback)(int id, void *data);
+    void (*on_focus_callback)(int id, void *data);
+    void *data;
+} FiniteBtn;
+
 /*
     # FiniteWindowInfo
 
@@ -55,9 +87,10 @@ typedef struct {
     @param details A FiniteWindowInfo storing rendering information.
     @param cairo_surface A cairo_surface where things are drawn to.
 */
-typedef struct {
+struct FiniteShell{
     int shm_fd;
     int pool_size;
+    int stride;
     uint8_t *pool_data;
     struct wl_display *display;
     struct wl_registry *registry;
@@ -75,7 +108,14 @@ typedef struct {
     FiniteWindowInfo *details;
     cairo_t *cr;
     cairo_surface_t *cairo_surface;
-} FiniteShell;
+
+    // an array of buttons that we can navigate through
+    FiniteBtn **btns;
+    int _btns; // _ vars are indexes
+    int activeButton;
+};
+
+typedef struct FiniteShell FiniteShell;
 
 void islands_registry_handle(void *data, struct wl_registry* registry, uint32_t id, const char* interface, uint32_t version);
 void islands_registry_handle_remove(void *data, struct wl_registry* registry, uint32_t id);
@@ -94,5 +134,10 @@ void finite_window_init(FiniteShell *shell);
 void finite_overlay_init(FiniteShell *shell, int layer, char *name);
 void finite_window_size_set(FiniteShell *shell, int xPos, int yPos, int width, int height);
 bool finite_draw_finish(FiniteShell *shell, int width, int height, int stride, bool withAlpha);
+
+FiniteBtn *finite_button_create(FiniteShell *shell, void (*on_select_callback)(int id, void *data), void (*on_focus_callback)(int id, void *data), void *data);
+void finite_button_create_relation(FiniteShell *shell, FiniteBtn *btn, FiniteDirectionType dir, int relation);
+void finite_button_delete(FiniteShell *shell, int id);
+void finite_button_delete_all(FiniteShell *shell);
 
 #endif

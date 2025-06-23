@@ -104,3 +104,7 @@ void islands_key_enter_handle(void *data, struct wl_keyboard *keyboard, uint32_t
     printf("[Finite] - Keyboard focus received\n");
     (void)data; (void)keyboard; (void)serial; (void)surface; (void)keys;
 }
+
+void islands_key_leave_handler(void *data, struct wl_keyboard *keyboard, uint32_t serial, struct wl_surface *surface) {
+    printf("[Finite] - Keyboard focus left surface\n");
+}

@@ -1,7 +1,7 @@
 project(
     'libfinite',
     'c',
-    version: '0.2.3-dev'
+    version: '0.3.17-dev'
 )
 
 cc = meson.get_compiler('c')
@@ -64,6 +64,7 @@ src = [
     'draw/wl_shm.c',
     'draw/listen.c',
     'draw/draw.c',
+    'draw/btn.c',
 
     'input/input.c',
     'input/listen.c'
@@ -72,7 +73,7 @@ src = [
 libfinite = library(
     'libfinite', 
     src, 
-    version : '0.2.3', 
+    version : '0.3.17', 
     soversion : '1', 
     dependencies: deps,
     install: true,
@@ -99,7 +100,7 @@ pkgconfig.generate(
     libfinite,
     name: 'libfinite',
     description: 'The Cubix Infinite Development Library',
-    version: '0.2.3',
+    version: '0.3.17',
     filebase: 'finite',
     subdirs: 'finite',
     requires: ['wayland-client', 'wayland-protocols', 'cairo']

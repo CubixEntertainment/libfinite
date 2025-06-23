@@ -57,13 +57,8 @@ void finite_shm_alloc(FiniteShell *shell, bool withAlpha) {
 	printf("[Finite] - Attempting to allocate the shm\n");
     FiniteWindowInfo *det = shell->details;
 	const int width = det->width, height = det->height;
-
-    int stride;
-	if (withAlpha) {
-		stride = cairo_format_stride_for_width(CAIRO_FORMAT_ARGB32, width);
-	} else {
-		stride = cairo_format_stride_for_width(CAIRO_FORMAT_RGB24, width);
-	}
+	enum _cairo_format form = (withAlpha) ? CAIRO_FORMAT_ARGB32 : CAIRO_FORMAT_RGB24;
+    int stride = cairo_format_stride_for_width(form, width);
 
     int pool_size = height * stride;
 
@@ -82,4 +77,10 @@ void finite_shm_alloc(FiniteShell *shell, bool withAlpha) {
     shell->pool_size = pool_size;
 
 	printf("[Finite] - Shared memory allocated: %dx%d, stride=%d, size=%d, ptr=%p\n", width, height, stride, pool_size, shell->pool_data);
+	
+    shell->cairo_surface = cairo_image_surface_create_for_data(shell->pool_data, form, width, height, stride);
+    if (cairo_surface_status(shell->cairo_surface) != CAIRO_STATUS_SUCCESS) {
+        printf("[Finite] - Unable to create window geometry with NULL information.\n");
+        return;
+    }
 }
