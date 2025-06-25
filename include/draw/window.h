@@ -12,6 +12,10 @@
 #include "xdg-shell-client-protocol.h" // from wayland scanner
 #include "layer-shell-client-protocol.h" // from wayland scanner
 
+typedef struct FiniteShell FiniteShell;
+
+typedef struct FiniteBtn FiniteBtn;
+
 typedef enum {
     FINITE_DIRECTION_UP,
     FINITE_DIRECTION_DOWN,
@@ -35,14 +39,17 @@ typedef struct {
     int rightDown;
 } FiniteBtnRelationShips;
 
-typedef struct {
+struct FiniteBtn {
+    FiniteBtn *self;
     bool isActive;
     int id;
     FiniteBtnRelationShips *relations;
-    void (*on_select_callback)(int id, void *data);
-    void (*on_focus_callback)(int id, void *data);
     void *data;
-} FiniteBtn;
+    FiniteShell *link;
+    void (*on_select_callback)(FiniteBtn *self, int id, void *data);
+    void (*on_focus_callback)(FiniteBtn *self, int id, void *data);
+    void (*on_unfocus_callback)(FiniteBtn *self, int id, void *data);
+};
 
 /*
     # FiniteWindowInfo
@@ -108,14 +115,16 @@ struct FiniteShell{
     FiniteWindowInfo *details;
     cairo_t *cr;
     cairo_surface_t *cairo_surface;
+    unsigned char *snapshot; // refers to a single item
 
     // an array of buttons that we can navigate through
     FiniteBtn **btns;
     int _btns; // _ vars are indexes
     int activeButton;
-};
 
-typedef struct FiniteShell FiniteShell;
+    // any extra data which you can set yourself
+    void *data;
+};
 
 void islands_registry_handle(void *data, struct wl_registry* registry, uint32_t id, const char* interface, uint32_t version);
 void islands_registry_handle_remove(void *data, struct wl_registry* registry, uint32_t id);
@@ -135,7 +144,7 @@ void finite_overlay_init(FiniteShell *shell, int layer, char *name);
 void finite_window_size_set(FiniteShell *shell, int xPos, int yPos, int width, int height);
 bool finite_draw_finish(FiniteShell *shell, int width, int height, int stride, bool withAlpha);
 
-FiniteBtn *finite_button_create(FiniteShell *shell, void (*on_select_callback)(int id, void *data), void (*on_focus_callback)(int id, void *data), void *data);
+FiniteBtn *finite_button_create(FiniteShell *shell, void (*on_select_callback)(FiniteBtn *self, int id, void *data), void (*on_focus_callback)(FiniteBtn *self, int id, void *data), void (*on_unfocus_callback)(FiniteBtn *self, int id, void *data), void *data);
 void finite_button_create_relation(FiniteShell *shell, FiniteBtn *btn, FiniteDirectionType dir, int relation);
 void finite_button_delete(FiniteShell *shell, int id);
 void finite_button_delete_all(FiniteShell *shell);

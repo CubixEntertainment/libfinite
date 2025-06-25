@@ -5,18 +5,28 @@
 # define M_PI_2		1.57079632679489661923	/* pi/2 */
 
 /*
-    # finite_draw_rounded_rectangle
+    # finite_draw_rounded_rect
 
     Attempts to draw a rounded box.
 */
-void finite_draw_rounded_rectangle(FiniteShell *shell, double x, double y, double width, double height, double radius, FiniteColorGroup color, bool withPreserve) {
+void finite_draw_rounded_rect(FiniteShell *shell, double x, double y, double width, double height, double radius, FiniteColorGroup *color, cairo_pattern_t *pat, bool withPreserve) {
     double r = radius;
+    if (!shell) {
+        printf("[Finite] - Can not draw a rounded rect with NULL shell.\n");
+        return;
+    }
+
     // if shell.cr doesn't exist allocate one
     if (!shell->cr) {
         shell->cr = cairo_create(shell->cairo_surface);
     }
 
     cairo_t *cr = shell->cr;
+
+    if (color && pat) {
+        printf("[Finite] - finite_draw_rect() may not have multiple fill values.\n");
+        return;
+    }
 
     // create the rounded box
     cairo_new_sub_path(cr);
@@ -26,9 +36,18 @@ void finite_draw_rounded_rectangle(FiniteShell *shell, double x, double y, doubl
     cairo_arc(cr, x + r,     y + r,     r, M_PI, 3 * M_PI_2);
     cairo_close_path(cr);
 
-    cairo_set_source_rgb(cr, color.r, color.g, color.b);
-    if (color.a) {
-        cairo_set_source_rgba(cr, color.r, color.g, color.b, color.a);
+    if (pat) {
+        cairo_set_source(cr, pat);
+    } else {
+        if (color) {
+            if (color->a) {
+                cairo_set_source_rgba(cr, color->r, color->g, color->b, color->a);
+            } else {
+                cairo_set_source_rgb(cr, color->r, color->g, color->b);
+            }
+        } else {
+            printf("[Finite] - Unable to fill. (Did you define a color or a pattern?)");
+        }
     }
 
     if (withPreserve) {
@@ -39,26 +58,86 @@ void finite_draw_rounded_rectangle(FiniteShell *shell, double x, double y, doubl
 }
 
 
-// void finite_draw_glow(FiniteShell *shell, double x, double y, double width, double height, double radius, int layers) {
-//     // if shell.cr doesn't exist allocate one
-//     if (!shell->cr) {
-//         shell->cr = cairo_create(shell->cairo_surface);
-//     }
-
-//     cairo_t *cr = shell->cr;
+// TODO: finite_draw_glow_gradient
+void finite_draw_glow(FiniteShell *shell, double x, double y, double width, double height, double radius, int layers, FiniteColorGroup *color, bool withPreserve) {
+        if (!shell) {
+        printf("[Finite] - Can not draw a glow rect with NULL shell.\n");
+        return;
+    }
     
-//     for (int i = layers; i > 0; i--) {
-//         double alpha = 0.05 + (0.15 * i / layers);  // Increasing opacity
-//         double grow = i;  // Expand outward
+    // if shell.cr doesn't exist allocate one
+    if (!shell->cr) {
+        shell->cr = cairo_create(shell->cairo_surface);
+    }
+    
+    for (int i = layers; i > 0; i--) {
+        double alpha = 1 - (0.15 * i / layers);  // Decreasing opacity
+        double grow = i;  // Expand outward
 
-//         finite_draw_rounded_rectangle(shell, x - grow, y - grow, width + grow * 2, height + grow * 2, radius + grow, true);
-//         cairo_pattern_t *pat = cairo_pattern_create_linear (0.0, (double)(height), (double)width, 0.0);
-//         cairo_pattern_add_color_stop_rgba(pat, 0, 0.506, 0.35, 0.137, alpha);
-//         cairo_pattern_add_color_stop_rgba(pat, 0.7, 0.195, 0.195, 0.195, alpha);
-//         cairo_set_source (cr, pat);
-//         cairo_fill(cr);
-//     }
-// }
+        FiniteColorGroup color2 = {
+            .r = color->r,
+            .g = color->g,
+            .b = color->b,
+            .a = alpha
+        };
+        
+
+        finite_draw_rounded_rect(shell, x - grow, y - grow, width + grow * 2, height + grow * 2, radius + grow, &color2, NULL, withPreserve);
+    }
+}
+
+void finite_draw_stroke(FiniteShell *shell, FiniteColorGroup *color, cairo_pattern_t *pat, int width) {
+    if (!shell) {
+        printf("[Finite] - Can not draw a rect stroke with NULL shell.\n");
+        return;
+    }
+    
+    // if shell.cr doesn't exist throw an error because we can't set a stroke to nothing
+    if (!shell->cr) {
+       printf("[Finite] - finite_draw_stroke() may not be the first use of shell.cr. To set a stroke create a rect first.\n");
+    }
+
+    cairo_t *cr = shell->cr;
+
+    if (color && pat) {
+        printf("[Finite] - finite_draw_stroke() may not have multiple fill values.\n");
+        return;
+    }
+
+    if (pat) {
+        cairo_set_source(cr, pat);
+    } else {
+        if (color) {
+            if (color->a) {
+                cairo_set_source_rgba(cr, color->r, color->g, color->b, color->a);
+            } else {
+                cairo_set_source_rgb(cr, color->r, color->g, color->b);
+            }
+        } else {
+            printf("[Finite] - Unable to fill. (Did you define a color or a pattern?)");
+        }
+    }
+
+    cairo_set_line_width(cr, width);
+
+    cairo_stroke(cr);
+}
+
+void finite_draw_set_offset(FiniteShell *shell, double x, double y) {
+    if (!shell) {
+        printf("[Finite] - Can not offset with NULL Shell.\n");
+        return;
+    }
+
+    // if shell.cr doesn't exist allocate one
+    if (!shell->cr) {
+        shell->cr = cairo_create(shell->cairo_surface);
+    }
+
+    cairo_t *cr = shell->cr;
+
+    cairo_translate(cr, x, y);
+}
 
 /*
     # finite_draw_set_font
@@ -66,6 +145,11 @@ void finite_draw_rounded_rectangle(FiniteShell *shell, double x, double y, doubl
     Sets the font that will be used when drawing to text to the window.
 */
 void finite_draw_set_font(FiniteShell *shell, char *font_name, bool isItalics, bool isBold, int size) {
+    if (!shell) {
+        printf("[Finite] - Can not draw text with NULL Shell.\n");
+        return;
+    }
+
     if (!shell->cr) {
         shell->cr = cairo_create(shell->cairo_surface);
     }
@@ -90,6 +174,11 @@ void finite_draw_set_font(FiniteShell *shell, char *font_name, bool isItalics, b
     @note `finite_draw_set_font()` should be called before drawing text for the first time.
 */
 void finite_draw_set_text(FiniteShell *shell, char *text, FiniteColorGroup *color) {
+    if (!shell) {
+        printf("[Finite] - Can not draw text with NULL Shell.\n");
+        return;
+    }
+
     if (!shell->cr) {
         shell->cr = cairo_create(shell->cairo_surface);
     }
@@ -111,6 +200,11 @@ void finite_draw_set_text(FiniteShell *shell, char *text, FiniteColorGroup *colo
     @note x and y are relative to the window
 */
 void finite_draw_set_draw_position(FiniteShell *shell, double x, double y) {
+    if (!shell) {
+        printf("[Finite] - Can not set draw position with NULL Shell.\n");
+        return;
+    }
+
     if (!shell->cr) {
         shell->cr = cairo_create(shell->cairo_surface);
     }
@@ -132,6 +226,11 @@ void finite_draw_set_draw_position(FiniteShell *shell, double x, double y) {
     @note `finite_draw_set_draw_position` does not impact this function.
 */
 void finite_draw_text_group(FiniteShell *shell, FiniteTextGroup *groups, double x, double y, size_t n) {
+    if (!shell) {
+        printf("[Finite] - Can not draw text group with NULL Shell.\n");
+        return;
+    }
+
     if (!shell->cr) {
         shell->cr = cairo_create(shell->cairo_surface);
     }
@@ -149,6 +248,41 @@ void finite_draw_text_group(FiniteShell *shell, FiniteTextGroup *groups, double 
         cairo_text_extents(cr, groups[i].text, &ext);
         x += ext.x_advance;
     }
+}
+
+cairo_font_extents_t finite_draw_get_font_extents(FiniteShell *shell) {
+    if (!shell) {
+        printf("[Finite] - Can not get font extents with NULL Shell.\n");
+    }
+
+    // if no shell.cr throw an error because we can't get extents from to nothing
+    if (!shell->cr) {
+       printf("[Finite] - finite_draw_get_font_extents() may not be the first use of shell.cr. To get the font extents set a font first.\n");
+    }
+
+    cairo_t *cr = shell->cr;
+
+    cairo_font_extents_t fext;
+    cairo_font_extents(cr, &fext);
+
+    return fext;
+}
+
+cairo_text_extents_t finite_draw_get_text_extents(FiniteShell *shell, char *str) {
+    if (!shell) {
+        printf("[Finite] - Can not get text extents with NULL Shell.\n");
+    }
+
+    // if no shell.cr throw an error because we can't get extents from to nothing
+    if (!shell->cr) {
+       printf("[Finite] - finite_draw_get_text_extents() may not be the first use of shell.cr. To get the text extents set a font first.\n");
+    }
+
+    cairo_t *cr = shell->cr;
+
+    cairo_text_extents_t ext;
+    cairo_text_extents(cr, str, &ext);
+    return ext;
 }
 
 /*
@@ -215,9 +349,53 @@ void finite_draw_rect(FiniteShell *shell, double x, double y, double width, doub
             }
             cairo_fill(cr);
         } else {
-            printf("[Finite] - Unable to fill. (Did you define a color or a pattern?)");
+            printf("[Finite] - Unable to fill. (Did you define a color or a pattern?)\n");
         }
     }
+}
+
+void finite_draw_create_snapshot(FiniteShell *shell) {
+    if (!shell->cairo_surface) {
+        printf("[Finite] - Unable to snapshot window with no cairo_surface\n");
+        return;
+    }
+
+    cairo_surface_flush(shell->cairo_surface);
+    int stride = shell->stride;
+    int height = shell->details->height;
+
+    size_t size = stride * height;  
+    unsigned char *snap = malloc(size);
+
+    if (!snap) {
+        printf("[Finite] - Unable to snapshot window. Alloc size: %ld\n", size);
+        return;
+    }
+
+    memcpy(snap, cairo_image_surface_get_data(shell->cairo_surface), size);
+    if (!snap) {
+        printf("[Finite] - Allocation failed\n");
+        return;
+    }
+
+    shell->snapshot = snap;
+}
+
+
+// ?! you must call finite_draw_finish after loading a snapshot!!
+void finite_draw_load_snapshot(FiniteShell *shell) {
+    if (!shell || !shell->snapshot) {
+        printf("[Finite] - Unable to load snapshop.\n");
+        return;
+    }
+
+    int stride = shell->stride;
+    int height = shell->details->height;
+    size_t size = stride * height;
+
+    memcpy(cairo_image_surface_get_data(shell->cairo_surface), shell->snapshot, size);
+
+    cairo_surface_mark_dirty(shell->cairo_surface);
 }
 
 bool finite_draw_finish(FiniteShell *shell, int width, int height, int stride, bool withAlpha) {

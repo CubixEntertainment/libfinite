@@ -1,6 +1,6 @@
 #include "../include/draw/window.h"
 
-FiniteBtn *finite_button_create(FiniteShell *shell, void (*on_select_callback)(int id, void *data), void (*on_focus_callback)(int id, void *data), void *data) {
+FiniteBtn *finite_button_create(FiniteShell *shell, void (*on_select_callback)(FiniteBtn *self, int id, void *data), void (*on_focus_callback)(FiniteBtn *self, int id, void *data), void (*on_unfocus_callback)(FiniteBtn *self, int id, void *data), void *data) {
     FiniteBtn *btn = calloc(1, sizeof(FiniteBtn));
     if (!btn) {
         printf("[Finite] - Unable to create a button");
@@ -32,11 +32,14 @@ FiniteBtn *finite_button_create(FiniteShell *shell, void (*on_select_callback)(i
     }
 
     shell->btns[shell->_btns] = btn;
+    btn->self = btn;
     btn->id = shell->_btns;
     shell->_btns++;
     btn->on_focus_callback = on_focus_callback;
+    btn->on_unfocus_callback = on_unfocus_callback;
     btn->on_select_callback = on_select_callback;
     btn->data = data;
+    btn->link = shell;
 
     return btn;
 }
@@ -50,8 +53,8 @@ void finite_button_create_relation(FiniteShell *shell, FiniteBtn *btn, FiniteDir
         printf("[Finite] - Unable to create a button relationship with a NULL btn");
         return;
     }
-    if (!dir) {
-        printf("[Finite] - Unable to create a button relationship in a NULL direction");
+    if (dir < FINITE_DIRECTION_UP || dir > FINITE_DIRECTION_RIGHT_DOWN) {
+        printf("[Finite] - Unable to create a button relationship in a NULL direction or direction %d", dir);
         return;
     }
     
