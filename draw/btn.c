@@ -35,11 +35,19 @@ FiniteBtn *finite_button_create(FiniteShell *shell, void (*on_select_callback)(F
     btn->self = btn;
     btn->id = shell->_btns;
     shell->_btns++;
+
+    printf("[Finite] - Created new button with id %d\n", btn->id);
+
     btn->on_focus_callback = on_focus_callback;
     btn->on_unfocus_callback = on_unfocus_callback;
     btn->on_select_callback = on_select_callback;
     btn->data = data;
     btn->link = shell;
+
+    // if this is button 0 call the focus callback
+    // if (shell->activeButton == 0 && shell->activeButton == btn->id) {
+    //     btn->on_focus_callback(btn, btn->id, btn->data);
+    // }
 
     return btn;
 }
