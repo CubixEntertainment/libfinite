@@ -139,6 +139,24 @@ void finite_draw_set_offset(FiniteShell *shell, double x, double y) {
     cairo_translate(cr, x, y);
 }
 
+void finite_draw_reset_offset(FiniteShell *shell, double x, double y) {
+    // math is hard
+    if (!shell) {
+        printf("[Finite] - Can not reset offset with NULL Shell.\n");
+        return;
+    }
+
+    if (!shell->cr) {
+        printf("[Finite] - Can not reset offset with NULL cr.\n");
+        return;
+    }
+
+    cairo_t *cr = shell->cr;
+
+
+    cairo_translate(cr, -x, -y);
+}
+
 /*
     # finite_draw_set_font
 
@@ -396,6 +414,31 @@ void finite_draw_load_snapshot(FiniteShell *shell) {
     memcpy(cairo_image_surface_get_data(shell->cairo_surface), shell->snapshot, size);
 
     cairo_surface_mark_dirty(shell->cairo_surface);
+}
+
+void finite_draw_png(FiniteShell *shell, const char *path, double x, double y) {
+    if (!shell) {
+        printf("[Finite] - Unable to draw png on NULL shell");
+        return;
+    }
+
+    if (!shell->cr) {
+        shell->cr = cairo_create(shell->cairo_surface);
+    }
+
+    cairo_t *cr = shell->cr;
+
+    cairo_surface_t *image = cairo_image_surface_create_from_png(path);
+    if (cairo_surface_status(image) != CAIRO_STATUS_SUCCESS) {
+        printf("Image not created\n");
+        return;
+    }
+
+    cairo_image_surface_get_height(image);
+
+    cairo_set_source_surface(cr, image, x, y);
+    cairo_paint(cr);
+    cairo_surface_destroy(image);
 }
 
 bool finite_draw_finish(FiniteShell *shell, int width, int height, int stride, bool withAlpha) {

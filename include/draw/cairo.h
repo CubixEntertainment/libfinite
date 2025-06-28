@@ -44,6 +44,8 @@ void finite_draw_rounded_rect(FiniteShell *shell, double x, double y, double wid
 void finite_draw_glow(FiniteShell *shell, double x, double y, double width, double height, double radius, int layers, FiniteColorGroup *color, bool withPreserve);
 void finite_draw_stroke(FiniteShell *shell, FiniteColorGroup *color, cairo_pattern_t *pat, int width);
 void finite_draw_set_offset(FiniteShell *shell, double x, double y);
+void finite_draw_reset_offset(FiniteShell *shell, double x, double y);
+void finite_draw_png(FiniteShell *shell, const char *path, double x, double y);
 
 
 void finite_draw_cleanup(FiniteShell *shell);
