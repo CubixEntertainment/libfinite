@@ -1,5 +1,5 @@
-#ifndef __DRAW_H__
-#define __DRAW_H__
+#ifndef __CAIRO_H__
+#define __CAIRO_H__
 #include "window.h"
 #include <cairo/cairo.h>
 

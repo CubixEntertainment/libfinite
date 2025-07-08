@@ -1,7 +1,7 @@
 project(
     'libfinite',
     'c',
-    version: '0.4.9-dev'
+    version: '0.5.0-dev'
 )
 
 cc = meson.get_compiler('c')
@@ -12,6 +12,7 @@ wayland_client = dependency('wayland-client', required: true)
 wayland_protos = dependency('wayland-protocols', version: '>=1.24', default_options: ['tests=false'], required: true)
 cairo = dependency('cairo', required: true)
 evdev = dependency('libevdev', required: true)
+vulkan = dependency('vulkan', required: true)
 # use 1.6.0 for now...
 xkb = dependency('xkbcommon', version: '>=1.6.0', fallback: 'libxkbcommon', required: true)
 
@@ -54,7 +55,8 @@ deps = [
     wayland_protos,
     cairo,
     evdev,
-    xkb
+    xkb,
+    vulkan
 ]
 
 src = [
@@ -67,13 +69,19 @@ src = [
     'draw/btn.c',
 
     'input/input.c',
-    'input/listen.c'
+    'input/listen.c',
+
+    'render/render.c',
+    'render/shaders.c',
+    'render/vulkan.c',
+
+    'core/file.c'
 ]
 
 libfinite = library(
     'libfinite', 
     src, 
-    version : '0.4.9', 
+    version : '0.5.0', 
     soversion : '1', 
     dependencies: deps,
     install: true,
@@ -89,7 +97,13 @@ headers = [
 
     'include/input/input.h',
     'include/input/input-core.h',
-    'include/input/keyboard.h'
+    'include/input/keyboard.h',
+
+    'include/render/render-core.h',
+    'include/render/vulkan.h',
+    'include/render/render.h',
+
+    'include/core.h'
 ]
 
 install_headers(headers, subdir: 'finite')
@@ -100,8 +114,8 @@ pkgconfig.generate(
     libfinite,
     name: 'libfinite',
     description: 'The Cubix Infinite Development Library',
-    version: '0.4.9',
+    version: '0.5.0',
     filebase: 'finite',
     subdirs: 'finite',
-    requires: ['wayland-client', 'wayland-protocols', 'cairo']
+    requires: ['wayland-client', 'wayland-protocols', 'cairo', 'vulkan']
 )

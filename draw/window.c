@@ -138,7 +138,7 @@ void finite_window_init(FiniteShell *shell) {
 
     wl_surface_commit(shell->isle_surface);
     wl_display_roundtrip(shell->display);
-    printf("[Finite] - Window made.");
+    printf("[Finite] - Window made.\n");
 }
 
 /*
