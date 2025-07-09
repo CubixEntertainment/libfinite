@@ -12,6 +12,8 @@ wayland_client = dependency('wayland-client', required: true)
 wayland_protos = dependency('wayland-protocols', version: '>=1.24', default_options: ['tests=false'], required: true)
 cairo = dependency('cairo', required: true)
 evdev = dependency('libevdev', required: true)
+sndfile = dependency('sndfile', required: true)
+alsa = dependency('alsa', required: true)
 vulkan = dependency('vulkan', required: true)
 # use 1.6.0 for now...
 xkb = dependency('xkbcommon', version: '>=1.6.0', fallback: 'libxkbcommon', required: true)
@@ -56,6 +58,8 @@ deps = [
     cairo,
     evdev,
     xkb,
+    sndfile,
+    alsa.
     vulkan
 ]
 
@@ -71,11 +75,14 @@ src = [
     'input/input.c',
     'input/listen.c',
 
+    'audio/audio.c',
+
     'render/render.c',
     'render/shaders.c',
     'render/vulkan.c',
 
     'core/file.c'
+    
 ]
 
 libfinite = library(
@@ -99,6 +106,8 @@ headers = [
     'include/input/input-core.h',
     'include/input/keyboard.h',
 
+    'include/audio/audio.h',
+    
     'include/render/render-core.h',
     'include/render/vulkan.h',
     'include/render/render.h',
@@ -117,5 +126,5 @@ pkgconfig.generate(
     version: '0.5.0',
     filebase: 'finite',
     subdirs: 'finite',
-    requires: ['wayland-client', 'wayland-protocols', 'cairo', 'vulkan']
+    requires: ['wayland-client', 'wayland-protocols', 'cairo', 'alsa', 'vulkan']
 )
