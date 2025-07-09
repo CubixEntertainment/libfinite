@@ -12,6 +12,8 @@ wayland_client = dependency('wayland-client', required: true)
 wayland_protos = dependency('wayland-protocols', version: '>=1.24', default_options: ['tests=false'], required: true)
 cairo = dependency('cairo', required: true)
 evdev = dependency('libevdev', required: true)
+sndfile = dependency('sndfile', required: true)
+alsa = dependency('alsa', required: true)
 # use 1.6.0 for now...
 xkb = dependency('xkbcommon', version: '>=1.6.0', fallback: 'libxkbcommon', required: true)
 
@@ -54,7 +56,9 @@ deps = [
     wayland_protos,
     cairo,
     evdev,
-    xkb
+    xkb,
+    sndfile,
+    alsa
 ]
 
 src = [
@@ -67,7 +71,9 @@ src = [
     'draw/btn.c',
 
     'input/input.c',
-    'input/listen.c'
+    'input/listen.c',
+
+    'audio/audio.c'
 ]
 
 libfinite = library(
@@ -89,7 +95,9 @@ headers = [
 
     'include/input/input.h',
     'include/input/input-core.h',
-    'include/input/keyboard.h'
+    'include/input/keyboard.h',
+
+    'include/audio/audio.h'
 ]
 
 install_headers(headers, subdir: 'finite')
@@ -103,5 +111,5 @@ pkgconfig.generate(
     version: '0.4.9',
     filebase: 'finite',
     subdirs: 'finite',
-    requires: ['wayland-client', 'wayland-protocols', 'cairo']
+    requires: ['wayland-client', 'wayland-protocols', 'cairo', 'alsa']
 )
