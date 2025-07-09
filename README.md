@@ -13,8 +13,10 @@ List is subject to change
 - [x] Vulkan Rendering
 - [x] Vulkan Triangle Example
 - [ ] Vulkan Rendering (with mesh loading)
-- [ ] Audio
-- [ ] Audio Example
+- [x] Audio
+- [x] Audio Example
+- [ ] Audio Seeking (rewind,pausing)
+- [ ] Audio Effects
 - [ ] Logging/Core Functions
 - [ ] Avatar
 - [ ] Gameshare
