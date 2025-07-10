@@ -24,5 +24,7 @@ bool finite_render_create_semaphore(FiniteRender *render);
 bool finite_render_create_fence(FiniteRender *render, VkFenceCreateFlags initialState);
 bool finite_render_submit_frame(FiniteRender *render, FiniteRenderSubmitInfo *info, uint32_t fenceId, bool safeExit);
 bool finite_render_present_frame(FiniteRender *render, FiniteRenderPresentInfo *info, bool safeExit);
+bool finite_render_create_vertex_buffer(FiniteRender *render, FiniteRenderVertexBufferInfo *info);
+bool finite_render_alloc_buffer_memory(FiniteRender *render, FiniteRenderMemAllocInfo *info, VkDeviceSize offset);
 
 #endif

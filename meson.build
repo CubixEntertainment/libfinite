@@ -6,7 +6,7 @@ project(
 
 cc = meson.get_compiler('c')
 
-# cglm_dep = dependency('cglm', fallback : 'cglm', 'cglm_dep')
+cglm = dependency('cglm')
 wayland_client = dependency('wayland-client', required: true)
 # gls = dependency('glslang')
 wayland_protos = dependency('wayland-protocols', version: '>=1.24', default_options: ['tests=false'], required: true)
@@ -57,9 +57,10 @@ deps = [
     wayland_protos,
     cairo,
     evdev,
+    cglm,
     xkb,
     sndfile,
-    alsa.
+    alsa,
     vulkan
 ]
 

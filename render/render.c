@@ -221,7 +221,7 @@ bool finite_render_check_device(FiniteRender *render, VkPhysicalDevice pDevice) 
     return (props.deviceType == VK_PHYSICAL_DEVICE_TYPE_INTEGRATED_GPU || props.deviceType == VK_PHYSICAL_DEVICE_TYPE_DISCRETE_GPU) && feats.geometryShader && extSupported && isSwapchainUsable;
 }
 
-void finite_render_record_command_buffer(FiniteRender *render, uint32_t index) {
+void finite_render_record_command_buffer(FiniteRender *render, uint32_t index, VkDeviceSize offset, uint32_t _verts) {
     VkCommandBufferBeginInfo start_info = {
         .sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO,
         .flags = 0,
@@ -253,6 +253,14 @@ void finite_render_record_command_buffer(FiniteRender *render, uint32_t index) {
     vkCmdBeginRenderPass(render->vk_buffer, &rstart_info, VK_SUBPASS_CONTENTS_INLINE);
     vkCmdBindPipeline(render->vk_buffer, VK_PIPELINE_BIND_POINT_GRAPHICS, render->vk_pipeline);
 
+    // if there are vertexBuffers then bind them here
+
+    if (render->vk_vertexBuf != NULL) {
+        VkBuffer vertexBuffs[] = {render->vk_vertexBuf};
+        VkDeviceSize offsets[] = {offset};
+        vkCmdBindVertexBuffers(render->vk_buffer, 0, 1, vertexBuffs, offsets);
+    }
+
     // add scissor and viewport info
     VkViewport port = {
         .x = 0.0f,
@@ -270,7 +278,7 @@ void finite_render_record_command_buffer(FiniteRender *render, uint32_t index) {
     };
     vkCmdSetScissor(render->vk_buffer, 0, 1, &scissor);
 
-    vkCmdDraw(render->vk_buffer, 3, 1, 0, 0);
+    vkCmdDraw(render->vk_buffer, _verts, 1, 0, 0);
 
 
     // clean up
@@ -320,6 +328,25 @@ bool finite_render_get_shader_module(FiniteRender *render, char *code, uint32_t 
     return true;
 }
 
+uint32_t finite_render_get_memory_format(FiniteRender *render, uint32_t filter, VkMemoryPropertyFlags props) {
+    if (!render) {
+        printf("Can not query memory format with NULL renderer.\n");
+        exit(EXIT_FAILURE);
+    }
+
+    VkPhysicalDeviceMemoryProperties memProps;
+    vkGetPhysicalDeviceMemoryProperties(render->vk_pDevice, &memProps);
+
+    for (uint32_t i = 0; i < memProps.memoryTypeCount; i++) {
+        if ((filter & (1 << i)) && (memProps.memoryTypes[i].propertyFlags & props) == props) {
+            return i;
+        }
+    }
+
+    printf("Could not find usable memory type with given filer.\n");
+    exit(EXIT_FAILURE);
+}
+
 void finite_render_cleanup(FiniteRender *render) {
     // clean up shaders FIRST
     if (render->modules != NULL) {
@@ -332,6 +359,12 @@ void finite_render_cleanup(FiniteRender *render) {
     }
     for (int i = 0; i < render->_fences; i++) {
         vkDestroyFence(render->vk_device, render->fences[i], NULL);
+    }
+    if (render->vk_vertexBuf) {
+        vkDestroyBuffer(render->vk_device, render->vk_vertexBuf, NULL);
+        if (render->vk_memory) {
+            vkFreeMemory(render->vk_device, render->vk_memory, NULL);
+        }
     }
     if (render->vk_pool != NULL) {
         vkDestroyCommandPool(render->vk_device, render->vk_pool, NULL);

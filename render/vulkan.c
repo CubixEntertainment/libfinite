@@ -571,6 +571,58 @@ bool finite_render_create_graphics_pipeline(FiniteRender *render, VkPipelineCrea
     return true;
 }
 
+bool finite_render_create_vertex_buffer(FiniteRender *render, FiniteRenderVertexBufferInfo *info) {
+    if (!render) {
+        printf("Unable to create new vertex buffer with NULL information Render: %p Info: %p\n", render, info);
+        return false;
+    }
+    
+    VkBufferCreateInfo buffer_info = {
+        .sType = VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO,
+        .pNext = info->next,
+        .flags = info->flags,
+        .usage = info->useFlags,
+        .size = info->size,
+        .sharingMode = info->sharing,
+        .queueFamilyIndexCount = info->_fIndex,
+        .pQueueFamilyIndices = info->fIndex
+    };
+
+    VkResult res = vkCreateBuffer(render->vk_device, &buffer_info, NULL, &render->vk_vertexBuf);
+    if (res != VK_SUCCESS) {
+        printf("[Finite] - Unable to create the Vertex Buffer\n");
+        return false;
+    }
+    
+    return true;
+}
+
+bool finite_render_alloc_buffer_memory(FiniteRender *render, FiniteRenderMemAllocInfo *info, VkDeviceSize offset) {
+    if (!render) {
+        printf("Unable to allocate vert buffer memory with NULL information Render: %p Info: %p\n", render, info);
+        return false;
+    }
+
+    if (!render->vk_vertexBuf) {
+        printf("Unable to allocate memory for a NULL vertex buffer (%p)\n", render->vk_vertexBuf);
+    }
+
+    VkMemoryAllocateInfo alloc_info = {
+        .sType = VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO,
+        .allocationSize = info->size,
+        .memoryTypeIndex = info->type
+    };
+    
+    VkResult res = vkAllocateMemory(render->vk_device, &alloc_info, NULL, &render->vk_memory);
+    if (res != VK_SUCCESS) {
+        printf("[Finite] - Unable to create the Vertex Buffer Memory\n");
+        return false;
+    }
+
+    vkBindBufferMemory(render->vk_device, render->vk_vertexBuf, render->vk_memory, offset);
+    return true;
+}
+
 bool finite_render_create_command_buffer(FiniteRender *render, bool autocreate, bool isPrimary, uint32_t _buffs) {
     if (autocreate && render->vk_pool == NULL) {
         // create a command pool

@@ -1,13 +1,31 @@
 /*
-    Vulkan drawing with Libfinite SDK example
+    Vulkan 3D Drawing with Libfinite SDK example
     Written by Gabriel Thompson <gabriel.thomp@cubixdev.org>
 */
 
 #include <finite/draw.h>
 #include <finite/render.h>
+#include <cglm/call.h>
+
+typedef struct Vertex Vertex;
+
+struct Vertex {
+    vec2 pos;
+    vec3 color;
+};
+ 
+// in this example we've made the vertex data a global which is generally not a good idea.
+const Vertex vertices[] = {
+    {{0.0f, -0.5f}, {1.0f, 1.0f, 1.0f}},
+    {{0.5f, 0.5f}, {0.0f, 1.0f, 0.0f}},
+    {{-0.5f, 0.5f}, {0.0f, 0.0f, 1.0f}}
+};
+
+// size of vertices
+int _verts = 3;
 
 int main() {
-    printf("Starting...");
+    printf("Starting...\n");
 
     // Create a window to draw the triangle
     FiniteShell *myShell = finite_shell_init("wayland-0");
@@ -56,7 +74,7 @@ int main() {
     finite_render_create_example_render_pass(render);
 
     finite_render_create_framebuffers(render);
-
+    
     // load shaders
     uint32_t vertSize;
     char *vertCode = finite_render_get_shader_code("/path/to/vertex/shader.spv", &vertSize);
@@ -108,13 +126,36 @@ int main() {
 
     finite_render_add_shader_stage(render, &fragStage);
 
+    // now use custom bindings
+    VkVertexInputBindingDescription binding = {
+        .binding = 0,
+        .stride = sizeof(Vertex),
+        .inputRate = VK_VERTEX_INPUT_RATE_VERTEX
+    };
+
+    VkVertexInputAttributeDescription attribe[] = {
+        {
+            .binding = 0,
+            .location = 0,
+            .format = VK_FORMAT_R32G32_SFLOAT,
+            .offset = offsetof(Vertex, pos)
+        },
+
+        {
+            .binding = 0,
+            .location = 1,
+            .format = VK_FORMAT_R32G32B32_SFLOAT,
+            .offset = offsetof(Vertex, color)
+        }
+    };
+
     // create generic vulkan objects
     FiniteRenderVertexInputInfo vertex = {
         .flags = 0,
-        ._vertexBindings = 0,
-        ._vertexAtributes = 0,
-        .vertexAttributeDescriptions = VK_NULL_HANDLE,
-        .vertexBindingDescriptions = VK_NULL_HANDLE
+        ._vertexBindings = 1,
+        ._vertexAtributes = 2,
+        .vertexAttributeDescriptions = attribe,
+        .vertexBindingDescriptions = &binding
     };
 
     FiniteRenderAssemblyInfo assemble = {
@@ -218,6 +259,30 @@ int main() {
     // ? for a custom pool, set autocreate to false
     finite_render_create_command_buffer(render, true, true, 1);
 
+    FiniteRenderVertexBufferInfo vertex_buffer_info = {
+        .size = sizeof(vertices[0]) * _verts,
+        .useFlags = VK_BUFFER_USAGE_VERTEX_BUFFER_BIT,
+        .sharing = VK_SHARING_MODE_EXCLUSIVE
+    };
+
+    finite_render_create_vertex_buffer(render, &vertex_buffer_info);
+
+    VkMemoryRequirements memRequirements;
+    vkGetBufferMemoryRequirements(render->vk_device, render->vk_vertexBuf, &memRequirements);
+
+    FiniteRenderMemAllocInfo mem_alloc_info = {
+        .size = memRequirements.size,
+        .type = finite_render_get_memory_format(render, memRequirements.memoryTypeBits, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT)
+    };
+
+    finite_render_alloc_buffer_memory(render, &mem_alloc_info, 0);
+
+    // as a dev you must manually map the vertex buffer when using custom vertex
+    void *data;
+    vkMapMemory(render->vk_device, render->vk_memory, 0, vertex_buffer_info.size, 0, &data);
+    memcpy(data, vertices, (size_t)vertex_buffer_info.size);
+    vkUnmapMemory(render->vk_device, render->vk_memory);
+
     // create two semaphores and one fence
     finite_render_create_semaphore(render); //images available
     finite_render_create_semaphore(render); // renderFinished
@@ -237,7 +302,7 @@ int main() {
         vkAcquireNextImageKHR(render->vk_device, render->vk_swapchain, UINT64_MAX, render->signals[0], VK_NULL_HANDLE, &index);
 
         vkResetCommandBuffer(render->vk_buffer, 0);
-        finite_render_record_command_buffer(render, index);
+        finite_render_record_command_buffer(render, index,0, _verts);
 
         VkPipelineStageFlags waitStage = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT;
         vkResetFences(render->vk_device, 1, &render->fences[0]);

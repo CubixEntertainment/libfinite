@@ -19,6 +19,8 @@ typedef struct FiniteRenderRasterState FiniteRenderRasterState;
 typedef struct FiniteRenderMultisampleStateInfo FiniteRenderMultisampleStateInfo;
 typedef struct FiniteRenderColorAttachmentInfo FiniteRenderColorAttachmentInfo;
 typedef struct FiniteRenderColorBlendInfo FiniteRenderColorBlendInfo;
+typedef struct FiniteRenderVertexBufferInfo FiniteRenderVertexBufferInfo;
+typedef struct FiniteRenderMemAllocInfo FiniteRenderMemAllocInfo;
 typedef struct FiniteRenderSubmitInfo FiniteRenderSubmitInfo;
 typedef struct FiniteRenderPresentInfo FiniteRenderPresentInfo;
 typedef enum   FiniteShaderType FiniteShaderType;
@@ -83,6 +85,9 @@ struct FiniteRender {
     VkFramebuffer *vk_frameBufs;
     VkCommandPool vk_pool;
     VkCommandBuffer vk_buffer;
+
+    VkBuffer vk_vertexBuf;
+    VkDeviceMemory vk_memory;
 
     VkSemaphore *signals;
     VkFence *fences;
@@ -177,6 +182,22 @@ struct FiniteRenderColorBlendInfo {
     float blendConstants[4];
 };
 
+struct FiniteRenderVertexBufferInfo {
+    const void *next;
+    VkBufferCreateFlags flags;
+    VkDeviceSize size;
+    VkBufferUsageFlags useFlags;
+    VkSharingMode sharing;
+    uint32_t _fIndex;
+    uint32_t *fIndex;
+};
+
+struct FiniteRenderMemAllocInfo {
+    const void *next;
+    VkDeviceSize size;
+    uint32_t type;
+};
+
 struct FiniteRenderSubmitInfo {
     const void *next;
     uint32_t _waitSemaphores;
@@ -205,9 +226,10 @@ VkSurfaceFormatKHR finite_render_get_best_format(FiniteRender *render, VkSurface
 VkPresentModeKHR finite_render_get_best_present_mode(FiniteRender *render, VkPresentModeKHR *modes, uint32_t _modes);
 VkExtent2D finite_render_get_best_extent(FiniteRender *render, VkSurfaceCapabilitiesKHR *caps, FiniteShell *shell);
 bool finite_render_check_device(FiniteRender *render, VkPhysicalDevice pDevice);
-void finite_render_record_command_buffer(FiniteRender *render, uint32_t index);
+void finite_render_record_command_buffer(FiniteRender *render, uint32_t index, VkDeviceSize offset, uint32_t _verts);
 bool finite_render_get_shader_module(FiniteRender *render, char *code, uint32_t size);
 void finite_render_cleanup(FiniteRender *render);
 char *finite_render_get_shader_code(const char *fileName, uint32_t *pShaderSize);
+uint32_t finite_render_get_memory_format(FiniteRender *render, uint32_t filter, VkMemoryPropertyFlags props);
 
 #endif
