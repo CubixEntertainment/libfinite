@@ -73,8 +73,6 @@ FinitePlaybackDevice *finite_audio_device_init() {
         return 0;
     }
 
-    snd_pcm_hw_params_any(dev->device, dev->params);
-
     return dev;
 };
 
@@ -91,6 +89,8 @@ bool finite_audio_init_audio(FinitePlaybackDevice *dev, char* audio, bool autoCr
             return false; // message is printed already
         }
     }
+
+    snd_pcm_hw_params_any(dev->device, dev->params);
 
     int err;
 
@@ -160,6 +160,8 @@ void finite_audio_play(FinitePlaybackDevice *dev) {
 
     short _read;
     sf_count_t _frames = dev->frames;
+    dev->isPlaying = true;
+    dev->isPaused = false;
     while (true) {
         snd_pcm_state_t state = snd_pcm_state(dev->device);
         if (state != SND_PCM_STATE_PAUSED) {
@@ -180,8 +182,6 @@ void finite_audio_play(FinitePlaybackDevice *dev) {
     }
 
     printf("Read succesfully. Audio file %s has %d channel(s) with a sample rate of %d\n", dev->filename, dev->channels, dev->sample_rate);
-    dev->isPlaying = true;
-    dev->isPaused = false;
     snd_pcm_drain(dev->device);
 }
 
@@ -202,18 +202,22 @@ bool finite_audio_stop(FinitePlaybackDevice *dev) {
 
 bool finite_audio_pause(FinitePlaybackDevice *dev) {
     if (!dev) {
-        printf("Unable to stop audio with NULL device");
+        printf("Unable to stop audio with NULL device\n");
         return false;
     } 
 
-    if (!dev->isPlaying) {
-        printf("Unable to toggle pause on an audio that isn't initialized.");
+    if (dev->isPlaying == false) {
+        printf("Unable to toggle pause on an audio that isn't initialized.\n");
         return false;
     }
 
-    int toggle = dev->isPaused ? 1 : 0;
-
-    snd_pcm_pause(dev->device, toggle);
+    if (dev->isPaused == true) {
+        snd_pcm_pause(dev->device, 0);
+        dev->isPaused = false;
+    } else {
+        snd_pcm_pause(dev->device, 1);
+        dev->isPaused = true;
+    }
     return true;
 }
 
