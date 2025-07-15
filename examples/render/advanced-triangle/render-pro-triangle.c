@@ -22,17 +22,16 @@ const Vertex vertices[] = {
     {{0.5f, -0.5f}, {1.0f, 1.0f, 1.0f}},
     {{0.5f, 0.5f}, {1.0f, 1.0f, 0.0f}},
     {{-0.5f, 0.5f}, {0.5f, 0.0f, 1.0f}},
-    {{-0.5f, -0.5f}, {0.0f, 1.0f, 0.0f}},
 };
 
 // ! All indice data must be in uint16 format
 const uint16_t indexData[] = {
-    0,1,2,2,3,0
+    0,1,2
 };
 
 // size of vertices
-int _verts = 4;
-int _indexes = 6;
+int _verts = 3;
+int _indexes = 3;
 
 int main() {
     printf("Starting...\n");
