@@ -571,55 +571,116 @@ bool finite_render_create_graphics_pipeline(FiniteRender *render, VkPipelineCrea
     return true;
 }
 
-bool finite_render_create_vertex_buffer(FiniteRender *render, FiniteRenderVertexBufferInfo *info) {
+bool finite_render_create_vertex_buffer(FiniteRender *render, FiniteRenderVertexBufferInfo *info, FiniteRenderMemAllocInfo *mem_info, uint64_t vertexSize, FiniteRenderReturnBuffer *rtrn) {
     if (!render) {
         printf("Unable to create new vertex buffer with NULL information Render: %p Info: %p\n", render, info);
         return false;
     }
     
+    // create the buffer info. Do note that this is only used if render.vk_vertexBuf is NULL
     VkBufferCreateInfo buffer_info = {
         .sType = VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO,
         .pNext = info->next,
-        .flags = info->flags,
-        .usage = info->useFlags,
-        .size = info->size,
+        .flags = info->flags, 
+        .size = info->size, // TODO: keep track of previous size to resize the GPU only buffer (render.vk_vertexBuf)
         .sharingMode = info->sharing,
         .queueFamilyIndexCount = info->_fIndex,
         .pQueueFamilyIndices = info->fIndex
     };
 
-    VkResult res = vkCreateBuffer(render->vk_device, &buffer_info, NULL, &render->vk_vertexBuf);
-    if (res != VK_SUCCESS) {
-        printf("[Finite] - Unable to create the Vertex Buffer\n");
-        return false;
+    if (buffer_info.size - vertexSize > 0) {
+        buffer_info.usage = VK_BUFFER_USAGE_VERTEX_BUFFER_BIT | VK_BUFFER_USAGE_INDEX_BUFFER_BIT | info->useFlags; // enforce the required flags
+    } else {
+        buffer_info.usage = VK_BUFFER_USAGE_VERTEX_BUFFER_BIT | info->useFlags; // enforce the required flags
     }
+
+    FiniteRenderReturnBuffer trn;
+    VkMemoryRequirements memRequirements;
+
+    if (rtrn || render->vk_vertexBuf == NULL) {
+        VkResult res = vkCreateBuffer(render->vk_device, &buffer_info, NULL, &trn.buf);
+        if (res != VK_SUCCESS) {
+            printf("[Finite] - Unable to create the Vertex Buffer\n");
+            return false;
+        }
+        
+        if (render->vk_vertexBuf == NULL && !rtrn) {
+            render->vk_vertexBuf = trn.buf;
+        }
+    }
+
+    trn.vertexOffset = (VkDeviceSize) vertexSize;
+
+    if (rtrn) {
+        rtrn->buf = trn.buf;
+        rtrn->vertexOffset = trn.vertexOffset;
+        rtrn->indexOffset = vertexSize;
+        rtrn->vertexSize = vertexSize;
+        rtrn->indexSize = (VkDeviceSize) (buffer_info.size - vertexSize);
+
+        if (rtrn->indexOffset > 0) {
+            rtrn->_indices = true;
+        }
+
+        // ? devs are responsible for setting rtrn.indices before copying it
+
+        vkGetBufferMemoryRequirements(render->vk_device, rtrn->buf, &memRequirements);
     
-    return true;
-}
+    } else {
+        // we want to use the buffer that we already have. If it was NULL it's already been defined above
+        FiniteRenderBuffer *current_buf;
+        VkDeviceSize scale = (VkDeviceSize) (buffer_info.size - vertexSize);
+        VkDeviceSize initialOffset = 0;
+        current_buf = realloc(render->buffers, sizeof(FiniteRenderBuffer) * (render->_buffers + 1));
+        if (!current_buf) {
+            printf("Unable to add new FiniteRenderBuffer to array.\n");
+            exit(EXIT_FAILURE);
+        }
+        render->buffers = current_buf;
 
-bool finite_render_alloc_buffer_memory(FiniteRender *render, FiniteRenderMemAllocInfo *info, VkDeviceSize offset) {
-    if (!render) {
-        printf("Unable to allocate vert buffer memory with NULL information Render: %p Info: %p\n", render, info);
-        return false;
-    }
+        if (render->_buffers > 0) {
+            FiniteRenderBuffer prev = render->buffers[render->_buffers - 1]; // item render._buffers would be the new item we're adding since we've already realloced by this point
+            initialOffset += (prev.indexOffset + prev.indexSize);
+        }
 
-    if (!render->vk_vertexBuf) {
-        printf("Unable to allocate memory for a NULL vertex buffer (%p)\n", render->vk_vertexBuf);
+        FiniteRenderBuffer dest;
+        dest.vertexOffset = initialOffset;
+        dest.indexOffset = initialOffset + vertexSize;
+        dest.indexSize = scale;
+        dest.vertexSize = vertexSize;
+        if (dest.indexSize > 0) {
+            // we want to have an index
+            dest._indices = true;
+        }
+
+        render->buffers[render->_buffers] = dest;
+
+        render->_buffers += 1;
+
+        vkGetBufferMemoryRequirements(render->vk_device, render->vk_vertexBuf, &memRequirements);
     }
 
     VkMemoryAllocateInfo alloc_info = {
         .sType = VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO,
-        .allocationSize = info->size,
-        .memoryTypeIndex = info->type
+        .pNext = mem_info->next,
+        .allocationSize = memRequirements.size,
+        .memoryTypeIndex = finite_render_get_memory_format(render, memRequirements.memoryTypeBits, mem_info->flags)
     };
-    
-    VkResult res = vkAllocateMemory(render->vk_device, &alloc_info, NULL, &render->vk_memory);
+
+    VkResult res = vkAllocateMemory(render->vk_device, &alloc_info, NULL, &trn.mem);
     if (res != VK_SUCCESS) {
         printf("[Finite] - Unable to create the Vertex Buffer Memory\n");
         return false;
     }
 
-    vkBindBufferMemory(render->vk_device, render->vk_vertexBuf, render->vk_memory, offset);
+    if (rtrn) {
+        rtrn->mem = trn.mem;
+        vkBindBufferMemory(render->vk_device, rtrn->buf, rtrn->mem, 0);
+    } else {
+        render->vk_memory = trn.mem;
+        vkBindBufferMemory(render->vk_device, render->vk_vertexBuf, render->vk_memory, 0); // render->buffers[render->_buffers - 1] is now the newest item
+    }
+
     return true;
 }
 

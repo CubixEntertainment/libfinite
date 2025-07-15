@@ -23,6 +23,8 @@ typedef struct FiniteRenderVertexBufferInfo FiniteRenderVertexBufferInfo;
 typedef struct FiniteRenderMemAllocInfo FiniteRenderMemAllocInfo;
 typedef struct FiniteRenderSubmitInfo FiniteRenderSubmitInfo;
 typedef struct FiniteRenderPresentInfo FiniteRenderPresentInfo;
+typedef struct FiniteRenderBuffer FiniteRenderBuffer;
+typedef struct FiniteRenderReturnBuffer FiniteRenderReturnBuffer;
 typedef enum   FiniteShaderType FiniteShaderType;
 
 enum FiniteShaderType {
@@ -61,6 +63,7 @@ struct FiniteRender {
     uint32_t _modules;
     uint32_t _signals;
     uint32_t _fences;
+    uint32_t _buffers; // will rename but refers to the FiniteRenderBuffers
 
     FiniteRenderShaderStages stages;
     
@@ -86,6 +89,7 @@ struct FiniteRender {
     VkCommandPool vk_pool;
     VkCommandBuffer vk_buffer;
 
+    FiniteRenderBuffer *buffers;
     VkBuffer vk_vertexBuf;
     VkDeviceMemory vk_memory;
 
@@ -194,8 +198,29 @@ struct FiniteRenderVertexBufferInfo {
 
 struct FiniteRenderMemAllocInfo {
     const void *next;
-    VkDeviceSize size;
-    uint32_t type;
+    VkMemoryPropertyFlags flags;
+};
+
+struct FiniteRenderBuffer {
+    bool _indices;
+    VkDeviceSize vertexOffset;
+    VkDeviceSize indexOffset;
+    uint32_t vertexSize;
+    uint32_t indexSize;
+    uint32_t indexCount;
+    uint32_t vertexCount;
+};
+
+struct FiniteRenderReturnBuffer {
+    bool _indices;
+    VkBuffer buf;
+    VkDeviceMemory mem;
+    VkDeviceSize vertexOffset;
+    VkDeviceSize indexOffset;
+    uint32_t vertexSize;
+    uint32_t indexSize;
+    uint32_t indexCount;
+    uint32_t vertexCount;
 };
 
 struct FiniteRenderSubmitInfo {
@@ -226,10 +251,11 @@ VkSurfaceFormatKHR finite_render_get_best_format(FiniteRender *render, VkSurface
 VkPresentModeKHR finite_render_get_best_present_mode(FiniteRender *render, VkPresentModeKHR *modes, uint32_t _modes);
 VkExtent2D finite_render_get_best_extent(FiniteRender *render, VkSurfaceCapabilitiesKHR *caps, FiniteShell *shell);
 bool finite_render_check_device(FiniteRender *render, VkPhysicalDevice pDevice);
-void finite_render_record_command_buffer(FiniteRender *render, uint32_t index, VkDeviceSize offset, uint32_t _verts);
+void finite_render_record_command_buffer(FiniteRender *render, uint32_t index);
 bool finite_render_get_shader_module(FiniteRender *render, char *code, uint32_t size);
 void finite_render_cleanup(FiniteRender *render);
 char *finite_render_get_shader_code(const char *fileName, uint32_t *pShaderSize);
 uint32_t finite_render_get_memory_format(FiniteRender *render, uint32_t filter, VkMemoryPropertyFlags props);
+void finite_render_copy_buffer(FiniteRender *render, VkBuffer src, VkBuffer dest, VkDeviceSize size);
 
 #endif

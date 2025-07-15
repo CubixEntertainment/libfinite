@@ -221,14 +221,12 @@ bool finite_render_check_device(FiniteRender *render, VkPhysicalDevice pDevice) 
     return (props.deviceType == VK_PHYSICAL_DEVICE_TYPE_INTEGRATED_GPU || props.deviceType == VK_PHYSICAL_DEVICE_TYPE_DISCRETE_GPU) && feats.geometryShader && extSupported && isSwapchainUsable;
 }
 
-void finite_render_record_command_buffer(FiniteRender *render, uint32_t index, VkDeviceSize offset, uint32_t _verts) {
+void finite_render_record_command_buffer(FiniteRender *render, uint32_t index) {
     VkCommandBufferBeginInfo start_info = {
         .sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO,
         .flags = 0,
         .pInheritanceInfo = NULL
     };
-
-    printf("Recording has begun.\n");
 
     VkResult res = vkBeginCommandBuffer(render->vk_buffer, &start_info);
     if (res != VK_SUCCESS) {
@@ -253,14 +251,6 @@ void finite_render_record_command_buffer(FiniteRender *render, uint32_t index, V
     vkCmdBeginRenderPass(render->vk_buffer, &rstart_info, VK_SUBPASS_CONTENTS_INLINE);
     vkCmdBindPipeline(render->vk_buffer, VK_PIPELINE_BIND_POINT_GRAPHICS, render->vk_pipeline);
 
-    // if there are vertexBuffers then bind them here
-
-    if (render->vk_vertexBuf != NULL) {
-        VkBuffer vertexBuffs[] = {render->vk_vertexBuf};
-        VkDeviceSize offsets[] = {offset};
-        vkCmdBindVertexBuffers(render->vk_buffer, 0, 1, vertexBuffs, offsets);
-    }
-
     // add scissor and viewport info
     VkViewport port = {
         .x = 0.0f,
@@ -278,7 +268,23 @@ void finite_render_record_command_buffer(FiniteRender *render, uint32_t index, V
     };
     vkCmdSetScissor(render->vk_buffer, 0, 1, &scissor);
 
-    vkCmdDraw(render->vk_buffer, _verts, 1, 0, 0);
+        // if there are vertexBuffers then bind them here
+
+    if (render->_buffers > 0) {
+        for (int i = 0; i < render->_buffers; i++) {
+            FiniteRenderBuffer currentBuf = render->buffers[i];
+            vkCmdBindVertexBuffers(render->vk_buffer, 0, 1, &render->vk_vertexBuf, &currentBuf.vertexOffset);
+            // vkCmdDraw(render->vk_buffer, 3, 1, 0, 0);
+            if (currentBuf._indices == true) {
+                vkCmdBindIndexBuffer(render->vk_buffer, render->vk_vertexBuf, currentBuf.indexOffset, VK_INDEX_TYPE_UINT16);
+                vkCmdDrawIndexed(render->vk_buffer, currentBuf.indexCount, 1, 0, 0, 0);
+            } else {
+                vkCmdDraw(render->vk_buffer, currentBuf.vertexCount, 1, 0, 0);
+            }
+        }
+    } else {
+        vkCmdDraw(render->vk_buffer, 3, 1, 0, 0);
+    }
 
 
     // clean up
@@ -288,8 +294,6 @@ void finite_render_record_command_buffer(FiniteRender *render, uint32_t index, V
         printf("[Finite] - Unable to Record command buffer\n");
         exit(EXIT_FAILURE);
     }
-
-    printf("Done.\n");
 }
 
 bool finite_render_get_shader_module(FiniteRender *render, char *code, uint32_t size) {
@@ -347,6 +351,88 @@ uint32_t finite_render_get_memory_format(FiniteRender *render, uint32_t filter, 
     exit(EXIT_FAILURE);
 }
 
+void finite_render_copy_buffer(FiniteRender *render, VkBuffer src, VkBuffer dest, VkDeviceSize size) {
+    // create a temp pool
+    printf("Attempting to create a temporary command pool.\n");
+    VkCommandPoolCreateInfo pool_info = {
+        .sType = VK_STRUCTURE_TYPE_COMMAND_POOL_CREATE_INFO,
+        .flags = VK_COMMAND_POOL_CREATE_TRANSIENT_BIT,
+        .queueFamilyIndex = 0
+    };
+
+    VkCommandPool cmd_poole;
+
+    VkResult res = vkCreateCommandPool(render->vk_device, &pool_info, NULL, &cmd_poole);
+    if (res != VK_SUCCESS) {
+        printf("[Finite] - Unable to create the command pool\n");
+        exit(EXIT_FAILURE);
+    }
+
+    printf("Created a command pool (%p)\n", cmd_poole);
+
+    VkCommandBuffer cmd_buffet;
+
+    VkCommandBufferAllocateInfo alloc_info = {
+        .sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO,
+        .level = VK_COMMAND_BUFFER_LEVEL_PRIMARY,
+        .commandPool = cmd_poole,
+        .commandBufferCount = 1
+    };
+    
+    res = vkAllocateCommandBuffers(render->vk_device, &alloc_info, &cmd_buffet);
+    if (res != VK_SUCCESS) {
+        printf("[Finite] - Unable to create the command buffer\n");
+        exit(EXIT_FAILURE);
+    }
+
+    printf("Created cmd buffer %p\n", cmd_buffet);
+
+    VkCommandBufferBeginInfo cmd = {
+        .sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO,
+        .flags = VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT
+    };
+
+    vkBeginCommandBuffer(cmd_buffet, &cmd);
+
+    VkBufferCopy cpy = {
+        .size = size,
+        .srcOffset = 0,
+        .dstOffset = 0
+    };
+
+    vkCmdCopyBuffer(cmd_buffet, src, dest, 1, &cpy);
+    vkEndCommandBuffer(cmd_buffet);
+
+    // record and ship
+
+    VkSubmitInfo info = {
+        .sType = VK_STRUCTURE_TYPE_SUBMIT_INFO,
+        .commandBufferCount = 1,
+        .pCommandBuffers = &cmd_buffet
+    };
+
+    VkFenceCreateInfo fenceInfo = {
+        .sType = VK_STRUCTURE_TYPE_FENCE_CREATE_INFO
+    };
+
+    VkFence newFence;
+    res = vkCreateFence(render->vk_device, &fenceInfo, NULL, &newFence);
+    if (res != VK_SUCCESS) {
+        printf("[Finite] - Unable to create the fence\n");
+        exit(EXIT_FAILURE);
+    }
+
+    printf("Created temporary fence %p\n", newFence);
+
+    vkQueueSubmit(render->vk_graphicsQueue, 1, &info, newFence);
+    vkWaitForFences(render->vk_device, 1, &newFence, VK_TRUE, UINT64_MAX);
+    printf("Done.\n");
+
+    vkDestroyFence(render->vk_device, newFence, NULL);
+    vkFreeCommandBuffers(render->vk_device, cmd_poole, 1, &cmd_buffet);
+    vkDestroyCommandPool(render->vk_device, cmd_poole, NULL);
+}
+
 void finite_render_cleanup(FiniteRender *render) {
     // clean up shaders FIRST
     if (render->modules != NULL) {
@@ -362,9 +448,7 @@ void finite_render_cleanup(FiniteRender *render) {
     }
     if (render->vk_vertexBuf) {
         vkDestroyBuffer(render->vk_device, render->vk_vertexBuf, NULL);
-        if (render->vk_memory) {
-            vkFreeMemory(render->vk_device, render->vk_memory, NULL);
-        }
+        vkFreeMemory(render->vk_device, render->vk_memory, NULL);
     }
     if (render->vk_pool != NULL) {
         vkDestroyCommandPool(render->vk_device, render->vk_pool, NULL);

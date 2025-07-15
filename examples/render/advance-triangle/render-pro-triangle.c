@@ -4,8 +4,11 @@
 */
 
 #include <finite/draw.h>
+#include <finite/input.h>
 #include <finite/render.h>
+#include <finite/audio.h>
 #include <cglm/call.h>
+#include <pthread.h>
 
 typedef struct Vertex Vertex;
 
@@ -13,16 +16,23 @@ struct Vertex {
     vec2 pos;
     vec3 color;
 };
- 
+
 // in this example we've made the vertex data a global which is generally not a good idea.
 const Vertex vertices[] = {
-    {{0.0f, -0.5f}, {1.0f, 1.0f, 1.0f}},
-    {{0.5f, 0.5f}, {0.0f, 1.0f, 0.0f}},
-    {{-0.5f, 0.5f}, {0.0f, 0.0f, 1.0f}}
+    {{0.5f, -0.5f}, {1.0f, 1.0f, 1.0f}},
+    {{0.5f, 0.5f}, {1.0f, 1.0f, 0.0f}},
+    {{-0.5f, 0.5f}, {0.5f, 0.0f, 1.0f}},
+    {{-0.5f, -0.5f}, {0.0f, 1.0f, 0.0f}},
+};
+
+// ! All indice data must be in uint16 format
+const uint16_t indexData[] = {
+    0,1,2,2,3,0
 };
 
 // size of vertices
-int _verts = 3;
+int _verts = 4;
+int _indexes = 6;
 
 int main() {
     printf("Starting...\n");
@@ -30,6 +40,13 @@ int main() {
     // Create a window to draw the triangle
     FiniteShell *myShell = finite_shell_init("wayland-0");
     finite_window_init(myShell);
+
+    // ! In order for your game to be Infinite compliant you can not resize the window. Here I resize it to make execution easier
+    FiniteWindowInfo *det = myShell->details;
+    int32_t true_width = det->width;
+    int32_t true_height = det->height;
+
+    finite_window_size_set(myShell, ((true_width * 20) / 100), ((true_height *25) / 100), ((true_width * 60) / 100), ((true_height *50) / 100));
 
     // initialize the renderer
     // ? Passing NULL does NOT set zero extensions. It just tells libfinite to use the default ones
@@ -74,7 +91,7 @@ int main() {
     finite_render_create_example_render_pass(render);
 
     finite_render_create_framebuffers(render);
-    
+
     // load shaders
     uint32_t vertSize;
     char *vertCode = finite_render_get_shader_code("/path/to/vertex/shader.spv", &vertSize);
@@ -258,30 +275,49 @@ int main() {
     // now create the command buffer and autocreate a pool
     // ? for a custom pool, set autocreate to false
     finite_render_create_command_buffer(render, true, true, 1);
-
+    // this is the total amount of NEW SPACE needed to create the buffer
+    // ? DO NOT try to calculate the total size of the buffer to create new space as it will result in errors.
     FiniteRenderVertexBufferInfo vertex_buffer_info = {
-        .size = sizeof(vertices[0]) * _verts,
-        .useFlags = VK_BUFFER_USAGE_VERTEX_BUFFER_BIT,
+        .size = (sizeof(Vertex) * _verts) + (sizeof(uint16_t) * _indexes),
+        .useFlags = VK_BUFFER_USAGE_TRANSFER_SRC_BIT,
         .sharing = VK_SHARING_MODE_EXCLUSIVE
     };
 
-    finite_render_create_vertex_buffer(render, &vertex_buffer_info);
-
-    VkMemoryRequirements memRequirements;
-    vkGetBufferMemoryRequirements(render->vk_device, render->vk_vertexBuf, &memRequirements);
-
     FiniteRenderMemAllocInfo mem_alloc_info = {
-        .size = memRequirements.size,
-        .type = finite_render_get_memory_format(render, memRequirements.memoryTypeBits, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT)
+        .flags = VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT
     };
 
-    finite_render_alloc_buffer_memory(render, &mem_alloc_info, 0);
+    bool prog;
+    FiniteRenderReturnBuffer point;
+    prog = finite_render_create_vertex_buffer(render, &vertex_buffer_info, &mem_alloc_info, sizeof(Vertex) * _verts, &point);
+    if (!prog) {
+        exit(EXIT_FAILURE);
+    }
 
     // as a dev you must manually map the vertex buffer when using custom vertex
     void *data;
-    vkMapMemory(render->vk_device, render->vk_memory, 0, vertex_buffer_info.size, 0, &data);
-    memcpy(data, vertices, (size_t)vertex_buffer_info.size);
-    vkUnmapMemory(render->vk_device, render->vk_memory);
+    vkMapMemory(render->vk_device, point.mem, 0, vertex_buffer_info.size, 0, &data);
+    memcpy(data, vertices, (size_t) (sizeof(Vertex) * _verts));
+    // ! Make sure to offset the data so memcpy doesnt overwrite
+    void *index = (char *)data + sizeof(Vertex) *_verts;
+    memcpy(index, indexData, (size_t) (sizeof(uint16_t) * _indexes));
+    vkUnmapMemory(render->vk_device, point.mem);
+
+    vertex_buffer_info.useFlags = VK_BUFFER_USAGE_TRANSFER_DST_BIT;
+    mem_alloc_info.flags = VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT;
+
+    prog = finite_render_create_vertex_buffer(render, &vertex_buffer_info, &mem_alloc_info, sizeof(Vertex) * _verts, NULL);
+    if (!prog) {
+        exit(EXIT_FAILURE);
+    }
+
+    finite_render_copy_buffer(render, point.buf, render->vk_vertexBuf, (point.vertexSize + point.indexSize));
+    // add count data
+    render->buffers[0]._indices = true;
+    render->buffers[0].indexCount = _indexes;
+    render->buffers[0].vertexCount = _verts;
+
+    printf("Rendering object %p: vtx=%u, idx=%u, vtxOffset=%lu (%lu), idxOffset=%lu (%lu)\n", render->buffers, render->buffers[0].vertexCount, render->buffers[0].indexCount, render->buffers[0].vertexOffset,(sizeof(Vertex) * _verts), render->buffers[0].indexOffset,  (sizeof(uint32_t) * _indexes));
 
     // create two semaphores and one fence
     finite_render_create_semaphore(render); //images available
@@ -302,7 +338,7 @@ int main() {
         vkAcquireNextImageKHR(render->vk_device, render->vk_swapchain, UINT64_MAX, render->signals[0], VK_NULL_HANDLE, &index);
 
         vkResetCommandBuffer(render->vk_buffer, 0);
-        finite_render_record_command_buffer(render, index,0, _verts);
+        finite_render_record_command_buffer(render, index);
 
         VkPipelineStageFlags waitStage = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT;
         vkResetFences(render->vk_device, 1, &render->fences[0]);
