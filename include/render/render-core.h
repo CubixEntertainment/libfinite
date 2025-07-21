@@ -2,6 +2,7 @@
 #define __RENDER_CORE_H__
 
 #define VK_USE_PLATFORM_WAYLAND_KHR
+#define MAX_FRAMES_IN_FLIGHT 2
 #include <vulkan/vulkan.h>
 #include <vulkan/vulkan_wayland.h>
 #include <finite/draw.h>
@@ -19,12 +20,15 @@ typedef struct FiniteRenderRasterState FiniteRenderRasterState;
 typedef struct FiniteRenderMultisampleStateInfo FiniteRenderMultisampleStateInfo;
 typedef struct FiniteRenderColorAttachmentInfo FiniteRenderColorAttachmentInfo;
 typedef struct FiniteRenderColorBlendInfo FiniteRenderColorBlendInfo;
-typedef struct FiniteRenderVertexBufferInfo FiniteRenderVertexBufferInfo;
+typedef struct FiniteRenderBufferInfo FiniteRenderBufferInfo;
 typedef struct FiniteRenderMemAllocInfo FiniteRenderMemAllocInfo;
 typedef struct FiniteRenderSubmitInfo FiniteRenderSubmitInfo;
 typedef struct FiniteRenderPresentInfo FiniteRenderPresentInfo;
 typedef struct FiniteRenderBuffer FiniteRenderBuffer;
 typedef struct FiniteRenderReturnBuffer FiniteRenderReturnBuffer;
+typedef struct FiniteRenderDescriptorSetLayout FiniteRenderDescriptorSetLayout;
+typedef struct FiniteRenderDescriptorPoolInfo FiniteRenderDescriptorPoolInfo;
+typedef struct FiniteRenderWriteSetInfo FiniteRenderWriteSetInfo; 
 typedef enum   FiniteShaderType FiniteShaderType;
 
 enum FiniteShaderType {
@@ -64,6 +68,7 @@ struct FiniteRender {
     uint32_t _signals;
     uint32_t _fences;
     uint32_t _buffers; // will rename but refers to the FiniteRenderBuffers
+    uint32_t _currentFrame;
 
     FiniteRenderShaderStages stages;
     
@@ -87,11 +92,18 @@ struct FiniteRender {
     VkShaderModule *modules; // array of shader modules
     VkFramebuffer *vk_frameBufs;
     VkCommandPool vk_pool;
-    VkCommandBuffer vk_buffer;
+    VkCommandBuffer *vk_buffer;
 
     FiniteRenderBuffer *buffers;
     VkBuffer vk_vertexBuf;
+    VkBuffer *vk_uniformBuf;
     VkDeviceMemory vk_memory;
+    VkDeviceMemory *vk_uniformMemory;
+    VkDescriptorSetLayout vk_descriptorLayout;
+    VkDescriptorSet *vk_descriptor;
+    void **uniformData;
+
+    VkDescriptorPool vk_descPool;
 
     VkSemaphore *signals;
     VkFence *fences;
@@ -186,7 +198,7 @@ struct FiniteRenderColorBlendInfo {
     float blendConstants[4];
 };
 
-struct FiniteRenderVertexBufferInfo {
+struct FiniteRenderBufferInfo {
     const void *next;
     VkBufferCreateFlags flags;
     VkDeviceSize size;
@@ -221,6 +233,33 @@ struct FiniteRenderReturnBuffer {
     uint32_t indexSize;
     uint32_t indexCount;
     uint32_t vertexCount;
+};
+
+struct FiniteRenderDescriptorSetLayout {
+    uint32_t binding;
+    uint32_t _descriptors;
+    VkDescriptorType type;
+    VkShaderStageFlags flags;
+    VkSampler *samplers;
+};
+
+struct FiniteRenderDescriptorPoolInfo {
+    const void *next;
+    VkDescriptorPoolCreateFlags flags;
+    uint32_t _poolSizes;
+    VkDescriptorPoolSize *poolSizes;
+};
+
+struct FiniteRenderWriteSetInfo{
+    const void *next;
+    VkDescriptorSet dstSet;
+    uint32_t dstBinding;
+    uint32_t dstArrayElement;
+    uint32_t _descriptors;
+    VkDescriptorType descriptorType;
+    const VkDescriptorImageInfo *imageInfo;
+    const VkDescriptorBufferInfo *bufferInfo;
+    const VkBufferView *texelBufferView;
 };
 
 struct FiniteRenderSubmitInfo {

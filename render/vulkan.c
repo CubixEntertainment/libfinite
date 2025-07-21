@@ -534,6 +534,34 @@ VkPipelineColorBlendStateCreateInfo finite_render_create_color_blend_state(Finit
     return blend_state_info;
 }
 
+bool finite_render_create_descriptor_layout(FiniteRender *render,FiniteRenderDescriptorSetLayout *info) {
+    if (!render) {
+        printf("Unable to create new color descriptor set with NULL render (%p)\n", render);
+        return false;
+    }
+
+    VkDescriptorSetLayoutBinding ubo;
+    ubo.binding = info->binding;
+    ubo.descriptorCount = info->_descriptors;
+    ubo.descriptorType = info->type;
+    ubo.stageFlags = info->flags;
+    ubo.pImmutableSamplers = info->samplers;
+
+    VkDescriptorSetLayoutCreateInfo layout_info = {
+        .sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO,
+        .bindingCount = 1,
+        .pBindings = &ubo
+    };
+
+    VkResult res = vkCreateDescriptorSetLayout(render->vk_device, &layout_info, NULL, &render->vk_descriptorLayout);
+    if (res != VK_SUCCESS) {
+        printf("Unable to create descriptor set(s).\n");
+        return false;
+    }
+
+    return true;
+}
+
 bool finite_render_create_graphics_pipeline(FiniteRender *render, VkPipelineCreateFlags flags, VkPipelineVertexInputStateCreateInfo *vertex, VkPipelineInputAssemblyStateCreateInfo *assemble, VkPipelineTessellationStateCreateInfo *tess, VkPipelineViewportStateCreateInfo *port, VkPipelineRasterizationStateCreateInfo *raster, VkPipelineMultisampleStateCreateInfo *sample, VkPipelineColorBlendStateCreateInfo *blend, VkPipelineDynamicStateCreateInfo *dyna)  {
     if (!render) {
         printf("Unable to create new color blend state with NULL render (%p)\n", render);
@@ -571,7 +599,7 @@ bool finite_render_create_graphics_pipeline(FiniteRender *render, VkPipelineCrea
     return true;
 }
 
-bool finite_render_create_vertex_buffer(FiniteRender *render, FiniteRenderVertexBufferInfo *info, FiniteRenderMemAllocInfo *mem_info, uint64_t vertexSize, FiniteRenderReturnBuffer *rtrn) {
+bool finite_render_create_vertex_buffer(FiniteRender *render, FiniteRenderBufferInfo *info, FiniteRenderMemAllocInfo *mem_info, uint64_t vertexSize, FiniteRenderReturnBuffer *rtrn) {
     if (!render) {
         printf("Unable to create new vertex buffer with NULL information Render: %p Info: %p\n", render, info);
         return false;
@@ -684,6 +712,148 @@ bool finite_render_create_vertex_buffer(FiniteRender *render, FiniteRenderVertex
     return true;
 }
 
+bool finite_render_create_uniform_buffer(FiniteRender *render, FiniteRenderBufferInfo *info, FiniteRenderMemAllocInfo *mem_info) {
+    if (!render) {
+        printf("Unable to create new uniform buffer with NULL information Render: %p Info: %p\n", render, info);
+        return false;
+    }
+
+    render->vk_uniformBuf = malloc(sizeof(VkBuffer) * MAX_FRAMES_IN_FLIGHT);
+    render->vk_uniformMemory = malloc(sizeof(VkDeviceMemory) * MAX_FRAMES_IN_FLIGHT);
+    render->uniformData = malloc(info->size);
+    VkMemoryRequirements memRequirements;
+
+    VkBufferCreateInfo buffer_info = {
+        .sType = VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO,
+        .pNext = info->next,
+        .flags = info->flags,
+        .usage = VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT | info->useFlags,
+        .size = info->size, // TODO: keep track of previous size to resize the GPU only buffer (render.vk_vertexBuf)
+        .sharingMode = info->sharing,
+        .queueFamilyIndexCount = info->_fIndex,
+        .pQueueFamilyIndices = info->fIndex
+    };
+
+    for (int i = 0; i < MAX_FRAMES_IN_FLIGHT; i++) {
+        VkResult res = vkCreateBuffer(render->vk_device, &buffer_info, NULL, &render->vk_uniformBuf[i]);
+        if (res != VK_SUCCESS) {
+            printf("[Finite] - Unable to create the Vertex Buffer\n");
+            return false;
+        }
+
+        vkGetBufferMemoryRequirements(render->vk_device, render->vk_uniformBuf[i], &memRequirements);
+
+        VkMemoryAllocateInfo alloc_info = {
+            .sType = VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO,
+            .pNext = mem_info->next,
+            .allocationSize = memRequirements.size,
+            .memoryTypeIndex = finite_render_get_memory_format(render, memRequirements.memoryTypeBits, mem_info->flags)
+        };
+
+        res = vkAllocateMemory(render->vk_device, &alloc_info, NULL, &render->vk_uniformMemory[i]);
+        if (res != VK_SUCCESS) {
+            printf("[Finite] - Unable to create uniform buffer memory\n");
+            return false;
+        }
+
+        vkBindBufferMemory(render->vk_device, render->vk_uniformBuf[i], render->vk_uniformMemory[i], 0);
+
+        printf("Created Uniform buffer %d\n", i);
+        vkMapMemory(render->vk_device, render->vk_uniformMemory[i], 0, info->size, 0, &render->uniformData[i]);
+    }
+
+    return true;
+}
+
+// when autoCreate = true, a descriptor set will be automatically created
+bool finite_render_create_descriptor_pool(FiniteRender *render, FiniteRenderDescriptorPoolInfo *info, bool autoCreate) {
+    if (!render) {
+        printf("Unable to create a descriptor pool with NULL render (%p)\n", render);
+        return false;
+    }
+
+    VkDescriptorPoolSize pool_size = {
+        .type = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER,
+        .descriptorCount = (uint32_t) MAX_FRAMES_IN_FLIGHT
+    };
+
+    uint32_t _poolSizes = 1;
+    VkDescriptorPoolSize *poolSizes = &pool_size; 
+    VkDescriptorPoolCreateFlags flags = 0;
+    
+    if (info) { 
+        _poolSizes = info->_poolSizes;
+        poolSizes = info->poolSizes;
+        flags = info->flags;
+    }
+    
+    VkDescriptorPoolCreateInfo pool_info = {
+        .sType = VK_STRUCTURE_TYPE_DESCRIPTOR_POOL_CREATE_INFO,
+        .poolSizeCount = _poolSizes,
+        .pPoolSizes = (const VkDescriptorPoolSize*) poolSizes,
+        .flags = flags,
+        .maxSets = (uint32_t) MAX_FRAMES_IN_FLIGHT
+    };
+
+    VkResult res = vkCreateDescriptorPool(render->vk_device, &pool_info, NULL, &render->vk_descPool);
+    if (res != VK_SUCCESS) {
+        printf("[Finite] - Unable to create a descriptor pool.\n");
+        return false;
+    }
+
+    printf("Created Descriptor Pool\n");
+
+    if (autoCreate) {
+        VkDescriptorSetLayout layouts[MAX_FRAMES_IN_FLIGHT];
+        for (int i = 0; i < MAX_FRAMES_IN_FLIGHT; i++) {
+            layouts[i] = render->vk_descriptorLayout;
+        }
+        
+        VkDescriptorSetAllocateInfo alloc_info = {
+            .sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_ALLOCATE_INFO,
+            .descriptorPool = render->vk_descPool,
+            .descriptorSetCount = MAX_FRAMES_IN_FLIGHT,
+            .pSetLayouts = layouts
+        };
+
+        printf("Allocating %u descriptor sets from pool...\n", alloc_info.descriptorSetCount);
+
+        render->vk_descriptor = malloc(sizeof(VkDescriptorSet) * MAX_FRAMES_IN_FLIGHT);
+        VkResult res = vkAllocateDescriptorSets(render->vk_device, &alloc_info, render->vk_descriptor);
+        if (res != VK_SUCCESS) {
+            printf("[Finite] - Unable to create a descriptor set.\n");
+            return false;
+        }        
+    }
+
+    printf("Allocated descriptors\n");
+
+    return true;
+}
+
+bool finite_render_write_to_descriptor(FiniteRender *render, FiniteRenderWriteSetInfo *info) {
+    if (!render) {
+        printf("Unable to write to a descriptor with a NULL render (%p)\n", render);
+        return false;
+    }
+
+    VkWriteDescriptorSet write_to_info = {
+        .sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET,
+        .dstSet = info->dstSet,
+        .dstBinding = info->dstBinding,
+        .dstArrayElement = info->dstArrayElement,
+        .descriptorType = info->descriptorType,
+        .descriptorCount = info->_descriptors,
+        .pBufferInfo = info->bufferInfo,
+        .pImageInfo = info->imageInfo,
+        .pTexelBufferView = info->texelBufferView
+    };
+
+    vkUpdateDescriptorSets(render->vk_device, 1, &write_to_info, 0, NULL);
+
+    return true;
+}
+
 bool finite_render_create_command_buffer(FiniteRender *render, bool autocreate, bool isPrimary, uint32_t _buffs) {
     if (autocreate && render->vk_pool == NULL) {
         // create a command pool
@@ -703,14 +873,16 @@ bool finite_render_create_command_buffer(FiniteRender *render, bool autocreate, 
         printf("Created a command pool (%p)\n", render->vk_pool);
     }
 
+    render->vk_buffer = malloc(sizeof(VkCommandBuffer) * MAX_FRAMES_IN_FLIGHT);
+
     VkCommandBufferAllocateInfo alloc_info = {
         .sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO,
         .commandPool = render->vk_pool,
         .level = isPrimary ? VK_COMMAND_BUFFER_LEVEL_PRIMARY : VK_COMMAND_BUFFER_LEVEL_SECONDARY,
-        .commandBufferCount = _buffs
+        .commandBufferCount = MAX_FRAMES_IN_FLIGHT
     };
 
-    VkResult res = vkAllocateCommandBuffers(render->vk_device, &alloc_info, &render->vk_buffer);
+    VkResult res = vkAllocateCommandBuffers(render->vk_device, &alloc_info, render->vk_buffer);
     if (res != VK_SUCCESS) {
         printf("[Finite] - Unable to create the command buffer\n");
         return false;

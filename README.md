@@ -12,6 +12,7 @@ List is subject to change
 - [x] Controller Input
 - [x] Vulkan Rendering
 - [x] Vulkan Triangle Example
+- [x] Vulkan Rendering (with basic 3D rendering)
 - [ ] Vulkan Rendering (with mesh loading)
 - [ ] Vulkan Memory Allocation Integration
 - [x] Audio

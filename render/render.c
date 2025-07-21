@@ -228,7 +228,7 @@ void finite_render_record_command_buffer(FiniteRender *render, uint32_t index) {
         .pInheritanceInfo = NULL
     };
 
-    VkResult res = vkBeginCommandBuffer(render->vk_buffer, &start_info);
+    VkResult res = vkBeginCommandBuffer(render->vk_buffer[render->_currentFrame], &start_info);
     if (res != VK_SUCCESS) {
         printf("[Finite] - Unable to start command buffer recording.\n");
         exit(EXIT_FAILURE);
@@ -248,8 +248,8 @@ void finite_render_record_command_buffer(FiniteRender *render, uint32_t index) {
         .pClearValues = &clear,
     };
 
-    vkCmdBeginRenderPass(render->vk_buffer, &rstart_info, VK_SUBPASS_CONTENTS_INLINE);
-    vkCmdBindPipeline(render->vk_buffer, VK_PIPELINE_BIND_POINT_GRAPHICS, render->vk_pipeline);
+    vkCmdBeginRenderPass(render->vk_buffer[render->_currentFrame], &rstart_info, VK_SUBPASS_CONTENTS_INLINE);
+    vkCmdBindPipeline(render->vk_buffer[render->_currentFrame], VK_PIPELINE_BIND_POINT_GRAPHICS, render->vk_pipeline);
 
     // add scissor and viewport info
     VkViewport port = {
@@ -260,36 +260,40 @@ void finite_render_record_command_buffer(FiniteRender *render, uint32_t index) {
         .minDepth = 0.0f,
         .maxDepth = 1.0f
     };
-    vkCmdSetViewport(render->vk_buffer, 0, 1, &port);
+    vkCmdSetViewport(render->vk_buffer[render->_currentFrame], 0, 1, &port);
 
     VkRect2D scissor = {
         .offset = {0,0},
         .extent = render->vk_extent
     };
-    vkCmdSetScissor(render->vk_buffer, 0, 1, &scissor);
+    vkCmdSetScissor(render->vk_buffer[render->_currentFrame], 0, 1, &scissor);
 
         // if there are vertexBuffers then bind them here
 
     if (render->_buffers > 0) {
         for (int i = 0; i < render->_buffers; i++) {
             FiniteRenderBuffer currentBuf = render->buffers[i];
-            vkCmdBindVertexBuffers(render->vk_buffer, 0, 1, &render->vk_vertexBuf, &currentBuf.vertexOffset);
-            // vkCmdDraw(render->vk_buffer, 3, 1, 0, 0);
+            vkCmdBindVertexBuffers(render->vk_buffer[render->_currentFrame], 0, 1, &render->vk_vertexBuf, &currentBuf.vertexOffset);
+            if (render->vk_descriptor != NULL) {
+                printf("Attempting to bind set %d\n", render->_currentFrame);
+                vkCmdBindDescriptorSets(render->vk_buffer[render->_currentFrame], VK_PIPELINE_BIND_POINT_GRAPHICS, render->vk_layout, 0, 1, &render->vk_descriptor[render->_currentFrame], 0, NULL);
+                printf("Done with set %d\n", render->_currentFrame);
+            }
             if (currentBuf._indices == true) {
-                vkCmdBindIndexBuffer(render->vk_buffer, render->vk_vertexBuf, currentBuf.indexOffset, VK_INDEX_TYPE_UINT16);
-                vkCmdDrawIndexed(render->vk_buffer, currentBuf.indexCount, 1, 0, 0, 0);
+                vkCmdBindIndexBuffer(render->vk_buffer[render->_currentFrame], render->vk_vertexBuf, currentBuf.indexOffset, VK_INDEX_TYPE_UINT16);
+                vkCmdDrawIndexed(render->vk_buffer[render->_currentFrame], currentBuf.indexCount, 1, 0, 0, 0);
             } else {
-                vkCmdDraw(render->vk_buffer, currentBuf.vertexCount, 1, 0, 0);
+                vkCmdDraw(render->vk_buffer[render->_currentFrame], currentBuf.vertexCount, 1, 0, 0);
             }
         }
     } else {
-        vkCmdDraw(render->vk_buffer, 3, 1, 0, 0);
+        vkCmdDraw(render->vk_buffer[render->_currentFrame], 3, 1, 0, 0);
     }
 
 
     // clean up
-    vkCmdEndRenderPass(render->vk_buffer);
-    res = vkEndCommandBuffer(render->vk_buffer);
+    vkCmdEndRenderPass(render->vk_buffer[render->_currentFrame]);
+    res = vkEndCommandBuffer(render->vk_buffer[render->_currentFrame]);
     if (res != VK_SUCCESS) {
         printf("[Finite] - Unable to Record command buffer\n");
         exit(EXIT_FAILURE);
@@ -450,6 +454,14 @@ void finite_render_cleanup(FiniteRender *render) {
         vkDestroyBuffer(render->vk_device, render->vk_vertexBuf, NULL);
         vkFreeMemory(render->vk_device, render->vk_memory, NULL);
     }
+    for (int i = 0; i < MAX_FRAMES_IN_FLIGHT; i++) {
+        vkDestroyBuffer(render->vk_device, render->vk_uniformBuf[i], NULL);
+        vkFreeMemory(render->vk_device, render->vk_uniformMemory[i], NULL);
+    }
+    if (render->vk_descPool) {
+        free(render->uniformData);
+        vkDestroyDescriptorPool(render->vk_device, render->vk_descPool, NULL);
+    }
     if (render->vk_pool != NULL) {
         vkDestroyCommandPool(render->vk_device, render->vk_pool, NULL);
     }
@@ -467,6 +479,9 @@ void finite_render_cleanup(FiniteRender *render) {
     }
     if (render->vk_swapchain != NULL) {
         vkDestroySwapchainKHR(render->vk_device, render->vk_swapchain, NULL);
+    }
+    if (render->vk_descriptorLayout != NULL) {
+        vkDestroyDescriptorSetLayout(render->vk_device, render->vk_descriptorLayout, NULL);
     }
     if (render->vk_device != NULL) {
         vkDestroyDevice(render->vk_device, NULL);

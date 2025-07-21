@@ -9,12 +9,35 @@
 #include <finite/audio.h>
 #include <cglm/call.h>
 #include <pthread.h>
+#include <stdint.h>
+#include <stdio.h>
+
 
 typedef struct Vertex Vertex;
+typedef struct UniformBufferObject UniformBufferObject;
 
 struct Vertex {
     vec2 pos;
     vec3 color;
+};
+
+
+/*
+    Vulkan expects the data in your structure to be aligned in memory in a specific way, for example:
+
+    Scalars have to be aligned by N (= 4 bytes given 32 bit floats).
+    A vec2 must be aligned by 2N (= 8 bytes)
+    A vec3 or vec4 must be aligned by 4N (= 16 bytes)
+    A nested structure must be aligned by the base alignment of its members rounded up to a multiple of 16.
+    A mat4 matrix must have the same alignment as a vec4.
+
+    You can find the full list of alignment requirements in the specification.
+    https://www.khronos.org/registry/vulkan/specs/1.3-extensions/html/chap15.html#interfaces-resources-layout
+*/
+struct UniformBufferObject {
+    mat4 model;
+    mat4 view;
+    mat4 proj;
 };
 
 // in this example we've made the vertex data a global which is generally not a good idea.
@@ -22,16 +45,62 @@ const Vertex vertices[] = {
     {{0.5f, -0.5f}, {1.0f, 1.0f, 1.0f}},
     {{0.5f, 0.5f}, {1.0f, 1.0f, 0.0f}},
     {{-0.5f, 0.5f}, {0.5f, 0.0f, 1.0f}},
+    {{-0.5f, -0.5f}, {0.0f, 1.0f, 0.0f}},
 };
 
-// ! All indice data must be in uint16 format
+// ! All indice data must be in uint32 format/
 const uint16_t indexData[] = {
-    0,1,2
+    0,1,2,2,3,0
 };
 
 // size of vertices
-int _verts = 3;
-int _indexes = 3;
+int _verts = 4;
+int _indexes = 6;
+
+void updateUniformBuffer(FiniteRender *render, uint32_t current) {
+    static struct timespec startTime = {0};
+    struct timespec currentTime;
+    double time;
+
+    if (startTime.tv_sec == 0 && startTime.tv_nsec == 0) {
+        // First call, initialize startTime
+        clock_gettime(CLOCK_MONOTONIC, &startTime);
+    }
+
+    clock_gettime(CLOCK_MONOTONIC, &currentTime);
+
+    time = (currentTime.tv_sec - startTime.tv_sec) + (currentTime.tv_nsec - startTime.tv_nsec) / 1e9;
+
+    UniformBufferObject ubo = {0};
+
+    vec3 axis = { 0.0f, 0.0f, 1.0f };
+    float angle = glm_rad(90.0f) * time;
+
+    vec3 eye = {2.0f, 2.0f, 2.0f};
+    vec3 center = {0.0f, 0.0f, 0.0f};
+    vec3 up = {0.0f, 0.0f, 1.0f};
+
+    float fov = glm_rad(45.0f);
+    float aspect = render->vk_extent.width / (float) render->vk_extent.height;
+    float near = 0.1f;
+    float far = 10.0f;
+
+    glm_mat4_identity(ubo.model);
+    glm_rotate(ubo.model, angle, axis);
+
+    glm_mat4_identity(ubo.view);
+    glm_lookat(eye, center, up, ubo.view);
+
+    glm_mat4_identity(ubo.proj);
+    glm_perspective(fov, aspect, near, far, ubo.proj);
+
+    ubo.proj[1][1] *= -1;
+
+    printf("Adr: %p (%d)\n", render->uniformData[render->_currentFrame], render->_currentFrame);
+
+    // map this to the current buffer
+    memcpy(render->uniformData[render->_currentFrame], &ubo, sizeof(UniformBufferObject));    
+}
 
 int main() {
     printf("Starting...\n");
@@ -82,7 +151,7 @@ int main() {
     // use those details to make a swapchain
     finite_render_create_swapchain(render, info);
 
-    //create the swapchain images
+    //create the swapchain imagesubo.proj[1][1] *= -1;
     finite_render_create_swapchain_images(render);
 
     // create a render pass
@@ -93,7 +162,7 @@ int main() {
 
     // load shaders
     uint32_t vertSize;
-    char *vertCode = finite_render_get_shader_code("/path/to/vertex/shader.spv", &vertSize);
+    char *vertCode = finite_render_get_shader_code("vert.spv", &vertSize);
     bool success = finite_render_get_shader_module(render, vertCode, vertSize);
 
     if (!success) {
@@ -102,7 +171,7 @@ int main() {
     }
 
     uint32_t fragSize;
-    char *fragCode = finite_render_get_shader_code("/path/to/fragment/shader.spv", &fragSize);
+    char *fragCode = finite_render_get_shader_code("frag.spv", &fragSize);
     success = finite_render_get_shader_module(render, fragCode, fragSize);
 
     if (!success) {
@@ -110,12 +179,23 @@ int main() {
         return -1;
     }
 
+    // create descriptor
+    FiniteRenderDescriptorSetLayout bindInfo = {
+        .binding = 0,
+        ._descriptors = 1,
+        .type = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER,
+        .flags = VK_SHADER_STAGE_VERTEX_BIT,
+        .samplers = NULL
+    };
+
+    finite_render_create_descriptor_layout(render, &bindInfo);
+
     FiniteRenderPipelineLayoutInfo pipe_info = {
         .flags = 0,
         ._pushRange = 0 ,
         .pushRange = VK_NULL_HANDLE,
-        ._setConsts = 0,
-        .setConsts = VK_NULL_HANDLE
+        ._setConsts = 1,
+        .setConsts = &render->vk_descriptorLayout
     };
 
     finite_render_create_pipeline_layout(render, &pipe_info);
@@ -212,7 +292,7 @@ int main() {
         .rasterizerDiscardEnable = false,
         .polygonMode = VK_POLYGON_MODE_FILL,
         .cullMode = VK_CULL_MODE_BACK_BIT,
-        .frontFace = VK_FRONT_FACE_CLOCKWISE,
+        .frontFace = VK_FRONT_FACE_COUNTER_CLOCKWISE,
         .depthBiasEnable = false,
         .depthBiasConstantFactor = 0.0f,
         .depthBiasClamp = 0.0f,
@@ -318,10 +398,46 @@ int main() {
 
     printf("Rendering object %p: vtx=%u, idx=%u, vtxOffset=%lu (%lu), idxOffset=%lu (%lu)\n", render->buffers, render->buffers[0].vertexCount, render->buffers[0].indexCount, render->buffers[0].vertexOffset,(sizeof(Vertex) * _verts), render->buffers[0].indexOffset,  (sizeof(uint32_t) * _indexes));
 
-    // create two semaphores and one fence
-    finite_render_create_semaphore(render); //images available
-    finite_render_create_semaphore(render); // renderFinished
-    finite_render_create_fence(render, VK_FENCE_CREATE_SIGNALED_BIT);
+    FiniteRenderBufferInfo uniform_buffer_info = {
+        .size = sizeof(UniformBufferObject),
+        .sharing = VK_SHARING_MODE_EXCLUSIVE
+    };
+
+    FiniteRenderMemAllocInfo uniform_alloc_info = {
+        .flags = VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT
+    };
+
+    finite_render_create_uniform_buffer(render, &uniform_buffer_info, &uniform_alloc_info);
+
+    finite_render_create_descriptor_pool(render, NULL, true);
+
+    for (int i = 0; i < MAX_FRAMES_IN_FLIGHT; i++) {
+        VkDescriptorBufferInfo buffer_info = {
+            .buffer = render->vk_uniformBuf[i],
+            .offset = 0,
+            .range = sizeof(UniformBufferObject)
+        };
+
+        FiniteRenderWriteSetInfo write_info = {
+            .dstSet = render->vk_descriptor[i],
+            .dstBinding = 0,
+            .dstArrayElement = 0,
+            .descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER,
+            ._descriptors = 1,
+            .bufferInfo = &buffer_info,
+            .imageInfo = NULL,
+            .texelBufferView = NULL
+        };
+
+        finite_render_write_to_descriptor(render, &write_info);
+    }
+
+    for (int i = 0; i < MAX_FRAMES_IN_FLIGHT; i++) {
+        // create two semaphores and one fence
+        finite_render_create_semaphore(render); //images available
+        finite_render_create_semaphore(render); // renderFinished
+        finite_render_create_fence(render, VK_FENCE_CREATE_SIGNALED_BIT);
+    }
 
     // * use pending state!!!
 
@@ -330,28 +446,43 @@ int main() {
 
     // create wayland frame loop
     while (wl_display_dispatch_pending(myShell->display) != -1) {
+        // with framesInFlight we need to offset where the indexes are. For reference:
+        // 0 -> imagesAvailable
+        // 1 -> renderFinished
+        // so offset is i + (2 * currentFrame) with since its two items.
+
+        int currentFence = 0 + (1 * render->_currentFrame);
+        int currentSignal = 0 + (2 * render->_currentFrame);
+
+        printf("Current Fence: %d (%p) \nCurrent Signal: %d (%p)\n", currentFence, render->fences[currentFence], currentSignal, render->signals[currentSignal]);
+
         // handle custom rendering here
-        vkWaitForFences(render->vk_device, 1, &render->fences[0], VK_TRUE, UINT64_MAX);
+        vkWaitForFences(render->vk_device, 1, &render->fences[currentFence], VK_TRUE, UINT64_MAX);
+
+        vkResetFences(render->vk_device, 1, &render->fences[currentFence]);
 
         uint32_t index;
-        vkAcquireNextImageKHR(render->vk_device, render->vk_swapchain, UINT64_MAX, render->signals[0], VK_NULL_HANDLE, &index);
+        vkAcquireNextImageKHR(render->vk_device, render->vk_swapchain, UINT64_MAX, render->signals[currentSignal], VK_NULL_HANDLE, &index);
 
-        vkResetCommandBuffer(render->vk_buffer, 0);
+        vkResetCommandBuffer(render->vk_buffer[render->_currentFrame], 0);
+        printf("recording\n");
         finite_render_record_command_buffer(render, index);
-
+        printf("Attempting to rotate\n");
+        updateUniformBuffer(render, index);
+        printf("Rotate finished\n");
         VkPipelineStageFlags waitStage = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT;
-        vkResetFences(render->vk_device, 1, &render->fences[0]);
 
         FiniteRenderSubmitInfo submit_info = {
             ._waitSemaphores = 1,
-            .waitSemaphores = &render->signals[0],
+            .waitSemaphores = &render->signals[currentSignal],
             .waitDstStageMask = &waitStage,
             ._commandBuffs = 1,
-            .commandBuffs = &render->vk_buffer,
+            .commandBuffs = &render->vk_buffer[render->_currentFrame],
             ._signalSemaphores = 1,
-            .signalSemaphores = &render->signals[1]
+            .signalSemaphores = &render->signals[currentSignal + 1]
         };
 
+        printf("submitting\n");
         // the safeExit param determines whether we want to have finite_render_submit_frame cleanup and exit on failure
         finite_render_submit_frame(render, &submit_info, 0, false);
 
@@ -360,14 +491,17 @@ int main() {
 
         FiniteRenderPresentInfo present_info  = {
             ._waitSemaphores = 1,    
-            .waitSemaphores = &render->signals[1],
+            .waitSemaphores = &render->signals[currentSignal + 1],
             ._swapchains = 1,
             .swapchains = swapchains,
             .imageIndices = &index,
             .results = NULL
         };
 
+        printf("presenting\n");
         finite_render_present_frame(render, &present_info, false);
+        render->_currentFrame = (render->_currentFrame + 1) % MAX_FRAMES_IN_FLIGHT;
+        printf("Current Frame: %d\n", render->_currentFrame);
     }
     vkDeviceWaitIdle(render->vk_device);
     finite_render_cleanup(render);
