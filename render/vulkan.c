@@ -122,8 +122,9 @@ void finite_render_create_device(FiniteRender *render, FiniteRenderQueueFamilies
     printf("Created array of %d queue info(s) %p\n", fIndex._unique, queue_infos);
 
     VkPhysicalDeviceFeatures feats;
-
     vkGetPhysicalDeviceFeatures(render->vk_pDevice, &feats);   
+
+    feats.samplerAnisotropy = VK_TRUE; // TODO: Make this a toggle
 
     VkDeviceCreateInfo device_info = {
         .sType = VK_STRUCTURE_TYPE_DEVICE_CREATE_INFO,
@@ -534,23 +535,25 @@ VkPipelineColorBlendStateCreateInfo finite_render_create_color_blend_state(Finit
     return blend_state_info;
 }
 
-bool finite_render_create_descriptor_layout(FiniteRender *render,FiniteRenderDescriptorSetLayout *info) {
+bool finite_render_create_descriptor_layout(FiniteRender *render, FiniteRenderDescriptorSetLayout **info, uint32_t layouts) {
     if (!render) {
         printf("Unable to create new color descriptor set with NULL render (%p)\n", render);
         return false;
     }
 
-    VkDescriptorSetLayoutBinding ubo;
-    ubo.binding = info->binding;
-    ubo.descriptorCount = info->_descriptors;
-    ubo.descriptorType = info->type;
-    ubo.stageFlags = info->flags;
-    ubo.pImmutableSamplers = info->samplers;
+    VkDescriptorSetLayoutBinding ubo[layouts];
+    for (int i = 0; i < layouts; i++) {
+        ubo[i].binding = info[i]->binding;
+        ubo[i].descriptorCount = info[i]->_descriptors;
+        ubo[i].descriptorType = info[i]->type;
+        ubo[i].stageFlags = info[i]->flags;
+        ubo[i].pImmutableSamplers = info[i]->samplers;
+    }
 
     VkDescriptorSetLayoutCreateInfo layout_info = {
         .sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO,
-        .bindingCount = 1,
-        .pBindings = &ubo
+        .bindingCount = layouts,
+        .pBindings = ubo
     };
 
     VkResult res = vkCreateDescriptorSetLayout(render->vk_device, &layout_info, NULL, &render->vk_descriptorLayout);
@@ -712,6 +715,70 @@ bool finite_render_create_vertex_buffer(FiniteRender *render, FiniteRenderBuffer
     return true;
 }
 
+// generic buffer creator
+bool finite_render_create_generic_buffer(FiniteRender *render, FiniteRenderBufferInfo *info, FiniteRenderMemAllocInfo *mem_info, uint64_t vertexSize, FiniteRenderReturnBuffer *rtrn) {
+    if (!render) {
+        printf("Unable to create new buffer with NULL information Render: %p Info: %p\n", render, info);
+        return false;
+    }
+    
+    // create the buffer info. Do note that this is only used if render.vk_vertexBuf is NULL
+    VkBufferCreateInfo buffer_info = {
+        .sType = VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO,
+        .pNext = info->next,
+        .flags = info->flags, 
+        .usage = info->useFlags,
+        .size = info->size,
+        .sharingMode = info->sharing,
+        .queueFamilyIndexCount = info->_fIndex,
+        .pQueueFamilyIndices = info->fIndex
+    };
+
+
+    
+    FiniteRenderReturnBuffer trn;
+    VkMemoryRequirements memRequirements;
+    
+    VkResult res = vkCreateBuffer(render->vk_device, &buffer_info, NULL, &trn.buf);
+    if (res != VK_SUCCESS) {
+        printf("[Finite] - Unable to create the Vertex Buffer\n");
+        return false;
+    }
+
+    trn.vertexOffset = (VkDeviceSize) vertexSize;
+
+    rtrn->buf = trn.buf;
+    rtrn->vertexOffset = trn.vertexOffset;
+    rtrn->vertexSize = vertexSize;
+    rtrn->indexSize = (VkDeviceSize) (buffer_info.size - vertexSize);
+
+    if (rtrn->indexOffset > 0) {
+        rtrn->_indices = true;
+    }
+
+    // ? devs are responsible for setting rtrn.indices before copying it
+
+    vkGetBufferMemoryRequirements(render->vk_device, rtrn->buf, &memRequirements);
+
+    VkMemoryAllocateInfo alloc_info = {
+        .sType = VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO,
+        .pNext = mem_info->next,
+        .allocationSize = memRequirements.size,
+        .memoryTypeIndex = finite_render_get_memory_format(render, memRequirements.memoryTypeBits, mem_info->flags)
+    };
+
+    res = vkAllocateMemory(render->vk_device, &alloc_info, NULL, &trn.mem);
+    if (res != VK_SUCCESS) {
+        printf("[Finite] - Unable to create the Vertex Buffer Memory\n");
+        return false;
+    }
+
+    rtrn->mem = trn.mem;
+    vkBindBufferMemory(render->vk_device, rtrn->buf, rtrn->mem, 0);
+
+    return true;
+}
+
 bool finite_render_create_uniform_buffer(FiniteRender *render, FiniteRenderBufferInfo *info, FiniteRenderMemAllocInfo *mem_info) {
     if (!render) {
         printf("Unable to create new uniform buffer with NULL information Render: %p Info: %p\n", render, info);
@@ -766,25 +833,30 @@ bool finite_render_create_uniform_buffer(FiniteRender *render, FiniteRenderBuffe
 }
 
 // when autoCreate = true, a descriptor set will be automatically created
-bool finite_render_create_descriptor_pool(FiniteRender *render, FiniteRenderDescriptorPoolInfo *info, bool autoCreate) {
+bool finite_render_create_descriptor_pool(FiniteRender *render, FiniteRenderDescriptorPoolInfo **info, bool autoCreate, uint32_t _infos) {
     if (!render) {
         printf("Unable to create a descriptor pool with NULL render (%p)\n", render);
         return false;
     }
 
-    VkDescriptorPoolSize pool_size = {
-        .type = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER,
-        .descriptorCount = (uint32_t) MAX_FRAMES_IN_FLIGHT
+    VkDescriptorType default_type = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
+
+    VkDescriptorPoolSize pool_sizes[_infos];
+    for (int i = 0; i < _infos; i++) {
+        if (info[i] == NULL) {
+            pool_sizes[i].type = default_type;
+        } else {
+            pool_sizes[i].type = info[i]->type;
+        }
+        pool_sizes[i].descriptorCount = (uint32_t) MAX_FRAMES_IN_FLIGHT;
     };
 
-    uint32_t _poolSizes = 1;
-    VkDescriptorPoolSize *poolSizes = &pool_size; 
+    uint32_t _poolSizes = _infos;
+    VkDescriptorPoolSize *poolSizes = pool_sizes; 
     VkDescriptorPoolCreateFlags flags = 0;
     
-    if (info) { 
-        _poolSizes = info->_poolSizes;
-        poolSizes = info->poolSizes;
-        flags = info->flags;
+    if (info) {
+        flags = info[_infos - 1]->flags;
     }
     
     VkDescriptorPoolCreateInfo pool_info = {
@@ -831,25 +903,66 @@ bool finite_render_create_descriptor_pool(FiniteRender *render, FiniteRenderDesc
     return true;
 }
 
-bool finite_render_write_to_descriptor(FiniteRender *render, FiniteRenderWriteSetInfo *info) {
+bool finite_render_write_to_descriptor(FiniteRender *render, FiniteRenderWriteSetInfo **info, FiniteRenderDescriptorInfo *desc_info, uint32_t _infos) {
     if (!render) {
         printf("Unable to write to a descriptor with a NULL render (%p)\n", render);
         return false;
     }
+      
+    VkWriteDescriptorSet write_to_info[_infos];
+    // first get the info
+    VkDescriptorBufferInfo buffer_info;
+    VkDescriptorImageInfo image_info;
+    
+    if (desc_info) {
+        if (desc_info->type == FINITE_DESCRIPTOR_MULTI) { 
+            buffer_info.buffer = desc_info->buffer;
+            buffer_info.offset = desc_info->buffer_offset;
+            buffer_info.range  = desc_info->buffer_range;
+            image_info.sampler = desc_info->image_sampler;
+            image_info.imageView = desc_info->image_view;
+            image_info.imageLayout = desc_info->image_layout;
+        } else {
+            if (desc_info->type == FINITE_DESCRIPTOR_BUFFER) {
+                buffer_info.buffer = desc_info->buffer;
+                buffer_info.offset = desc_info->buffer_offset;
+                buffer_info.range  = desc_info->buffer_range;
+            } else if (desc_info->type == FINITE_DESCRIPTOR_IMAGE) {
+                buffer_info.buffer = desc_info->buffer;
+                buffer_info.offset = desc_info->buffer_offset;
+                buffer_info.range  = desc_info->buffer_range;
+            } else {
+                printf("Unknown descriptor type.\n");
+                exit(EXIT_FAILURE);
+            }
+        }
+    }
 
-    VkWriteDescriptorSet write_to_info = {
-        .sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET,
-        .dstSet = info->dstSet,
-        .dstBinding = info->dstBinding,
-        .dstArrayElement = info->dstArrayElement,
-        .descriptorType = info->descriptorType,
-        .descriptorCount = info->_descriptors,
-        .pBufferInfo = info->bufferInfo,
-        .pImageInfo = info->imageInfo,
-        .pTexelBufferView = info->texelBufferView
-    };
+    for (int i = 0; i < _infos; i++) {
+        write_to_info[i].sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
+        write_to_info[i].pNext = info[i]->next;
+        write_to_info[i].dstSet = info[i]->dstSet;
+        write_to_info[i].dstBinding = info[i]->dstBinding;
+        write_to_info[i].dstArrayElement = info[i]->dstArrayElement;
+        write_to_info[i].descriptorType = info[i]->descriptorType;
 
-    vkUpdateDescriptorSets(render->vk_device, 1, &write_to_info, 0, NULL);
+        if (desc_info == NULL) {
+            write_to_info[i].descriptorCount = info[i]->_descriptors;
+            write_to_info[i].pBufferInfo = info[i]->bufferInfo;
+            write_to_info[i].pImageInfo = info[i]->imageInfo;
+            write_to_info[i].pTexelBufferView = info[i]->texelBufferView;
+        } else {
+            write_to_info[i].descriptorCount = 1;
+            if (info[i]->descriptorType == VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER) {
+                write_to_info[i].pBufferInfo = &buffer_info;
+            } else if (info[i]->descriptorType == VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER) {
+                write_to_info[i].pImageInfo = &image_info;
+            }
+        }
+    }   
+
+    vkUpdateDescriptorSets(render->vk_device, _infos, write_to_info, 0, NULL);
+
 
     return true;
 }

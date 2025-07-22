@@ -29,11 +29,20 @@ typedef struct FiniteRenderReturnBuffer FiniteRenderReturnBuffer;
 typedef struct FiniteRenderDescriptorSetLayout FiniteRenderDescriptorSetLayout;
 typedef struct FiniteRenderDescriptorPoolInfo FiniteRenderDescriptorPoolInfo;
 typedef struct FiniteRenderWriteSetInfo FiniteRenderWriteSetInfo; 
+typedef struct FiniteRenderOneshotBuffer FiniteRenderOneshotBuffer;
+typedef struct FiniteRenderDescriptorInfo FiniteRenderDescriptorInfo;
 typedef enum   FiniteShaderType FiniteShaderType;
+typedef enum   FiniteDescriptorType FiniteDescriptorType;
 
 enum FiniteShaderType {
     FINITE_SHADER_TYPE_VERTEX,
     FINITE_SHADER_TYPE_FRAGMENT
+};
+
+enum FiniteDescriptorType {
+    FINITE_DESCRIPTOR_BUFFER,
+    FINITE_DESCRIPTOR_IMAGE,
+    FINITE_DESCRIPTOR_MULTI
 };
 
 struct FiniteRenderQueueFamilies {
@@ -68,6 +77,7 @@ struct FiniteRender {
     uint32_t _signals;
     uint32_t _fences;
     uint32_t _buffers; // will rename but refers to the FiniteRenderBuffers
+    uint32_t _vertexBufferSize;
     uint32_t _currentFrame;
 
     FiniteRenderShaderStages stages;
@@ -235,6 +245,24 @@ struct FiniteRenderReturnBuffer {
     uint32_t vertexCount;
 };
 
+// for single use command buffers
+struct FiniteRenderOneshotBuffer {
+    VkCommandBuffer buffer;
+    VkCommandPool pool;
+};
+
+struct FiniteRenderDescriptorInfo {
+    FiniteDescriptorType type;
+    // if buffer
+    VkBuffer buffer;
+    VkDeviceSize buffer_offset;
+    VkDeviceSize buffer_range;
+    // if image
+    VkSampler image_sampler;
+    VkImageView image_view;
+    VkImageLayout image_layout;
+};
+
 struct FiniteRenderDescriptorSetLayout {
     uint32_t binding;
     uint32_t _descriptors;
@@ -245,6 +273,7 @@ struct FiniteRenderDescriptorSetLayout {
 
 struct FiniteRenderDescriptorPoolInfo {
     const void *next;
+    VkDescriptorType type;
     VkDescriptorPoolCreateFlags flags;
     uint32_t _poolSizes;
     VkDescriptorPoolSize *poolSizes;
@@ -296,5 +325,6 @@ void finite_render_cleanup(FiniteRender *render);
 char *finite_render_get_shader_code(const char *fileName, uint32_t *pShaderSize);
 uint32_t finite_render_get_memory_format(FiniteRender *render, uint32_t filter, VkMemoryPropertyFlags props);
 void finite_render_copy_buffer(FiniteRender *render, VkBuffer src, VkBuffer dest, VkDeviceSize size);
-
+FiniteRenderOneshotBuffer finite_render_begin_onshot_command(FiniteRender *render);
+void finite_render_finish_onshot_command(FiniteRender *render, FiniteRenderOneshotBuffer cmd_block);
 #endif

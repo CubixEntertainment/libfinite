@@ -19,6 +19,7 @@ typedef struct UniformBufferObject UniformBufferObject;
 struct Vertex {
     vec2 pos;
     vec3 color;
+    vec2 textureCoord;
 };
 
 
@@ -42,10 +43,10 @@ struct UniformBufferObject {
 
 // in this example we've made the vertex data a global which is generally not a good idea.
 const Vertex vertices[] = {
-    {{0.5f, -0.5f}, {1.0f, 1.0f, 1.0f}},
-    {{0.5f, 0.5f}, {1.0f, 1.0f, 0.0f}},
-    {{-0.5f, 0.5f}, {0.5f, 0.0f, 1.0f}},
-    {{-0.5f, -0.5f}, {0.0f, 1.0f, 0.0f}},
+    {{0.5f, -0.5f}, {1.0f, 1.0f, 1.0f}, {1.0f, 0.0f}},
+    {{0.5f, 0.5f}, {1.0f, 1.0f, 0.0f}, {0.f, 0.f}},
+    {{-0.5f, 0.5f}, {0.5f, 0.0f, 1.0f}, {0.f, 1.0f}},
+    {{-0.5f, -0.5f}, {0.0f, 1.0f, 0.0f}, {1.0f, 1.0f}},
 };
 
 // ! All indice data must be in uint32 format/
@@ -180,7 +181,7 @@ int main() {
     }
 
     // create descriptor
-    FiniteRenderDescriptorSetLayout bindInfo = {
+    FiniteRenderDescriptorSetLayout uniformLayout = {
         .binding = 0,
         ._descriptors = 1,
         .type = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER,
@@ -188,7 +189,17 @@ int main() {
         .samplers = NULL
     };
 
-    finite_render_create_descriptor_layout(render, &bindInfo, 1);
+    FiniteRenderDescriptorSetLayout imageLayout = {
+        .binding = 1,
+        ._descriptors = 1,
+        .type = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER,
+        .flags = VK_SHADER_STAGE_FRAGMENT_BIT,
+        .samplers = NULL
+    };
+
+    FiniteRenderDescriptorSetLayout *bindInfos[2] = {&uniformLayout, &imageLayout};
+
+    finite_render_create_descriptor_layout(render, bindInfos, 2);
 
     FiniteRenderPipelineLayoutInfo pipe_info = {
         .flags = 0,
@@ -242,6 +253,12 @@ int main() {
             .location = 1,
             .format = VK_FORMAT_R32G32B32_SFLOAT,
             .offset = offsetof(Vertex, color)
+        },
+        {
+            .binding = 0,
+            .location = 2,
+            .format = VK_FORMAT_R32G32_SFLOAT,
+            .offset = offsetof(Vertex, textureCoord)
         }
     };
 
@@ -249,7 +266,7 @@ int main() {
     FiniteRenderVertexInputInfo vertex = {
         .flags = 0,
         ._vertexBindings = 1,
-        ._vertexAtributes = 2,
+        ._vertexAtributes = 3,
         .vertexAttributeDescriptions = attribe,
         .vertexBindingDescriptions = &binding
     };
@@ -354,6 +371,150 @@ int main() {
     // now create the command buffer and autocreate a pool
     // ? for a custom pool, set autocreate to false
     finite_render_create_command_buffer(render, true, true, 1);
+
+
+
+    FiniteRenderTextureInfo texture_info;
+    // populate texture_info
+    finite_render_create_texture("texture.png", &texture_info, true);
+    // create a staging buffer
+    FiniteRenderReturnBuffer repoint;
+
+    FiniteRenderBufferInfo texture_buffer_info = {
+        .size = texture_info.size,
+        .useFlags = VK_BUFFER_USAGE_TRANSFER_SRC_BIT,
+        .sharing = VK_SHARING_MODE_EXCLUSIVE
+    };
+
+    FiniteRenderMemAllocInfo texture_mem_alloc_info = {
+        .flags = VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT
+    };
+
+    // creates a non-replicated buffer (will always write to a FiniteRenderReturnBuffer)
+    bool suc = finite_render_create_generic_buffer(render, &texture_buffer_info, &texture_mem_alloc_info, texture_info.size, &repoint);
+    if (!suc) {
+        exit(EXIT_FAILURE);
+    }
+
+    void *image_data;
+    vkMapMemory(render->vk_device, repoint.mem, 0, texture_buffer_info.size, 0, &image_data);
+    memcpy(image_data, texture_info.pixels, (size_t) texture_info.size);
+    vkUnmapMemory(render->vk_device, repoint.mem);
+
+    // free the texture pixels
+    finite_render_destroy_pixels(&texture_info);
+    
+    FiniteRenderImageInfo image_info = {
+        .extent = {
+            .width = texture_info.width,
+            .height = texture_info.height,
+            .depth = 1,
+        },
+        .imageType = VK_IMAGE_TYPE_2D,
+        ._mipLevels = 1,
+        ._layers = 1,
+        .format = VK_FORMAT_R8G8B8A8_SRGB,
+        .tiling = VK_IMAGE_TILING_OPTIMAL,
+        .layout = VK_IMAGE_LAYOUT_UNDEFINED,
+        .useFlags = VK_IMAGE_USAGE_TRANSFER_DST_BIT | VK_IMAGE_USAGE_SAMPLED_BIT,
+        ._samples = VK_SAMPLE_COUNT_1_BIT,
+        .sharing = VK_SHARING_MODE_EXCLUSIVE
+    };
+
+    texture_mem_alloc_info.flags = VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT;
+
+    FiniteRenderImage *image = finite_render_create_image(render, &image_info, &texture_mem_alloc_info);
+
+    FiniteRenderImageBarrierInfo wall_info = {
+        .old = VK_IMAGE_LAYOUT_UNDEFINED,
+        .new = VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
+        .srcfIndex = VK_QUEUE_FAMILY_IGNORED,
+        .destfIndex = VK_QUEUE_FAMILY_IGNORED,
+        .image = image->textureImage,
+        .subRange = {
+            .aspectMask = VK_IMAGE_ASPECT_COLOR_BIT,
+            .baseMipLevel = 0,
+            .levelCount = 1,
+            .baseArrayLayer = 0,
+            .layerCount = 1
+        },
+        .srcFlags = 0,
+        .destFlags = 0
+    };
+
+    FiniteRenderPipelineDirections pipeline_directions = {
+        .srcFlags = 0,
+        .destFlags = 0,
+        .depFlags = 0
+    };
+
+    FiniteRenderImageCopyDirections copy_directions = {
+        .offset = 0,
+        .rowLength = 0,
+        .height = 0,
+        .subLayers = {
+            .aspectMask = VK_IMAGE_ASPECT_COLOR_BIT,
+            .mipLevel = 0,
+            .baseArrayLayer = 0,
+            .layerCount = 1
+        },
+        .imageOffset = {0,0,0},
+        .extent = {
+            .width = texture_info.width,
+            .height = texture_info.height,
+            .depth = 1,
+        },
+        .destLayout = VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
+        .buffer = repoint.buf,
+        .image = image->textureImage
+    };
+
+    finite_render_transition_image_layout(render, &wall_info, VK_FORMAT_R8G8B8A8_SRGB, &pipeline_directions);
+    finite_render_copy_buffer_to_image(render, &copy_directions);
+
+    wall_info.old = VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL;
+    wall_info.new = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
+    finite_render_transition_image_layout(render, &wall_info, VK_FORMAT_R8G8B8A8_SRGB, &pipeline_directions);
+    
+    FiniteRenderImageViewInfo view_2_info = {
+        .image = image->textureImage,
+        .type = VK_IMAGE_VIEW_TYPE_2D,
+        .format = VK_FORMAT_R8G8B8A8_SRGB,
+        .subRange = {
+            .aspectMask = VK_IMAGE_ASPECT_COLOR_BIT,
+            .baseMipLevel = 0,
+            .levelCount = 1,
+            .baseArrayLayer = 0,
+            .layerCount = 1
+        }
+    };
+
+    FiniteRenderTextureSamplerInfo sampler_info = {
+        .magFilter = VK_FILTER_LINEAR,
+        .minFilter = VK_FILTER_LINEAR,
+        .addressModeU = VK_SAMPLER_ADDRESS_MODE_REPEAT,
+        .addressModeV = VK_SAMPLER_ADDRESS_MODE_REPEAT,
+        .addressModeW = VK_SAMPLER_ADDRESS_MODE_REPEAT,
+        .anisotropyEnable = true,
+        .borderColor = VK_BORDER_COLOR_INT_OPAQUE_BLACK,
+        .unnormalizedCoordinates = false,
+        .compareEnable = false,
+        .compareOp = VK_COMPARE_OP_ALWAYS,
+        .mipmapMode = VK_SAMPLER_MIPMAP_MODE_LINEAR,
+        .mipLodBias = 0.0f,
+        .minLod = 0.0f,
+        .maxLod = 0.0f
+    };
+
+    finite_render_create_view(render, image, &view_2_info);
+
+    finite_render_create_sampler(render, image, &sampler_info);
+
+
+
+
+
+
     // this is the total amount of NEW SPACE needed to create the buffer
     // ? DO NOT try to calculate the total size of the buffer to create new space as it will result in errors.
     FiniteRenderBufferInfo vertex_buffer_info = {
@@ -409,30 +570,45 @@ int main() {
 
     finite_render_create_uniform_buffer(render, &uniform_buffer_info, &uniform_alloc_info);
 
-    // here the 4th param is how many pools there should be. When passing null as the second param this value should be 1
-    finite_render_create_descriptor_pool(render, NULL, true, 1);
+    
+    FiniteRenderDescriptorPoolInfo imageDescriptor = {
+        .type = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER
+    };
+
+
+    FiniteRenderDescriptorPoolInfo *desc_pool_infos[2] = {NULL, &imageDescriptor};
+
+    finite_render_create_descriptor_pool(render, desc_pool_infos, true, 2);
 
     for (int i = 0; i < MAX_FRAMES_IN_FLIGHT; i++) {
-        VkDescriptorBufferInfo buffer_info = {
-            .buffer = render->vk_uniformBuf[i],
-            .offset = 0,
-            .range = sizeof(UniformBufferObject)
+        FiniteRenderWriteSetInfo buffer_write_info = {
+                .dstSet = render->vk_descriptor[i],
+                .dstBinding = 0,
+                .dstArrayElement = 0,
+                .descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER
         };
 
-        FiniteRenderWriteSetInfo write_info = {
+        FiniteRenderWriteSetInfo image_write_info = {
             .dstSet = render->vk_descriptor[i],
-            .dstBinding = 0,
+            .dstBinding = 1,
             .dstArrayElement = 0,
-            .descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER,
-            ._descriptors = 1,
-            .bufferInfo = &buffer_info,
-            .imageInfo = NULL,
-            .texelBufferView = NULL
+            .descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER
         };
 
-        FiniteRenderWriteSetInfo *write_infos[1] = {&write_info};
+        FiniteRenderWriteSetInfo *write_infos[2] = {&buffer_write_info, &image_write_info};
 
-        finite_render_write_to_descriptor(render, &write_infos, NULL, 1);
+        FiniteRenderDescriptorInfo desc_info = {
+            .type = FINITE_DESCRIPTOR_MULTI,
+            .buffer = render->vk_uniformBuf[i],
+            .buffer_offset = 0,
+            .buffer_range = sizeof(UniformBufferObject),
+            .image_layout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
+            .image_view = image->textureImageView,
+            .image_sampler = image->textureSampler
+        };
+
+
+        finite_render_write_to_descriptor(render, write_infos, &desc_info, 2);
     }
 
     for (int i = 0; i < MAX_FRAMES_IN_FLIGHT; i++) {
@@ -453,6 +629,8 @@ int main() {
         // 0 -> imagesAvailable
         // 1 -> renderFinished
         // so offset is i + (2 * currentFrame) with since its two items.
+        render->_currentFrame = (render->_currentFrame + 1) % MAX_FRAMES_IN_FLIGHT;
+
 
         int currentFence = 0 + (1 * render->_currentFrame);
         int currentSignal = 0 + (2 * render->_currentFrame);
@@ -463,6 +641,7 @@ int main() {
         vkWaitForFences(render->vk_device, 1, &render->fences[currentFence], VK_TRUE, UINT64_MAX);
 
         vkResetFences(render->vk_device, 1, &render->fences[currentFence]);
+        printf("Current Fence %d (%p) was reset.\nCurrent Signal: %d (%p)\n", currentFence, render->fences[currentFence], currentSignal, render->signals[currentSignal]);
 
         uint32_t index;
         vkAcquireNextImageKHR(render->vk_device, render->vk_swapchain, UINT64_MAX, render->signals[currentSignal], VK_NULL_HANDLE, &index);
@@ -487,7 +666,7 @@ int main() {
 
         printf("submitting\n");
         // the safeExit param determines whether we want to have finite_render_submit_frame cleanup and exit on failure
-        finite_render_submit_frame(render, &submit_info, 0, false);
+        finite_render_submit_frame(render, &submit_info, currentFence, false);
 
 
         VkSwapchainKHR swapchains[] = {render->vk_swapchain};
@@ -503,9 +682,11 @@ int main() {
 
         printf("presenting\n");
         finite_render_present_frame(render, &present_info, false);
-        render->_currentFrame = (render->_currentFrame + 1) % MAX_FRAMES_IN_FLIGHT;
+        // render->_currentFrame = (render->_currentFrame + 1) % MAX_FRAMES_IN_FLIGHT;
         printf("Current Frame: %d\n", render->_currentFrame);
     }
     vkDeviceWaitIdle(render->vk_device);
+    FiniteRenderImage *imgs = {image};
+    finite_render_cleanup_textures(render, imgs, 1);
     finite_render_cleanup(render);
 }

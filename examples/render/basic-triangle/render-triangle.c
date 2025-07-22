@@ -237,7 +237,7 @@ int main() {
         vkAcquireNextImageKHR(render->vk_device, render->vk_swapchain, UINT64_MAX, render->signals[0], VK_NULL_HANDLE, &index);
 
         vkResetCommandBuffer(render->vk_buffer, 0);
-        finite_render_record_command_buffer(render, index, 0, 3);
+        finite_render_record_command_buffer(render, index);
 
         VkPipelineStageFlags waitStage = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT;
         vkResetFences(render->vk_device, 1, &render->fences[0]);

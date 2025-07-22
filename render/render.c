@@ -300,6 +300,93 @@ void finite_render_record_command_buffer(FiniteRender *render, uint32_t index) {
     }
 }
 
+FiniteRenderOneshotBuffer finite_render_begin_onshot_command(FiniteRender *render) {
+    // create a temp pool
+    printf("Attempting to create a temporary command pool.\n");
+    VkCommandPoolCreateInfo pool_info = {
+        .sType = VK_STRUCTURE_TYPE_COMMAND_POOL_CREATE_INFO,
+        .flags = VK_COMMAND_POOL_CREATE_TRANSIENT_BIT,
+        .queueFamilyIndex = 0
+    };
+
+    VkCommandPool cmd_poole;
+
+    VkResult res = vkCreateCommandPool(render->vk_device, &pool_info, NULL, &cmd_poole);
+    if (res != VK_SUCCESS) {
+        printf("[Finite] - Unable to create the command pool\n");
+        exit(EXIT_FAILURE);
+    }
+
+    printf("Created a command pool (%p)\n", cmd_poole);
+
+    VkCommandBuffer cmd_buffet;
+
+    VkCommandBufferAllocateInfo alloc_info = {
+        .sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO,
+        .level = VK_COMMAND_BUFFER_LEVEL_PRIMARY,
+        .commandPool = cmd_poole,
+        .commandBufferCount = 1
+    };
+    
+    res = vkAllocateCommandBuffers(render->vk_device, &alloc_info, &cmd_buffet);
+    if (res != VK_SUCCESS) {
+        printf("[Finite] - Unable to create the command buffer\n");
+        exit(EXIT_FAILURE);
+    }
+
+    printf("Created cmd buffer %p\n", cmd_buffet);
+
+    VkCommandBufferBeginInfo cmd = {
+        .sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO,
+        .flags = VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT
+    };
+
+    vkBeginCommandBuffer(cmd_buffet, &cmd);
+
+    FiniteRenderOneshotBuffer buffet = {
+        .buffer = cmd_buffet,
+        .pool = cmd_poole
+    };
+
+    return buffet;
+}
+
+void finite_render_finish_onshot_command(FiniteRender *render, FiniteRenderOneshotBuffer cmd_block) {
+    VkCommandBuffer cmd_buffet = cmd_block.buffer;
+    VkCommandPool cmd_poole = cmd_block.pool;
+
+    vkEndCommandBuffer(cmd_buffet);
+
+    // record and ship
+
+    VkSubmitInfo info = {
+        .sType = VK_STRUCTURE_TYPE_SUBMIT_INFO,
+        .commandBufferCount = 1,
+        .pCommandBuffers = &cmd_buffet
+    };
+
+    VkFenceCreateInfo fenceInfo = {
+        .sType = VK_STRUCTURE_TYPE_FENCE_CREATE_INFO
+    };
+
+    VkFence newFence;
+    VkResult res = vkCreateFence(render->vk_device, &fenceInfo, NULL, &newFence);
+    if (res != VK_SUCCESS) {
+        printf("[Finite] - Unable to create the fence\n");
+        exit(EXIT_FAILURE);
+    }
+
+    printf("Created temporary fence %p\n", newFence);
+
+    vkQueueSubmit(render->vk_graphicsQueue, 1, &info, newFence);
+    vkWaitForFences(render->vk_device, 1, &newFence, VK_TRUE, UINT64_MAX);
+    printf("Done.\n");
+
+    vkDestroyFence(render->vk_device, newFence, NULL);
+    vkFreeCommandBuffers(render->vk_device, cmd_poole, 1, &cmd_buffet);
+    vkDestroyCommandPool(render->vk_device, cmd_poole, NULL);
+}
+
 bool finite_render_get_shader_module(FiniteRender *render, char *code, uint32_t size) {
     if (!render) {
         printf("Can not apply shader module to NULL renderer\n");
@@ -356,47 +443,9 @@ uint32_t finite_render_get_memory_format(FiniteRender *render, uint32_t filter, 
 }
 
 void finite_render_copy_buffer(FiniteRender *render, VkBuffer src, VkBuffer dest, VkDeviceSize size) {
-    // create a temp pool
-    printf("Attempting to create a temporary command pool.\n");
-    VkCommandPoolCreateInfo pool_info = {
-        .sType = VK_STRUCTURE_TYPE_COMMAND_POOL_CREATE_INFO,
-        .flags = VK_COMMAND_POOL_CREATE_TRANSIENT_BIT,
-        .queueFamilyIndex = 0
-    };
+    FiniteRenderOneshotBuffer cmd_block = finite_render_begin_onshot_command(render);
+    VkCommandBuffer cmd_buffet = cmd_block.buffer;
 
-    VkCommandPool cmd_poole;
-
-    VkResult res = vkCreateCommandPool(render->vk_device, &pool_info, NULL, &cmd_poole);
-    if (res != VK_SUCCESS) {
-        printf("[Finite] - Unable to create the command pool\n");
-        exit(EXIT_FAILURE);
-    }
-
-    printf("Created a command pool (%p)\n", cmd_poole);
-
-    VkCommandBuffer cmd_buffet;
-
-    VkCommandBufferAllocateInfo alloc_info = {
-        .sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO,
-        .level = VK_COMMAND_BUFFER_LEVEL_PRIMARY,
-        .commandPool = cmd_poole,
-        .commandBufferCount = 1
-    };
-    
-    res = vkAllocateCommandBuffers(render->vk_device, &alloc_info, &cmd_buffet);
-    if (res != VK_SUCCESS) {
-        printf("[Finite] - Unable to create the command buffer\n");
-        exit(EXIT_FAILURE);
-    }
-
-    printf("Created cmd buffer %p\n", cmd_buffet);
-
-    VkCommandBufferBeginInfo cmd = {
-        .sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO,
-        .flags = VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT
-    };
-
-    vkBeginCommandBuffer(cmd_buffet, &cmd);
 
     VkBufferCopy cpy = {
         .size = size,
@@ -405,36 +454,7 @@ void finite_render_copy_buffer(FiniteRender *render, VkBuffer src, VkBuffer dest
     };
 
     vkCmdCopyBuffer(cmd_buffet, src, dest, 1, &cpy);
-    vkEndCommandBuffer(cmd_buffet);
-
-    // record and ship
-
-    VkSubmitInfo info = {
-        .sType = VK_STRUCTURE_TYPE_SUBMIT_INFO,
-        .commandBufferCount = 1,
-        .pCommandBuffers = &cmd_buffet
-    };
-
-    VkFenceCreateInfo fenceInfo = {
-        .sType = VK_STRUCTURE_TYPE_FENCE_CREATE_INFO
-    };
-
-    VkFence newFence;
-    res = vkCreateFence(render->vk_device, &fenceInfo, NULL, &newFence);
-    if (res != VK_SUCCESS) {
-        printf("[Finite] - Unable to create the fence\n");
-        exit(EXIT_FAILURE);
-    }
-
-    printf("Created temporary fence %p\n", newFence);
-
-    vkQueueSubmit(render->vk_graphicsQueue, 1, &info, newFence);
-    vkWaitForFences(render->vk_device, 1, &newFence, VK_TRUE, UINT64_MAX);
-    printf("Done.\n");
-
-    vkDestroyFence(render->vk_device, newFence, NULL);
-    vkFreeCommandBuffers(render->vk_device, cmd_poole, 1, &cmd_buffet);
-    vkDestroyCommandPool(render->vk_device, cmd_poole, NULL);
+    finite_render_finish_onshot_command(render, cmd_block);
 }
 
 void finite_render_cleanup(FiniteRender *render) {

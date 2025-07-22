@@ -26,8 +26,9 @@ bool finite_render_submit_frame(FiniteRender *render, FiniteRenderSubmitInfo *in
 bool finite_render_present_frame(FiniteRender *render, FiniteRenderPresentInfo *info, bool safeExit);
 bool finite_render_create_vertex_buffer(FiniteRender *render, FiniteRenderBufferInfo *info, FiniteRenderMemAllocInfo *mem_info, uint64_t vertexSize, FiniteRenderReturnBuffer *rtrn);
 bool finite_render_alloc_buffer_memory(FiniteRender *render, FiniteRenderMemAllocInfo *info, VkDeviceSize offset);
-bool finite_render_create_descriptor_layout(FiniteRender *render,FiniteRenderDescriptorSetLayout *info);
+bool finite_render_create_descriptor_layout(FiniteRender *render, FiniteRenderDescriptorSetLayout **info, uint32_t layouts);
 bool finite_render_create_uniform_buffer(FiniteRender *render, FiniteRenderBufferInfo *info, FiniteRenderMemAllocInfo *mem_info);
-bool finite_render_create_descriptor_pool(FiniteRender *render, FiniteRenderDescriptorPoolInfo *info, bool autoCreate);
-bool finite_render_write_to_descriptor(FiniteRender *render, FiniteRenderWriteSetInfo *info);
+bool finite_render_create_descriptor_pool(FiniteRender *render, FiniteRenderDescriptorPoolInfo **info, bool autoCreate, uint32_t _infos);
+bool finite_render_write_to_descriptor(FiniteRender *render, FiniteRenderWriteSetInfo **info, FiniteRenderDescriptorInfo *desc_info, uint32_t _infos);
+bool finite_render_create_generic_buffer(FiniteRender *render, FiniteRenderBufferInfo *info, FiniteRenderMemAllocInfo *mem_info, uint64_t vertexSize, FiniteRenderReturnBuffer *rtrn);
 #endif

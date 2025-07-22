@@ -2,6 +2,7 @@
 #define __RENDER_H__
 
 #include "render-core.h"
+#include "render-image.h"
 #include "vulkan.h"
 
 

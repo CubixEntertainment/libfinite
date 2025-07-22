@@ -1,7 +1,7 @@
 project(
     'libfinite',
     'c',
-    version: '0.5.8-dev'
+    version: '0.5.9-dev'
 )
 
 cc = meson.get_compiler('c')
@@ -81,6 +81,7 @@ src = [
     'render/render.c',
     'render/shaders.c',
     'render/vulkan.c',
+    'render/image.c',
 
     'core/file.c'
     
@@ -89,7 +90,7 @@ src = [
 libfinite = library(
     'libfinite', 
     src, 
-    version : '0.5.8', 
+    version : '0.5.9', 
     soversion : '1', 
     dependencies: deps,
     install: true,
@@ -112,6 +113,8 @@ headers = [
     'include/render/render-core.h',
     'include/render/vulkan.h',
     'include/render/render.h',
+    'include/render/stb_image.h',
+    'include/render/render-image.h',
 
     'include/core.h'
 ]
@@ -124,7 +127,7 @@ pkgconfig.generate(
     libfinite,
     name: 'libfinite',
     description: 'The Cubix Infinite Development Library',
-    version: '0.5.8',
+    version: '0.5.9',
     filebase: 'finite',
     subdirs: 'finite',
     requires: ['wayland-client', 'wayland-protocols', 'cairo', 'alsa', 'vulkan']
