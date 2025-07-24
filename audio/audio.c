@@ -28,19 +28,19 @@ void finite_audio_get_audio_duration_debug(const char *file, const char *func, i
 bool finite_audio_get_audio_params_debug(const char *rfile, const char *func, int line, char *file, FinitePlaybackDevice *dev) {
     // verify the file exists
     if (access(file, F_OK) != 0) {
-        finite_log_internal(LOG_LEVEL_ERROR, file, line, func, "Unable to open file at %s", file);
+        finite_log_internal(LOG_LEVEL_ERROR, rfile, line, func, "Unable to open file at %s", file);
         exit(EXIT_FAILURE);
     }
 
     if (!dev) {
-        finite_log_internal(LOG_LEVEL_ERROR, file, line, func, "Unable to assign data to NULL device");
+        finite_log_internal(LOG_LEVEL_ERROR, rfile, line, func, "Unable to assign data to NULL device");
     }
 
     SF_INFO info;
 
     dev->file = sf_open(file, SFM_READ, &info);
     if (!dev->file) {
-        finite_log_internal(LOG_LEVEL_ERROR, file, line, func, "Something went wrong ");
+        finite_log_internal(LOG_LEVEL_ERROR, rfile, line, func, "Something went wrong ");
         return false;
     }
 
@@ -48,7 +48,7 @@ bool finite_audio_get_audio_params_debug(const char *rfile, const char *func, in
     FINITE_LOG("Sound supports %d channels. %s", info.channels, info.channels == 2 ? "(Stereo)" : "(Mono)");
     dev->channels = info.channels;
     if (info.samplerate != 44100) {
-        finite_log_internal(LOG_LEVEL_WARN, file, line, func, "Sample Rate %d is not the recommended sample rate of 44100.", info.samplerate);
+        finite_log_internal(LOG_LEVEL_WARN, rfile, line, func, "Sample Rate %d is not the recommended sample rate of 44100.", info.samplerate);
     }
 
     dev->sample_rate = (uint32_t) info.samplerate;
