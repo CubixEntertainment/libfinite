@@ -138,15 +138,31 @@ void window_close_handle(void *data, struct xdg_toplevel *xdg_toplevel);
 void window_bounds_handle(void *data, struct xdg_toplevel *xdg_toplevel, int32_t width, int32_t height);
 void window_capable_handle(void *data, struct xdg_toplevel *xdg_toplevel, struct wl_array *capabilities);
 
-FiniteShell *finite_shell_init(char *device);
-void finite_window_init(FiniteShell *shell);
-void finite_overlay_init(FiniteShell *shell, int layer, char *name);
-void finite_window_size_set(FiniteShell *shell, int xPos, int yPos, int width, int height);
-bool finite_draw_finish(FiniteShell *shell, int width, int height, int stride, bool withAlpha);
+#define finite_shell_init(device) finite_shell_init_debug(__FILE__, __func__, __LINE__, device)
+FiniteShell *finite_shell_init_debug(const char *file, const char *func, int line, char *device);
 
-FiniteBtn *finite_button_create(FiniteShell *shell, void (*on_select_callback)(FiniteBtn *self, int id, void *data), void (*on_focus_callback)(FiniteBtn *self, int id, void *data), void (*on_unfocus_callback)(FiniteBtn *self, int id, void *data), void *data);
-void finite_button_create_relation(FiniteShell *shell, FiniteBtn *btn, FiniteDirectionType dir, int relation);
-void finite_button_delete(FiniteShell *shell, int id);
-void finite_button_delete_all(FiniteShell *shell);
+#define finite_window_init(shell) finite_window_init_debug(__FILE__, __func__, __LINE__, shell)
+void finite_window_init_debug(const char *file, const char *func, int line, FiniteShell *shell);
+
+#define finite_overlay_init(shell, layer, name) finite_overlay_init_debug(__FILE__, __func__, __LINE__, shell, layer, name)
+void finite_overlay_init_debug(const char *file, const char *func, int line, FiniteShell *shell, int layer, char *name);
+
+#define finite_window_size_set(shell, xPos, yPos, width, height) finite_window_size_set_debug(__FILE__, __func__, __LINE__, shell, xPos, yPos, width, height)
+void finite_window_size_set_debug(const char *file, const char *func, int line, FiniteShell *shell, int xPos, int yPos, int width, int height);
+
+#define finite_draw_finish(shell, width, height, stride, withAlpha) finite_draw_finish_debug(__FILE__, __func__, __LINE__, shell, width, height, stride, withAlpha)
+bool finite_draw_finish_debug(const char *file, const char *func, int line, FiniteShell *shell, int width, int height, int stride, bool withAlpha);
+
+#define finite_button_create(shell, on_select_callback, on_focus_callback, on_unfocus_callback, data) finite_button_create_debug(__FILE__, __func__, __LINE__, shell, on_select_callback, on_focus_callback, on_unfocus_callback, data)
+FiniteBtn *finite_button_create_debug(const char *file, const char *func, int line, FiniteShell *shell, void (*on_select_callback)(FiniteBtn *self, int id, void *data), void (*on_focus_callback)(FiniteBtn *self, int id, void *data), void (*on_unfocus_callback)(FiniteBtn *self, int id, void *data), void *data);
+
+#define finite_button_create_relation(shell, btn, dir, relation) finite_button_create_relation_debug(__FILE__, __func__, __LINE__, shell, btn, dir, relation)
+void finite_button_create_relation_debug(const char *file, const char *func, int line, FiniteShell *shell, FiniteBtn *btn, FiniteDirectionType dir, int relation);
+
+#define finite_button_delete(shell, id) finite_button_delete_debug(__FILE__, __func__, __LINE__, shell, id)
+void finite_button_delete_debug(const char *file, const char *func, int line, FiniteShell *shell, int id);
+
+#define finite_button_delete_all(shell) finite_button_delete_all_debug(__FILE__, __func__, __LINE__, shell)
+void finite_button_delete_all_debug(const char *file, const char *func, int line, FiniteShell *shell);
 
 #endif

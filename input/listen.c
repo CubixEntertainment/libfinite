@@ -1,4 +1,5 @@
 #include "include/input/input-core.h"
+#include "../include/log.h"
 #include <unistd.h>
 #include <string.h>
 #include <sys/mman.h>
@@ -14,9 +15,9 @@ void islands_key_registry_handle(void *data, struct wl_registry* registry, uint3
     if (strcmp(interface, wl_compositor_interface.name) == 0) {
         input->isle = wl_registry_bind(registry, id, &wl_compositor_interface, 4);
         if (!input->isle) {
-            printf("Something went wrong?\n");
+            FINITE_LOG_ERROR("Unable to find the assoicated compositor.");
         } else {
-            printf("%p\n", input->isle);
+            FINITE_LOG("Found usable compositor at address %p", input->isle);
         }
     }
     if (strcmp(interface, wl_seat_interface.name) == 0) {
@@ -31,10 +32,10 @@ void islands_key_registry_handle_remove(void *data, struct wl_registry* registry
 
 void islands_key_map_handle(void *data, struct wl_keyboard *keyboard, uint32_t format, int fd, uint32_t size) {
     FiniteKeyboard *board = data;
-    printf("[Finite] - Attempting to map\n");
+    FINITE_LOG("Attempting to map");
     // verify the passed keyboard is the keyboard this event is handling
     if (keyboard != board->keyboard) {
-        printf("[Finite] - Keyboard beind handled by islands_key_map_handle does not match the given FiniteKeyboard.");
+        FINITE_LOG_ERROR("Keyboard beind handled by islands_key_map_handle does not match the given FiniteKeyboard.");
         return;
     }
 
@@ -55,7 +56,7 @@ void islands_key_map_handle(void *data, struct wl_keyboard *keyboard, uint32_t f
     close(fd);
 
     if (!board->xkb_keymap) {
-        printf("[Finite] - Attempted creating a valid xkb_keymap but was unable to.");
+        FINITE_LOG_ERROR("Attempted creating a valid xkb_keymap but was unable to.");
         return;
     }
 
@@ -63,13 +64,13 @@ void islands_key_map_handle(void *data, struct wl_keyboard *keyboard, uint32_t f
 }
 
 void islands_key_handle(void *data, struct wl_keyboard *keyboard, uint32_t serial, uint32_t time, uint32_t key, uint32_t state) {
-    printf("[Finite] - Attempting to handle keys\n");
+    FINITE_LOG("Attempting to handle keys");
     // handle key input
     FiniteKeyboard *input = data;
 
     // verify the passed keyboard is the keyboard this event is handling
     if (keyboard != input->keyboard) {
-        printf("[Finite] - Keyboard beind handled by islands_key_handle does not match the given FiniteKeyboard.");
+        FINITE_LOG_ERROR("Keyboard beind handled by islands_key_handle does not match the given FiniteKeyboard.");
         return;
     }
 
@@ -77,34 +78,34 @@ void islands_key_handle(void *data, struct wl_keyboard *keyboard, uint32_t seria
         input->keys[key].isDown = (state == WL_KEYBOARD_KEY_STATE_PRESSED);
         input->keys[key].isUp = (state == WL_KEYBOARD_KEY_STATE_RELEASED);
     } else {
-        printf("[Finite] - Key %d is out of range for supported keys. Ignoring.", key);
+        FINITE_LOG_ERROR("Key %d is out of range for supported keys. Ignoring.", key);
     }
 }
 
 void islands_key_mod_handle(void *data, struct wl_keyboard *keyboard, uint32_t serial, uint32_t mods_depressed, uint32_t mods_latched, uint32_t mods_locked, uint32_t group) {
-    printf("[Finite] - Attempting to handle modifiers. \n");
+    FINITE_LOG("Attempting to handle modifiers. ");
     // the only thing handled by default is if the meta key is pressed we want to call the suspend process and homescreen calls. For now let's just pass a message saying they've been called
     FiniteKeyboard *input = data;
 
     // verify the passed keyboard is the keyboard this event is handling
     if (keyboard != input->keyboard) {
-        printf("[Finite] - Keyboard beind handled by islands_key_mod_handle does not match the given FiniteKeyboard.");
+        FINITE_LOG_ERROR("Keyboard beind handled by islands_key_mod_handle does not match the given FiniteKeyboard.");
         return;
     }
 
     xkb_state_update_mask(input->xkb_state, mods_depressed, mods_latched, mods_locked, 0, 0, group);
 
     if (xkb_state_mod_name_is_active(input->xkb_state, XKB_MOD_NAME_LOGO, XKB_STATE_MODS_DEPRESSED)) {
-        printf("Home key was pressed!\n");
+        FINITE_LOG_INFO("Home key was pressed!");
     }
 }
 
 void islands_key_enter_handle(void *data, struct wl_keyboard *keyboard, uint32_t serial, struct wl_surface *surface, struct wl_array *keys) {
     // optional: log or store focus info
-    printf("[Finite] - Keyboard focus received\n");
+    FINITE_LOG_INFO("Keyboard focus received");
     (void)data; (void)keyboard; (void)serial; (void)surface; (void)keys;
 }
 
 void islands_key_leave_handler(void *data, struct wl_keyboard *keyboard, uint32_t serial, struct wl_surface *surface) {
-    printf("[Finite] - Keyboard focus left surface\n");
+    FINITE_LOG_INFO("Keyboard focus left surface");
 }

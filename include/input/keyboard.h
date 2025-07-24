@@ -232,19 +232,33 @@ const FiniteKeyMapping finite_key_lookup[] = {
     { "KpPeriod",     FINITE_KEY_KP_PERIOD, KEY_KPDOT },
 };
 
-FiniteKeyboard *finite_input_keyboard_init(struct wl_display *device);
-bool finite_key_down(FiniteKey key, FiniteKeyboard *board);
-bool finite_key_up(FiniteKey key, FiniteKeyboard *board);
-bool finite_key_valid(FiniteKey key);
+#define finite_input_keyboard_init(device) finite_input_keyboard_init_debug(__FILE__, __func__, __LINE__, device)
+FiniteKeyboard *finite_input_keyboard_init_debug(const char *file, const char *func, int line, struct wl_display *device);
 
-bool finite_key_pressed(FiniteKey key, FiniteKeyboard *board);
+#define finite_key_down(key, board) finite_key_down_debug(__FILE__, __func__, __LINE__, key, board)
+bool finite_key_down(const char *file, const char *func, int line, FiniteKey key, FiniteKeyboard *board);
+
+#define finite_key_up(key, board) finite_key_up_debug(__FILE__, __func__, __LINE__, key, board)
+bool finite_key_up(const char *file, const char *func, int line, FiniteKey key, FiniteKeyboard *board);
+
+#define finite_key_valid(key) finite_key_valid_debug(__FILE__, __func__, __LINE__, key)
+bool finite_key_valid_debug(const char *file, const char *func, int line, FiniteKey key);
+
+#define finite_key_pressed(key, board) finite_key_pressed_debug(__FILE__, __func__, __LINE__, key, board)
+bool finite_key_pressed_debug(const char *file, const char *func, int line, FiniteKey key, FiniteKeyboard *board);
 
 // conversion
-const char *finite_key_string_from_key(FiniteKey key);
-FiniteKey finite_key_from_string(const char *name);
+#define finite_key_string_from_key(key) finite_key_string_from_key_debug(__FILE__, __func__, __LINE__, key)
+const char *finite_key_string_from_key_debug(const char *file, const char *func, int line, FiniteKey key);
+
+#define finite_key_from_string(name) finite_key_from_string_debug(__FILE__, __func__, __LINE__, name)
+FiniteKey finite_key_from_string_debug(const char *file, const char *func, int line, const char *name);
 
 // lifecycle
-void finite_keyboard_destroy(FiniteKeyboard *board);
-void finite_input_poll_keys(FiniteKeyboard *board, FiniteShell *shell);
+#define finite_keyboard_destroy(board) finite_keyboard_destroy_debug(__FILE__, __func__, __LINE__, board)
+void finite_keyboard_destroy_debug(const char *file, const char *func, int line, FiniteKeyboard *board);
+
+#define finite_input_poll_keys(board, shell) finite_input_poll_keys_debug(__FILE__, __func__, __LINE__, board, shell)
+void finite_input_poll_keys_debug(const char *file, const char *func, int line, FiniteKeyboard *board, FiniteShell *shell);
 
 #endif

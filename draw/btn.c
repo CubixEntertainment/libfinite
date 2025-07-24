@@ -1,9 +1,10 @@
 #include "../include/draw/window.h"
+#include "../include/log.h"
 
-FiniteBtn *finite_button_create(FiniteShell *shell, void (*on_select_callback)(FiniteBtn *self, int id, void *data), void (*on_focus_callback)(FiniteBtn *self, int id, void *data), void (*on_unfocus_callback)(FiniteBtn *self, int id, void *data), void *data) {
+FiniteBtn *finite_button_create_debug(const char *file, const char *func, int line, FiniteShell *shell, void (*on_select_callback)(FiniteBtn *self, int id, void *data), void (*on_focus_callback)(FiniteBtn *self, int id, void *data), void (*on_unfocus_callback)(FiniteBtn *self, int id, void *data), void *data) {
     FiniteBtn *btn = calloc(1, sizeof(FiniteBtn));
     if (!btn) {
-        printf("[Finite] - Unable to create a button");
+        finite_log_internal(LOG_LEVEL_ERROR, file, line, func, "Unable to create a button");
         return NULL;
     }
 
@@ -14,7 +15,7 @@ FiniteBtn *finite_button_create(FiniteShell *shell, void (*on_select_callback)(F
         int x = (shell->_btns + 1);
         FiniteBtn **tmp = realloc(shell->btns, x * sizeof(FiniteBtn *));
         if (!tmp) {
-            printf("[Finite] - Unable to realloc the buttons array");
+            finite_log_internal(LOG_LEVEL_ERROR, file, line, func, "Unable to realloc the buttons array");
             free(btn);
             return NULL;
         }
@@ -22,7 +23,7 @@ FiniteBtn *finite_button_create(FiniteShell *shell, void (*on_select_callback)(F
     } else {
         shell->btns = calloc(1, sizeof(FiniteBtn **));
         if (!shell->btns) {
-            printf("[Finite] - Unable to alloc the buttons array");
+            finite_log_internal(LOG_LEVEL_ERROR, file, line, func, "Unable to alloc the buttons array");
             free(btn);
             return NULL;
         }
@@ -36,7 +37,7 @@ FiniteBtn *finite_button_create(FiniteShell *shell, void (*on_select_callback)(F
     btn->id = shell->_btns;
     shell->_btns++;
 
-    printf("[Finite] - Created new button with id %d\n", btn->id);
+    FINITE_LOG("Created new button with id %d", btn->id);
 
     btn->on_focus_callback = on_focus_callback;
     btn->on_unfocus_callback = on_unfocus_callback;
@@ -52,29 +53,29 @@ FiniteBtn *finite_button_create(FiniteShell *shell, void (*on_select_callback)(F
     return btn;
 }
 
-void finite_button_create_relation(FiniteShell *shell, FiniteBtn *btn, FiniteDirectionType dir, int relation) {
+void finite_button_create_relation_debug(const char *file, const char *func, int line, FiniteShell *shell, FiniteBtn *btn, FiniteDirectionType dir, int relation) {
     if (!shell) {
-        printf("[Finite] - Unable to create a button relationship with a NULL shell");
+        finite_log_internal(LOG_LEVEL_ERROR, file, line, func, "Unable to create a button relationship with a NULL shell");
         return;
     }
     if (!btn) {
-        printf("[Finite] - Unable to create a button relationship with a NULL btn");
+        finite_log_internal(LOG_LEVEL_ERROR, file, line, func, "Unable to create a button relationship with a NULL btn");
         return;
     }
     if (dir < FINITE_DIRECTION_UP || dir > FINITE_DIRECTION_RIGHT_DOWN) {
-        printf("[Finite] - Unable to create a button relationship in a NULL direction or direction %d", dir);
+        finite_log_internal(LOG_LEVEL_ERROR, file, line, func, "Unable to create a button relationship in a NULL direction or direction %d", dir);
         return;
     }
     
     if (relation > shell->_btns) {
-        printf("[Finite] - Provided relation id is out of range");
+        finite_log_internal(LOG_LEVEL_ERROR, file, line, func, "Provided relation id is out of range");
         return;
     }
 
     if (!btn->relations) {
         btn->relations = calloc(1, sizeof(FiniteBtnRelationShips));
         if (!btn->relations) {
-            printf("[Finite] - Unable to create a button relationship");
+            finite_log_internal(LOG_LEVEL_ERROR, file, line, func, "Unable to create a button relationship");
             return;
         }
     }
@@ -105,20 +106,20 @@ void finite_button_create_relation(FiniteShell *shell, FiniteBtn *btn, FiniteDir
             btn->relations->rightDown = relation;
             break;
         default:
-            printf("[Finite] - Unknown relation provided.");
+            finite_log_internal(LOG_LEVEL_ERROR, file, line, func, "Unknown relation provided.");
             break;
     }
 }
 
 // remove item id from the array
-void finite_button_delete(FiniteShell *shell, int id) {
+void finite_button_delete_debug(const char *file, const char *func, int line, FiniteShell *shell, int id) {
     if (!shell) {
-        printf("[Finite] - Unable to delete button from a non-existent shell");
+        finite_log_internal(LOG_LEVEL_ERROR, file, line, func, "Unable to delete button from a non-existent shell");
         return;
     }
 
     if (id > shell->_btns) {
-        printf("[Finite] - Provided id is out of range");
+        finite_log_internal(LOG_LEVEL_ERROR, file, line, func, "Provided id is out of range");
         return;
     }
 
@@ -139,7 +140,7 @@ void finite_button_delete(FiniteShell *shell, int id) {
     if (shell->_btns > 0) {
         FiniteBtn **tmp = realloc(shell->btns, shell->_btns  * sizeof(FiniteBtn *));
         if (!tmp) {
-            printf("[Finite] - Unable to realloc the buttons array");
+            finite_log_internal(LOG_LEVEL_ERROR, file, line, func, "Unable to realloc the buttons array");
             return;
         }
 
@@ -150,14 +151,14 @@ void finite_button_delete(FiniteShell *shell, int id) {
     }
 }
 
-void finite_button_delete_all(FiniteShell *shell) {
+void finite_button_delete_all_debug(const char *file, const char *func, int line, FiniteShell *shell) {
     if (!shell) {
-        printf("[Finite] - Unable to delete button from a non-existent shell");
+        finite_log_internal(LOG_LEVEL_ERROR, file, line, func, "Unable to delete button from a non-existent shell");
         return;
     }
 
     if (!shell->btns) {
-        printf("[Finite] - Shell has no valid buttons");
+        finite_log_internal(LOG_LEVEL_ERROR, file, line, func, "Shell has no valid buttons");
         return;
     }
 

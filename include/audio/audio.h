@@ -39,14 +39,32 @@ struct FinitePlaybackDevice {
     int resample;
     int per_event;
 };
-void finite_audio_get_audio_duration(FinitePlaybackDevice *dev);
-bool finite_audio_get_audio_params(char *file, FinitePlaybackDevice *dev);
-FinitePlaybackDevice *finite_audio_device_init();
-bool finite_audio_init_audio(FinitePlaybackDevice *dev, char* audio, bool autoCreate);
-void finite_audio_play(FinitePlaybackDevice *dev);
-bool finite_audio_stop(FinitePlaybackDevice *dev);
-bool finite_audio_pause(FinitePlaybackDevice *dev);
-bool finite_audio_unpause(FinitePlaybackDevice *dev);
-void finite_audio_cleanup(FinitePlaybackDevice *dev);
+
+#define finite_audio_get_audio_duration(dev) finite_audio_get_audio_duration_debug(__FILE__, __func__, __LINE__, dev)
+void finite_audio_get_audio_duration_debug(const char *file, const char *func, int line, FinitePlaybackDevice *dev);
+
+#define finite_audio_get_audio_params(file, dev) finite_audio_get_audio_params_debug(__FILE__, __func__, __LINE__, file, dev)
+bool finite_audio_get_audio_params_debug(const char *rfile, const char *func, int line, char *file, FinitePlaybackDevice *dev);
+
+#define finite_audio_device_init() finite_audio_device_init_debug(__FILE__, __func__, __LINE__)
+FinitePlaybackDevice *finite_audio_device_init_debug(const char *file, const char *func, int line);
+
+#define finite_audio_init_audio(dev, audio, autoCreate) finite_audio_init_audio_debug(const char *file, const char *func, int line, dev, audio, autoCreate)
+bool finite_audio_init_audio_debug(const char *file, const char *func, int line, FinitePlaybackDevice *dev, char* audio, bool autoCreate);
+
+#define finite_audio_play(dev) finite_audio_play_debug(__FILE__, __func__, __LINE__, dev)
+void finite_audio_play_debug(const char *file, const char *func, int line, FinitePlaybackDevice *dev);
+
+#define finite_audio_stop(dev) finite_audio_stop_debug(__FILE__, __func__, __LINE__, dev)
+bool finite_audio_stop_debug(const char *file, const char *func, int line, FinitePlaybackDevice *dev);
+
+#define finite_audio_pause(dev) finite_audio_pause_debug(__FILE__, __func__, __LINE__, dev)
+bool finite_audio_pause_debug(const char *file, const char *func, int line, FinitePlaybackDevice *dev);
+
+#define finite_audio_unpause(dev) finite_audio_unpause_debug(__FILE__, __func__, __LINE__, dev)
+bool finite_audio_unpause_debug(const char *file, const char *func, int line, FinitePlaybackDevice *dev);
+
+#define finite_audio_cleanup(dev) finite_audio_cleanup_debug(__FILE__, __func__, __LINE__, dev)
+void finite_audio_cleanup_debug(const char *file, const char *func, int line, FinitePlaybackDevice *dev);
 
 #endif

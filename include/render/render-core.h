@@ -5,7 +5,9 @@
 #define MAX_FRAMES_IN_FLIGHT 2
 #include <vulkan/vulkan.h>
 #include <vulkan/vulkan_wayland.h>
+// #include "../include/draw/draw.h" // TODO: Fix meson build steps
 #include <finite/draw.h>
+
 
 typedef struct FiniteRenderSwapchainInfo FiniteRenderSwapchainInfo;
 typedef struct FiniteRender FiniteRender;

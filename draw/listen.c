@@ -1,4 +1,5 @@
 #include "../include/draw/window.h"
+#include "../include/log.h"
 #include <unistd.h>
 
 /*
@@ -12,9 +13,9 @@ void islands_registry_handle(void *data, struct wl_registry* registry, uint32_t 
     if (strcmp(interface, wl_compositor_interface.name) == 0) {
         shell->isle = wl_registry_bind(registry, id, &wl_compositor_interface, 4);
         if (!shell->isle) {
-            printf("Something went wrong?\n");
+            FINITE_LOG_ERROR("Unable to bind Wayland compositor %p to shell (%p)", shell->isle, shell);
         } else {
-            printf("%p\n", shell->isle);
+            FINITE_LOG("Found Wayland Compositor stored as %p", shell->isle);
         }
     }
     if (strcmp(interface, xdg_wm_base_interface.name) == 0) {
@@ -49,8 +50,8 @@ void islands_mode_handle(void *data, struct wl_output *output, uint32_t flags, i
     FiniteShell *shell = data;
     FiniteWindowInfo *det = calloc(1, sizeof(FiniteWindowInfo));
     if (!det) {
-        printf("[Finite] - Unable to allocate memory for the window details\n");
         shell->details = NULL;
+        FINITE_LOG_FATAL("Unable to allocate memory for the window details");
         return;
     }
     
@@ -62,7 +63,7 @@ void islands_mode_handle(void *data, struct wl_output *output, uint32_t flags, i
     det->output = output;
     shell->details = det;
     
-    printf("[Finite] - Set window info to %d x %d at (%d,%d)\n", det->width, det->height, det->xPos, det->yPos);
+    FINITE_LOG("Set window info to %d x %d at (%d,%d)", det->width, det->height, det->xPos, det->yPos);
 }
 
 void islands_scale_handle(void *data, struct wl_output *wl_output, int32_t factor) {
@@ -77,12 +78,12 @@ void islands_done_handle(void *data, struct wl_output *wl_output) {
     Handle XDG
 */
 void window_configure_handle(void *data,struct xdg_toplevel *xdg_toplevel,int32_t width,int32_t height,struct wl_array *states) {
-    printf("[Finite] - Desired sizing: %d x %d\n", width, height);
+    FINITE_LOG("Desired sizing: %d x %d", width, height);
 }
 
 void window_close_handle(void *data, struct xdg_toplevel *xdg_toplevel) {
     FiniteShell *shell = data;
-    printf("[Finite] - Close Requested.\n");
+    FINITE_LOG_INFO("Close Requested.");
     cairo_surface_destroy(shell->cairo_surface);
     munmap(shell->pool_data, shell->pool_size);
     close(shell->shm_fd);
@@ -105,9 +106,9 @@ void window_capable_handle(void *data, struct xdg_toplevel *xdg_toplevel, struct
 
 void surface_configure_handle(void *data, struct xdg_surface *xdg_surface, uint32_t serial) {
     FiniteShell *shell = data;
-    printf("[Finite] - ack_configure request is sending\n");
+    FINITE_LOG("[Finite] - ack_configure request is sending");
     xdg_surface_ack_configure(xdg_surface, serial);
-    printf("[Finite] - ack_configure request was sent.\n");
+    FINITE_LOG("[Finite] - ack_configure request was sent.");
 
     FiniteWindowInfo *det = shell->details;
 

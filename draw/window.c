@@ -1,4 +1,5 @@
 #include "../include/draw/window.h"
+#include "../include/log.h"
 
 // create a registry_listener struct for future use
 const struct wl_registry_listener registry_listener = {
@@ -29,60 +30,55 @@ const struct xdg_surface_listener surface_listener = {
     
     Returns an initialized FiniteShell. An initialized finite shell has all it wayland properties bound.
 */
-FiniteShell *finite_shell_init(char *device) {
+FiniteShell *finite_shell_init_debug(const char *file, const char *func, int line, char *device) {
     if (!device) {
+        finite_log_internal(LOG_LEVEL_WARN, file, line, func, "Device %s is NULL or undefined. Defaulting to device \"wayland-0\"");
         device = "wayland-0";
     }
 
     FiniteShell *shell = calloc(1, sizeof(FiniteShell));
-    printf("[Finite] - Device: %s\n", device);
+    FINITE_LOG("Device: %s", device); // debug stuff should come from this function
     shell->display = wl_display_connect(device);
     if (!shell->display) {
-        printf("[Finite] - Unable to attach to the window\n"); // TODO create a finite_log function
-        return NULL;
+        finite_log_internal(LOG_LEVEL_FATAL, file, line, func, "Unable to attach to the window"); // errors should be sent from the caller
     }
 
     shell->registry = wl_display_get_registry(shell->display);
     if (!shell->registry) {
-        printf("[Finite] - Unable to attach to the window\n"); // TODO create a finite_log function
         wl_display_disconnect(shell->display);
-        return NULL;
+        finite_log_internal(LOG_LEVEL_FATAL, file, line, func, "Unable to find valid registry with display %p", shell->display);
     }
 
-    printf("[Finite] - Registry created.\n");
-    printf("[Finite] - Adding listeners to registry.\n");
+    FINITE_LOG("Registry created.");
+    FINITE_LOG("Adding listeners to registry.");
     wl_registry_add_listener(shell->registry, &registry_listener, shell); // pass the shell to store the globals
     wl_display_roundtrip(shell->display);
-    printf("[Finite] - Compositor is at memory address %p\n", shell->isle);
+    FINITE_LOG("Compositor is at memory address %p", shell->isle);
     if (!shell->isle) {
-        printf("[Finite] - Unable to find a compositor\n");
         wl_display_disconnect(shell->display);
-        free(shell);
-        return NULL;
+        finite_log_internal(LOG_LEVEL_FATAL, file, line, func, "Unable to find a compositor");
     }
 
     if (!shell->base) {
-        printf("[Finite] - Unable to find a xdg_wm_base\n");
         wl_display_disconnect(shell->display);
-        return NULL;
+        finite_log_internal(LOG_LEVEL_FATAL, file, line, func, "Unable to find a xdg_base");
     }
 
     if (!shell->output) {
-        printf("[Finite] - Unable to find a wl_output");
         wl_display_disconnect(shell->display);
-        return NULL;
+        finite_log_internal(LOG_LEVEL_FATAL, file, line, func, "Unable to find a wl_output");
     }
 
-    printf("[Finite] - Compositor with xdg found. Adding new surface\n");
+    FINITE_LOG("Compositor with xdg found. Adding new surface");
 
     shell->isle_surface = wl_compositor_create_surface(shell->isle);
     if (!shell->isle_surface) {
-        printf("[Finite] - Unable to create a wl_surface with the given compsositor (Is it still running?)\n");
         wl_display_disconnect(shell->display);
+        finite_log_internal(LOG_LEVEL_FATAL, file, line, func, "Unable to create a wl_surface with the given compsositor %p (Is it still running?", shell->isle);
         return NULL;
     }
 
-    printf("[Finite] - Created a surface safely.\n");
+    FINITE_LOG("Created a surface safely.");
 
     return shell;
 }   
@@ -92,17 +88,17 @@ FiniteShell *finite_shell_init(char *device) {
 
     Attempts to create an xdg_surface on top of a given shell. If making popups or overlays, you should use `finite_overlay_init`
 */
-void finite_window_init(FiniteShell *shell) {
+void finite_window_init_debug(const char *file, const char *func, int line, FiniteShell *shell) {
     if (!shell) {
         // if no shell throw an error
-        printf("[Finite] - Unable to attach to a NULL shell. \n"); // TODO create a finite_log function
+        finite_log_internal(LOG_LEVEL_ERROR, file, line, func, "Unable to attach to a NULL shell.");
         shell = NULL;
         return;
     }
-    printf("[Finite] - Attempting to make a window");
+    FINITE_LOG("Attempting to make a window");
     shell->surface = xdg_wm_base_get_xdg_surface(shell->base, shell->isle_surface);
     if (!shell->surface) {
-        printf("[Finite] - Unable to create a xdg_surface.\n");
+        finite_log_internal(LOG_LEVEL_ERROR, file, line, func, "Unable to create a xdg_surface.");
         wl_display_disconnect(shell->display);
         shell = NULL;
         return;
@@ -110,27 +106,27 @@ void finite_window_init(FiniteShell *shell) {
 
     xdg_surface_add_listener(shell->surface, &surface_listener, shell);
 
-    printf("[Finite] - Attempting to get a toplevel \n");
+    FINITE_LOG("Attempting to get a toplevel");
 
     shell->window = xdg_surface_get_toplevel(shell->surface);
     if (!shell->window) {
-        printf("[Finite] - Unable to create a window.\n");
+        finite_log_internal(LOG_LEVEL_ERROR, file, line, func, " Unable to create a window.");
         wl_display_disconnect(shell->display);
         shell = NULL;
         return;
     }
 
-    printf("[Finite] - Initialization Done.\n");
+    FINITE_LOG("Initialization Done.");
 
     xdg_toplevel_add_listener(shell->window, &toplevel_listener, shell);
 
-    printf("[Finite] - Setting window size.\n");
+    FINITE_LOG("Setting window size.");
     // grab screen size and store it
     wl_output_add_listener(shell->output, &output_listener, shell);
 
     wl_display_roundtrip(shell->display);
     if (!shell->details) {
-        printf("[Finite] - Unable to create window geometry with NULL information.\n");
+        finite_log_internal(LOG_LEVEL_ERROR, file, line, func, "Unable to create window geometry with NULL information.");
         wl_display_disconnect(shell->display);
         shell = NULL;
         return;
@@ -138,7 +134,7 @@ void finite_window_init(FiniteShell *shell) {
 
     wl_surface_commit(shell->isle_surface);
     wl_display_roundtrip(shell->display);
-    printf("[Finite] - Window made.\n");
+    FINITE_LOG("Window made.");
 }
 
 /*
@@ -146,18 +142,16 @@ void finite_window_init(FiniteShell *shell) {
 
     Attempts to create a layer_shell_surface on top of a given shell. If making windows (which you probably are), you should use `finite_window_init`
 */
-void finite_overlay_init(FiniteShell *shell, int layer, char *name) {
+void finite_overlay_init_debug(const char *file, const char *func, int line, FiniteShell *shell, int layer, char *name) {
     if (!shell) {
         // if no shell throw an error
-        printf("[Finite] - Unable to attach to a NULL shell. \n"); // TODO create a finite_log function
+        finite_log_internal(LOG_LEVEL_ERROR, file, line, func,"Unable to attach to a NULL shell. "); // TODO create a finite_log function
         shell = NULL;
         return;
     }
 
     if (!shell->shell) {
-        printf("[Finite] - Unable to access Layer Shell. (Does this environment support it?)");
-        shell = NULL;
-        return;
+        finite_log_internal(LOG_LEVEL_FATAL, file, line, func,"Unable to access Layer Shell. (Does this environment support it?)");
     }
 
     if (!name) {
@@ -166,7 +160,7 @@ void finite_overlay_init(FiniteShell *shell, int layer, char *name) {
     shell->layer_surface = zwlr_layer_shell_v1_get_layer_surface(shell->shell, shell->isle_surface, shell->output, layer, name);    
 
     if (!shell->layer_surface) {
-        printf("[Finite] - Unable to attach a NULL layer_surface a shell. \n"); 
+        finite_log_internal(LOG_LEVEL_ERROR, file, line, func, "Unable to attach a NULL layer_surface a shell. "); 
         shell = NULL;
         return;
     }
@@ -181,11 +175,11 @@ void finite_overlay_init(FiniteShell *shell, int layer, char *name) {
 
     @note Unless you need a specific sized window, you don't need to call this as it is run silently when the output is added to the listener registry in `finite_shell_init()`.
 */
-void finite_window_size_set(FiniteShell *shell, int xPos, int yPos, int width, int height) {
+void finite_window_size_set_debug(const char *file, const char *func, int line, FiniteShell *shell, int xPos, int yPos, int width, int height) {
     FiniteWindowInfo *det = shell->details;
 
     if (!det) {
-        printf("[Finite] - Unable to allocate memory for the window details");
+        finite_log_internal(LOG_LEVEL_ERROR, file, line, func, "Unable to allocate memory for the window details");
         shell->details = NULL;
         return;
     }
@@ -198,5 +192,5 @@ void finite_window_size_set(FiniteShell *shell, int xPos, int yPos, int width, i
     det->output = shell->output;
     shell->details = det;
     
-    printf("[Finite] - Set window info to %d x %d at (%d,%d)\n", det->width, det->height, det->xPos, det->yPos);
+    FINITE_LOG("Set window info to %d x %d at (%d,%d)", det->width, det->height, det->xPos, det->yPos);
 }

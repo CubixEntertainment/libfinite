@@ -1,4 +1,5 @@
 #include "../include/draw/wl_shm.h"
+#include "../include/log.h"
 
 static void randname(char *buf) {
 	struct timespec ts;
@@ -48,13 +49,13 @@ int finite_shm_allocate_shm_file(size_t size) {
 	return fd;
 }
 
-void finite_shm_alloc(FiniteShell *shell, bool withAlpha) {
+void finite_shm_alloc_debug(const char *file, const char *func, int line, FiniteShell *shell, bool withAlpha) {
     if (!shell) {
         // if no shell throw an error
-        printf("[Finite] - Unable to manage shared memory on NULL. \n"); // TODO create a finite_log function
+        finite_log_internal(LOG_LEVEL_ERROR, file, line, func, "Unable to manage shared memory on NULL. "); // TODO create a finite_log function
         return;
     }
-	printf("[Finite] - Attempting to allocate the shm\n");
+	FINITE_LOG("Attempting to allocate the shm");
     FiniteWindowInfo *det = shell->details;
 	const int width = det->width, height = det->height;
 	enum _cairo_format form = (withAlpha) ? CAIRO_FORMAT_ARGB32 : CAIRO_FORMAT_RGB24;
@@ -67,7 +68,7 @@ void finite_shm_alloc(FiniteShell *shell, bool withAlpha) {
     shell->pool_data = mmap(NULL, pool_size, PROT_READ | PROT_WRITE, MAP_SHARED, shell->shm_fd, 0);
      
     if (shell->pool_data == MAP_FAILED || shell->shm_fd < 0) {
-        printf("[Finite] - Unable to allocate needed memory.\n");
+        finite_log_internal(LOG_LEVEL_ERROR, file, line, func, "Unable to allocate needed memory.");
         wl_display_disconnect(shell->display);
         return;
     }
@@ -76,11 +77,11 @@ void finite_shm_alloc(FiniteShell *shell, bool withAlpha) {
 
     shell->pool_size = pool_size;
 
-	printf("[Finite] - Shared memory allocated: %dx%d, stride=%d, size=%d, ptr=%p\n", width, height, stride, pool_size, shell->pool_data);
+	FINITE_LOG("Shared memory allocated: %dx%d, stride=%d, size=%d, ptr=%p", width, height, stride, pool_size, shell->pool_data);
 	
     shell->cairo_surface = cairo_image_surface_create_for_data(shell->pool_data, form, width, height, stride);
     if (cairo_surface_status(shell->cairo_surface) != CAIRO_STATUS_SUCCESS) {
-        printf("[Finite] - Unable to create window geometry with NULL information.\n");
+        finite_log_internal(LOG_LEVEL_ERROR, file, line, func, "Unable to create window geometry with NULL information.");
         return;
     }
 

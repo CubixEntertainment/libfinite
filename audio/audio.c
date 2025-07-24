@@ -1,22 +1,23 @@
 #include "../include/audio/audio.h"
+#include "../include/log.h"
 
-void finite_audio_get_audio_duration(FinitePlaybackDevice *dev) {
+void finite_audio_get_audio_duration_debug(const char *file, const char *func, int line, FinitePlaybackDevice *dev) {
     // to get true seconds do basic math
 
     if (dev->sfFrames <= 0 || dev->sample_rate <= 0) {
-        printf("Unable to calculate duration on incomplete file. \n");
+        finite_log_internal(LOG_LEVEL_ERROR, file, line, func, "Unable to calculate duration on incomplete file. ");
         exit(EXIT_FAILURE);
     }
 
     double time = dev->sfFrames / dev->sample_rate;
-    printf("true time is %f\n", time);
+    FINITE_LOG("true time is %f", time);
 
     int hours = (int) time / 3600;
     int minutes = ((int) time / 60) - (60 * hours);
     int seconds = ((int) time) - ((minutes * 60) + (hours * 3600));
     int ms = (time - (int) time) * 1000;  
 
-    printf("Time: %d:%d:%d:%d\n", hours, minutes, seconds,ms);
+    FINITE_LOG("Time: %d:%d:%d:%d", hours, minutes, seconds,ms);
 
     dev->dur.hours = hours;
     dev->dur.minutes = minutes;
@@ -24,30 +25,30 @@ void finite_audio_get_audio_duration(FinitePlaybackDevice *dev) {
     dev->dur.milliseconds = ms;
 }
 
-bool finite_audio_get_audio_params(char *file, FinitePlaybackDevice *dev) {
+bool finite_audio_get_audio_params_debug(const char *rfile, const char *func, int line, char *file, FinitePlaybackDevice *dev) {
     // verify the file exists
     if (access(file, F_OK) != 0) {
-        printf("Unable to open file at %s\n", file);
+        finite_log_internal(LOG_LEVEL_ERROR, file, line, func, "Unable to open file at %s", file);
         exit(EXIT_FAILURE);
     }
 
     if (!dev) {
-        printf("Unable to assign data to NULL device\n");
+        finite_log_internal(LOG_LEVEL_ERROR, file, line, func, "Unable to assign data to NULL device");
     }
 
     SF_INFO info;
 
     dev->file = sf_open(file, SFM_READ, &info);
     if (!dev->file) {
-        printf("Something went wrong \n");
+        finite_log_internal(LOG_LEVEL_ERROR, file, line, func, "Something went wrong ");
         return false;
     }
 
     // now assign the info data to the device
-    printf("Sound supports %d channels. %s\n", info.channels, info.channels == 2 ? "(Stereo)" : "(Mono)");
+    FINITE_LOG("Sound supports %d channels. %s", info.channels, info.channels == 2 ? "(Stereo)" : "(Mono)");
     dev->channels = info.channels;
     if (info.samplerate != 44100) {
-        printf("Sample Rate %d is not the recommended sample rate of 44100.\n", info.samplerate);
+        finite_log_internal(LOG_LEVEL_WARN, file, line, func, "Sample Rate %d is not the recommended sample rate of 44100.", info.samplerate);
     }
 
     dev->sample_rate = (uint32_t) info.samplerate;
@@ -56,12 +57,12 @@ bool finite_audio_get_audio_params(char *file, FinitePlaybackDevice *dev) {
     return true;
 }
 
-FinitePlaybackDevice *finite_audio_device_init() {
+FinitePlaybackDevice *finite_audio_device_init_debug(const char *file, const char *func, int line) {
     FinitePlaybackDevice *dev = calloc(1, sizeof(FinitePlaybackDevice));
 
     int err = snd_pcm_open(&dev->device, "default", SND_PCM_STREAM_PLAYBACK, 0);
     if (err < 0) {
-        printf("Unable to open device\n");
+        finite_log_internal(LOG_LEVEL_ERROR, file, line, func, "Unable to open device");
         return 0;
     }
 
@@ -69,7 +70,7 @@ FinitePlaybackDevice *finite_audio_device_init() {
 
     err = snd_pcm_hw_params_malloc(&dev->params);
     if (err < 0) {
-        printf("Unable to allocate hw params\n");
+        finite_log_internal(LOG_LEVEL_ERROR, file, line, func, "Unable to allocate hw params");
         return 0;
     }
 
@@ -77,9 +78,9 @@ FinitePlaybackDevice *finite_audio_device_init() {
 };
 
 // when autoCreate is true it will run finite_audio_get_audio_params(). 
-bool finite_audio_init_audio(FinitePlaybackDevice *dev, char* audio, bool autoCreate) {
+bool finite_audio_init_audio_debug(const char *file, const char *func, int line, FinitePlaybackDevice *dev, char* audio, bool autoCreate) {
     if (!dev || !audio) {
-        printf("Unable to init audio with NULL data");
+        finite_log_internal(LOG_LEVEL_ERROR, file, line, func, "Unable to init audio with NULL data");
         return false;
     } 
 
@@ -96,19 +97,19 @@ bool finite_audio_init_audio(FinitePlaybackDevice *dev, char* audio, bool autoCr
 
     err = snd_pcm_hw_params_set_rate_resample(dev->device, dev->params, dev->resample);
     if (err < 0) {
-        printf("Unable to set resample rate\n");
+        finite_log_internal(LOG_LEVEL_ERROR, file, line, func, "Unable to set resample rate");
         return false;
     }
 
     err = snd_pcm_hw_params_set_access(dev->device, dev->params, SND_PCM_ACCESS_RW_INTERLEAVED);
     if (err < 0) {
-        printf("Unable to set device sampling to interleaved.\n");
+        finite_log_internal(LOG_LEVEL_ERROR, file, line, func, "Unable to set device sampling to interleaved.");
         return false;
     }
 
     err = snd_pcm_hw_params_set_format(dev->device, dev->params, SND_PCM_FORMAT_S16_LE);
     if (err < 0) {
-        printf("Unable to set device format.\n");
+        finite_log_internal(LOG_LEVEL_ERROR, file, line, func, "Unable to set device format.");
         return false;
     }
 
@@ -117,25 +118,25 @@ bool finite_audio_init_audio(FinitePlaybackDevice *dev, char* audio, bool autoCr
     err = snd_pcm_hw_params_set_channels(dev->device, dev->params, dev->channels);
 
     if (err < 0) {
-        printf("Unable to set device channels.\n");
+        finite_log_internal(LOG_LEVEL_ERROR, file, line, func, "Unable to set device channels.");
         return false;
     }
 
     err = snd_pcm_hw_params_set_rate(dev->device, dev->params, dev->sample_rate, 0);
     if (err < 0) {
-        printf("Unable to set playback rate\n");
+        finite_log_internal(LOG_LEVEL_ERROR, file, line, func, "Unable to set playback rate");
         return false;
     }
 
     err = snd_pcm_hw_params(dev->device, dev->params);
     if (err < 0) {
-        printf("Unable to save params to device\n");
+        finite_log_internal(LOG_LEVEL_ERROR, file, line, func, "Unable to save params to device");
         return false;
     }
 
     err = snd_pcm_prepare(dev->device);
     if (err < 0) {
-        printf("Unable to prepare the device\n");
+        finite_log_internal(LOG_LEVEL_ERROR, file, line, func, "Unable to prepare the device");
         return false;
     }
 
@@ -143,13 +144,13 @@ bool finite_audio_init_audio(FinitePlaybackDevice *dev, char* audio, bool autoCr
     return true;
 }
 
-void finite_audio_play(FinitePlaybackDevice *dev) {
+void finite_audio_play_debug(const char *file, const char *func, int line, FinitePlaybackDevice *dev) {
     if (!dev) {
-        printf("Unable to init audio with NULL device");
+        finite_log_internal(LOG_LEVEL_ERROR, file, line, func, "Unable to init audio with NULL device");
     } 
 
     snd_pcm_hw_params_get_buffer_size(dev->params, &dev->frames);
-    printf("Got audio device with size %ld\n", dev->frames);
+    FINITE_LOG("Got audio device with size %ld", dev->frames);
 
     snd_pcm_hw_params_get_period_size(dev->params, &dev->frames, 0);
     size_t buf_size = dev->frames * dev->channels * sizeof(short);
@@ -171,28 +172,28 @@ void finite_audio_play(FinitePlaybackDevice *dev) {
 
             int pcm_data = snd_pcm_writei(dev->device, dev->audioBuffer, _read);
             if (pcm_data == -EPIPE) {
-                printf("An underrun occurred.\n");
+                finite_log_internal(LOG_LEVEL_WARN, file, line, func, "An underrun occurred.");
                 snd_pcm_prepare(dev->device);
             } else if (pcm_data < 0) {
-                printf("Unable to write to device %s\n", snd_strerror(pcm_data));
+                finite_log_internal(LOG_LEVEL_ERROR, file, line, func, "Unable to write to device %s", snd_strerror(pcm_data));
             } else if (pcm_data != _read) {
-                printf("Write data does not match read data.\n");
+                finite_log_internal(LOG_LEVEL_FATAL, file, line, func, "Write data does not match read data.");
             }
         }
     }
 
-    printf("Read succesfully. Audio file %s has %d channel(s) with a sample rate of %d\n", dev->filename, dev->channels, dev->sample_rate);
+    FINITE_LOG("Read succesfully. Audio file %s has %d channel(s) with a sample rate of %d", dev->filename, dev->channels, dev->sample_rate);
     snd_pcm_drain(dev->device);
 }
 
-bool finite_audio_stop(FinitePlaybackDevice *dev) {
+bool finite_audio_stop_debug(const char *file, const char *func, int line, FinitePlaybackDevice *dev) {
     if (!dev) {
-        printf("Unable to stop audio with NULL device");
+        finite_log_internal(LOG_LEVEL_ERROR, file, line, func, "Unable to stop audio with NULL device");
         return false;
     } 
 
     if (!dev->isPlaying) {
-        printf("Unable to stop audio that isn't playing.");
+        finite_log_internal(LOG_LEVEL_ERROR, file, line, func, "Unable to stop audio that isn't playing.");
         return false;
     }
 
@@ -200,14 +201,14 @@ bool finite_audio_stop(FinitePlaybackDevice *dev) {
     return true;
 }
 
-bool finite_audio_pause(FinitePlaybackDevice *dev) {
+bool finite_audio_pause_debug(const char *file, const char *func, int line, FinitePlaybackDevice *dev) {
     if (!dev) {
-        printf("Unable to stop audio with NULL device\n");
+        finite_log_internal(LOG_LEVEL_ERROR, file, line, func, "Unable to stop audio with NULL device");
         return false;
     } 
 
     if (dev->isPlaying == false) {
-        printf("Unable to toggle pause on an audio that isn't initialized.\n");
+        finite_log_internal(LOG_LEVEL_ERROR, file, line, func, "Unable to toggle pause on an audio that isn't initialized.");
         return false;
     }
 
@@ -221,14 +222,14 @@ bool finite_audio_pause(FinitePlaybackDevice *dev) {
     return true;
 }
 
-bool finite_audio_unpause(FinitePlaybackDevice *dev) {
+bool finite_audio_unpause_debug(const char *file, const char *func, int line, FinitePlaybackDevice *dev) {
     if (!dev) {
-        printf("Unable to stop audio with NULL device");
+        finite_log_internal(LOG_LEVEL_ERROR, file, line, func, "Unable to stop audio with NULL device");
         return false;
     } 
 
     if (!dev->isPlaying || !dev->isPaused) {
-        printf("Unable to unpause audio that isn't pauses.");
+        finite_log_internal(LOG_LEVEL_ERROR, file, line, func, "Unable to unpause audio that isn't pauses.");
         return false;
     }
 
@@ -236,9 +237,9 @@ bool finite_audio_unpause(FinitePlaybackDevice *dev) {
     return true;
 }
 
-void finite_audio_cleanup(FinitePlaybackDevice *dev) {
+void finite_audio_cleanup_debug(const char *file, const char *func, int line, FinitePlaybackDevice *dev) {
     if (!dev) {
-        printf("Unable to cleanup NULL device");
+        finite_log_internal(LOG_LEVEL_ERROR, file, line, func, "Unable to cleanup NULL device");
     } else {
         if (dev->audioBuffer) {
             snd_pcm_close(dev->device);

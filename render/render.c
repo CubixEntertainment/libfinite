@@ -275,9 +275,9 @@ void finite_render_record_command_buffer(FiniteRender *render, uint32_t index) {
             FiniteRenderBuffer currentBuf = render->buffers[i];
             vkCmdBindVertexBuffers(render->vk_buffer[render->_currentFrame], 0, 1, &render->vk_vertexBuf, &currentBuf.vertexOffset);
             if (render->vk_descriptor != NULL) {
-                printf("Attempting to bind set %d\n", render->_currentFrame);
+                // printf("Attempting to bind set %d\n", render->_currentFrame);
                 vkCmdBindDescriptorSets(render->vk_buffer[render->_currentFrame], VK_PIPELINE_BIND_POINT_GRAPHICS, render->vk_layout, 0, 1, &render->vk_descriptor[render->_currentFrame], 0, NULL);
-                printf("Done with set %d\n", render->_currentFrame);
+                // printf("Done with set %d\n", render->_currentFrame);
             }
             if (currentBuf._indices == true) {
                 vkCmdBindIndexBuffer(render->vk_buffer[render->_currentFrame], render->vk_vertexBuf, currentBuf.indexOffset, VK_INDEX_TYPE_UINT16);

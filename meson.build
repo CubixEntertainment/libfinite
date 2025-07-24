@@ -1,7 +1,7 @@
 project(
     'libfinite',
     'c',
-    version: '0.5.9-dev'
+    version: '0.5.10-dev'
 )
 
 cc = meson.get_compiler('c')
@@ -83,21 +83,22 @@ src = [
     'render/vulkan.c',
     'render/image.c',
 
-    'core/file.c'
+    'core/file.c',
+    'core/log.c'
     
 ]
 
 libfinite = library(
     'libfinite', 
     src, 
-    version : '0.5.9', 
+    version : '0.5.10', 
     soversion : '1', 
     dependencies: deps,
     install: true,
     include_directories: inc
 )
 
-# install the draw headers
+# install the headers
 headers = [
     'include/draw/draw.h',
     'include/draw/cairo.h',
@@ -116,7 +117,8 @@ headers = [
     'include/render/stb_image.h',
     'include/render/render-image.h',
 
-    'include/core.h'
+    'include/core.h',
+    'include/log.h'
 ]
 
 install_headers(headers, subdir: 'finite')
@@ -127,7 +129,7 @@ pkgconfig.generate(
     libfinite,
     name: 'libfinite',
     description: 'The Cubix Infinite Development Library',
-    version: '0.5.9',
+    version: '0.5.10',
     filebase: 'finite',
     subdirs: 'finite',
     requires: ['wayland-client', 'wayland-protocols', 'cairo', 'alsa', 'vulkan']
