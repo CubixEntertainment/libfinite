@@ -2,11 +2,12 @@
 #include "../include/render/stb_image.h"
 #include "../include/render/render-image.h"
 #include "../include/render/render-core.h"
+#include "../include/log.h"
 
-void finite_render_create_texture(const char *file, FiniteRenderTextureInfo *info, bool forceAlpha) {
+void finite_render_create_texture_debug(const char *rfile, const char *func, int line, const char *file, FiniteRenderTextureInfo *info, bool forceAlpha) {
     stbi_uc *pixels = stbi_load(file, &info->width, &info->height, &info->channels, forceAlpha ? STBI_rgb_alpha : STBI_rgb);
     if (!pixels) {
-        printf("Unable to load texture at %s", file);
+        finite_log_internal(LOG_LEVEL_ERROR, rfile, line, func, "Unable to load texture at %s", file);
         exit(EXIT_FAILURE);
     }
 
@@ -28,9 +29,9 @@ void finite_render_cleanup_textures(FiniteRender *render, FiniteRenderImage *img
     }
 }
 
-FiniteRenderImage *finite_render_create_image(FiniteRender *render, FiniteRenderImageInfo *info, FiniteRenderMemAllocInfo *mem_info) {
+FiniteRenderImage *finite_render_create_image_debug(const char *file, const char *func, int line, FiniteRender *render, FiniteRenderImageInfo *info, FiniteRenderMemAllocInfo *mem_info) {
     if (!render) {
-        printf("Unable create FiniteRender Image\n");
+        finite_log_internal(LOG_LEVEL_ERROR, file, line, func, "Unable create FiniteRender Image");
         exit(EXIT_FAILURE);
     }
 
@@ -55,7 +56,7 @@ FiniteRenderImage *finite_render_create_image(FiniteRender *render, FiniteRender
 
     VkResult res = vkCreateImage(render->vk_device, &image_info, NULL, &image->textureImage);
     if (res != VK_SUCCESS) {
-        printf("Unable to create image\n");
+        finite_log_internal(LOG_LEVEL_ERROR, file, line, func, "Unable to create image");
         exit(EXIT_FAILURE);
     }
 
@@ -135,7 +136,7 @@ void finite_render_create_sampler(FiniteRender *render, FiniteRenderImage *img, 
     }   
 }
 
-void finite_render_transition_image_layout(FiniteRender *render, FiniteRenderImageBarrierInfo *info, VkFormat format, FiniteRenderPipelineDirections *dir) {
+void finite_render_transition_image_layout_debug(const char *file, const char *func, int line, FiniteRender *render, FiniteRenderImageBarrierInfo *info, VkFormat format, FiniteRenderPipelineDirections *dir) {
     if (!info) {
         printf("Unable to transition NULL image (%p)\n", info);
         exit(EXIT_FAILURE);
@@ -144,19 +145,25 @@ void finite_render_transition_image_layout(FiniteRender *render, FiniteRenderIma
     FiniteRenderOneshotBuffer cmd_block = finite_render_begin_onshot_command(render);
 
     if (info->old == VK_IMAGE_LAYOUT_UNDEFINED && info->new == VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL) {
-        printf("Old is undefined. Moving to Transfer Optimal\n");        
+        FINITE_LOG("Old is undefined. Moving to Transfer Optimal");        
         info->srcFlags = 0;
         info->destFlags = VK_ACCESS_TRANSFER_WRITE_BIT;
         dir->srcFlags = VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT;
         dir->destFlags = VK_PIPELINE_STAGE_TRANSFER_BIT;
     } else if (info->old == VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL && info->new == VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL) {
-        printf("Old is Transfer Optimal. Moving to Read Only.\n");
+        FINITE_LOG("Old is Transfer Optimal. Moving to Read Only");
         info->srcFlags = VK_ACCESS_TRANSFER_WRITE_BIT;
         info->destFlags = VK_ACCESS_SHADER_READ_BIT;
         dir->srcFlags = VK_PIPELINE_STAGE_TRANSFER_BIT;
         dir->destFlags = VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT;
+    } else if (info->old == VK_IMAGE_LAYOUT_UNDEFINED && info->new == VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL) {
+        FINITE_LOG("Old is undefined. Moving to Depth Stencil");
+        info->srcFlags = 0;
+        info->destFlags = VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_READ_BIT | VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_WRITE_BIT;
+        dir->srcFlags = VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT;
+        dir->destFlags = VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT;
     } else {
-        printf("Unknown/unsupported transition.\n");
+        finite_log_internal(LOG_LEVEL_ERROR, file, line, func, "Unknown/unsupported transition.");
         exit(EXIT_FAILURE);
     }
 
@@ -172,6 +179,19 @@ void finite_render_transition_image_layout(FiniteRender *render, FiniteRenderIma
         .dstAccessMask = info->destFlags 
     };
 
+    if (info->new == VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL) {
+        if (format == VK_FORMAT_D32_SFLOAT_S8_UINT || format == VK_FORMAT_D24_UNORM_S8_UINT) {
+            if (info->subRange.aspectMask != VK_IMAGE_ASPECT_STENCIL_BIT) {
+                wall.subresourceRange.aspectMask |= VK_IMAGE_ASPECT_STENCIL_BIT;
+                finite_log_internal(LOG_LEVEL_WARN, file, line, func, "Using stencil, defaulting to stencil bit");
+            }
+        } else {
+            if (info->subRange.aspectMask != VK_IMAGE_ASPECT_DEPTH_BIT) {
+                wall.subresourceRange.aspectMask = VK_IMAGE_ASPECT_DEPTH_BIT;
+                finite_log_internal(LOG_LEVEL_WARN, file, line, func, "Using stencil, defaulting to depth bit");
+            }
+        }
+    }
 
     vkCmdPipelineBarrier(cmd_block.buffer, dir->srcFlags, dir->destFlags, dir->depFlags, 0, NULL, 0, NULL, 1, &wall);
     finite_render_finish_onshot_command(render, cmd_block);

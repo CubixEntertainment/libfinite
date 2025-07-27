@@ -49,7 +49,7 @@ bool finite_audio_get_audio_params_debug(const char *rfile, const char *func, in
 #define finite_audio_device_init() finite_audio_device_init_debug(__FILE__, __func__, __LINE__)
 FinitePlaybackDevice *finite_audio_device_init_debug(const char *file, const char *func, int line);
 
-#define finite_audio_init_audio(dev, audio, autoCreate) finite_audio_init_audio_debug(const char *file, const char *func, int line, dev, audio, autoCreate)
+#define finite_audio_init_audio(dev, audio, autoCreate) finite_audio_init_audio_debug(__FILE__, __func__, __LINE__, dev, audio, autoCreate)
 bool finite_audio_init_audio_debug(const char *file, const char *func, int line, FinitePlaybackDevice *dev, char* audio, bool autoCreate);
 
 #define finite_audio_play(dev) finite_audio_play_debug(__FILE__, __func__, __LINE__, dev)

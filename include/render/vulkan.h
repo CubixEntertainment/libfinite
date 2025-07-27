@@ -8,7 +8,13 @@ void finite_render_create_device(FiniteRender *render, FiniteRenderQueueFamilies
 void finite_render_create_swapchain(FiniteRender *render, FiniteRenderSwapchainInfo info);
 void finite_render_create_swapchain_images(FiniteRender *render);
 void finite_render_create_example_render_pass(FiniteRender *render);
-void finite_render_create_framebuffers(FiniteRender *render);
+
+#define finite_render_create_render_pass(render, att_desc_info, ref_info, subpass_desc_info, subpass_dep_info, info) finite_render_create_render_pass_debug(__FILE__, __func__, __LINE__, render, att_desc_info, ref_info, subpass_desc_info, subpass_dep_info, info)
+void finite_render_create_render_pass_debug(const char *file, const char *func, int line, FiniteRender *render, FiniteRenderAttachmentDescriptionInfo **att_desc_info, FiniteRenderAttachmentRefInfo **ref_info, FiniteRenderSubpassDescriptionInfo **subpass_desc_info, FiniteRenderSubpassDependencyInfo **subpass_dep_info, FiniteRenderRenderPassInfo *info);
+
+#define finite_render_create_framebuffers(render, info) finite_render_create_framebuffers_debug(__FILE__, __func__, __LINE__, render, info)
+void finite_render_create_framebuffers_debug(const char *file, const char *func, int line, FiniteRender *render, FiniteRenderFramebufferInfo *info);
+
 void finite_render_create_pipeline_layout( FiniteRender *render, FiniteRenderPipelineLayoutInfo *layoutInfo);
 bool finite_render_add_shader_stage(FiniteRender *render, FiniteRenderShaderStageInfo *stage);
 VkPipelineVertexInputStateCreateInfo finite_render_create_vertex_input(FiniteRender *render, FiniteRenderVertexInputInfo *vertex);

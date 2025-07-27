@@ -105,12 +105,19 @@ struct FiniteRenderTextureSamplerInfo {
     bool unnormalizedCoordinates;
 };
 
-void finite_render_create_texture(const char *file, FiniteRenderTextureInfo *info, bool forceAlpha);
+#define finite_render_create_texture(file, info, forceAlpha) finite_render_create_texture_debug(__FILE__, __func__, __LINE__, file, info, forceAlpha)
+void finite_render_create_texture_debug(const char *rfile, const char *func, int line, const char *file, FiniteRenderTextureInfo *info, bool forceAlpha);
+
 void finite_render_destroy_pixels(FiniteRenderTextureInfo *image);
 void finite_render_cleanup_textures(FiniteRender *render, FiniteRenderImage *imgs, uint32_t _imgs);
-FiniteRenderImage *finite_render_create_image(FiniteRender *render, FiniteRenderImageInfo *info, FiniteRenderMemAllocInfo *mem_info);
+
+#define finite_render_create_image(render, info, mem_info) finite_render_create_image_debug(__FILE__, __func__, __LINE__, render, info, mem_info)
+FiniteRenderImage *finite_render_create_image_debug(const char *file, const char *func, int line, FiniteRender *render, FiniteRenderImageInfo *info, FiniteRenderMemAllocInfo *mem_info);
 void finite_render_create_view(FiniteRender *render, FiniteRenderImage *img, FiniteRenderImageViewInfo *info);
 void finite_render_create_sampler(FiniteRender *render, FiniteRenderImage *img, FiniteRenderTextureSamplerInfo *info);
-void finite_render_transition_image_layout(FiniteRender *render, FiniteRenderImageBarrierInfo *info, VkFormat format, FiniteRenderPipelineDirections *dir);
+
+#define finite_render_transition_image_layout(render, info, format, dir) finite_render_transition_image_layout_debug(__FILE__, __func__, __LINE__, render, info, format, dir)
+void finite_render_transition_image_layout_debug(const char *file, const char *func, int line, FiniteRender *render, FiniteRenderImageBarrierInfo *info, VkFormat format, FiniteRenderPipelineDirections *dir);
+
 void finite_render_copy_buffer_to_image(FiniteRender *render, FiniteRenderImageCopyDirections *dir);
 #endif

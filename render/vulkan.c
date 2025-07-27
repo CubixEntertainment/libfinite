@@ -1,4 +1,5 @@
 #include "../include/render/vulkan.h"
+#include "../include/log.h"
 
 FiniteRender *finite_render_init(FiniteShell *shell, char **extensions, char **layers, uint32_t _exts, uint32_t _layers ) {
     if (!shell || !shell->surface) {
@@ -230,7 +231,7 @@ void finite_render_create_swapchain_images(FiniteRender *render) {
 }
 
 void finite_render_create_example_render_pass(FiniteRender *render) {
-        VkAttachmentDescription colorAttachment = {
+    VkAttachmentDescription colorAttachment = {
         .flags = 0,
         .format = render->vk_imageForm.format,
         .samples = VK_SAMPLE_COUNT_1_BIT,
@@ -291,30 +292,161 @@ void finite_render_create_example_render_pass(FiniteRender *render) {
     printf("New type available. VkRenderPass (%p)\n", render->vk_renderPass);
 }
 
-void finite_render_create_framebuffers(FiniteRender *render) {
+void finite_render_create_render_pass_debug(const char *file, const char *func, int line, FiniteRender *render, FiniteRenderAttachmentDescriptionInfo **att_desc_info, FiniteRenderAttachmentRefInfo **ref_info, FiniteRenderSubpassDescriptionInfo **subpass_desc_info, FiniteRenderSubpassDependencyInfo **subpass_dep_info, FiniteRenderRenderPassInfo *info) {
+    
+    const uint32_t _atts = info->_attachments;
+    const uint32_t _subs = info->_subpasses;
+    const uint32_t _deps = info->_deps;
+    const uint32_t _refs = info->_refs;
+
+    if (att_desc_info) {
+        VkAttachmentDescription *attachments;
+        attachments = malloc(sizeof(VkAttachmentDescription) * _atts);
+
+        for (int i = 0; i < _atts; i++) {
+            VkAttachmentDescription attachment = {
+                .flags = att_desc_info[i]->flags,
+                .format = att_desc_info[i]->format,
+                .samples = att_desc_info[i]->samples,
+                .loadOp = att_desc_info[i]->loadOp,
+                .storeOp = att_desc_info[i]->storeOp,
+                .stencilLoadOp = att_desc_info[i]->stencilLoadOp,
+                .stencilStoreOp = att_desc_info[i]->stencilStoreOp,
+                .initialLayout = att_desc_info[i]->initialLayout,
+                .finalLayout = att_desc_info[i]->finalLayout
+            };                
+            attachments[i] = attachment;
+        }
+        info->attachments = attachments;
+    }
+    
+    if (ref_info != NULL) {
+        VkAttachmentReference *depthRef;
+        VkAttachmentReference *colorRefs;
+        depthRef = malloc(sizeof(VkAttachmentReference));
+        colorRefs = malloc(sizeof(VkAttachmentReference) * _refs);
+        uint32_t _cRefs = 0;
+        
+        for (int i = 0; i < _refs; i++) {
+            FINITE_LOG("Attachment %d with layout %d", ref_info[i]->_attachment, ref_info[i]->layout);
+            VkAttachmentReference ref = {
+                .attachment = ref_info[i]->_attachment,
+                .layout = ref_info[i]->layout
+            };
+
+            if (ref_info[i]->type == FINITE_ATTACHMENT_DESCRIPTOR_DEPTH) {
+                *depthRef = ref;
+            } else {
+                colorRefs[_cRefs++] = ref;
+            }
+        }
+
+        for (int i = 0; i < _subs; i++) {
+            subpass_desc_info[i]->colorAttachments = colorRefs;
+            subpass_desc_info[i]->_colorAttachments = _cRefs;
+            subpass_desc_info[i]->depthStencilAttachment = depthRef;
+        }
+    }
+
+    if (subpass_desc_info) {
+        VkSubpassDescription *subpasses;
+        subpasses = malloc(sizeof(VkSubpassDescription) * _subs);
+
+        for (int i = 0; i < _subs; i++) {
+            VkSubpassDescription subpass = {
+                .flags = subpass_desc_info[i]->flags,
+                .pipelineBindPoint = subpass_desc_info[i]->pipelineBindPoint,
+                .inputAttachmentCount = subpass_desc_info[i]->_inputAttachments,
+                .pInputAttachments = subpass_desc_info[i]->inputAttachments,
+                .colorAttachmentCount = subpass_desc_info[i]->_colorAttachments,
+                .pColorAttachments = subpass_desc_info[i]->colorAttachments,
+                .pResolveAttachments = subpass_desc_info[i]->resolveAttachments,
+                .pDepthStencilAttachment = subpass_desc_info[i]->depthStencilAttachment,
+                .preserveAttachmentCount = subpass_desc_info[i]->_preserveAttachments,
+                .pPreserveAttachments = subpass_desc_info[i]->preserveAttachments
+            };
+
+            subpasses[i] = subpass;
+        }
+
+        info->subpasses = subpasses;
+    }
+
+    if (subpass_dep_info) {
+        VkSubpassDependency *deps;
+        deps = malloc(sizeof(VkSubpassDependency) * _deps);
+
+        for (int i = 0; i < _deps; i++) {
+            VkSubpassDependency subpass_dep = {
+                .srcSubpass = subpass_dep_info[i]->srcSubpass,
+                .dstSubpass = subpass_dep_info[i]->destSubpass,
+                .srcStageMask = subpass_dep_info[i]->srcStageMask,
+                .dstStageMask = subpass_dep_info[i]->destStageMask,
+                .srcAccessMask = subpass_dep_info[i]->destAccessMask,
+                .dstAccessMask = subpass_dep_info[i]->destAccessMask,
+                .dependencyFlags = subpass_dep_info[i]->dependencyFlags
+            };
+
+            deps[i] = subpass_dep;
+        }
+
+        info->dependencies = deps;
+    }
+
+    VkRenderPassCreateInfo renderPass_info = {
+        .sType = VK_STRUCTURE_TYPE_RENDER_PASS_CREATE_INFO,
+        .pNext = info->next,
+        .flags = info->flags,
+        .attachmentCount = _atts,
+        .pAttachments = info->attachments,
+        .subpassCount = _subs,
+        .pSubpasses = info->subpasses,
+        .dependencyCount = _deps,
+        .pDependencies = info->dependencies
+    };
+
+    VkResult res = vkCreateRenderPass(render->vk_device, &renderPass_info, NULL, &render->vk_renderPass);
+    if (res != VK_SUCCESS) {
+        finite_log_internal(LOG_LEVEL_FATAL, file, line, func, "Unable to create render pass | %d", res);
+    }
+
+    FINITE_LOG("Render Pass %p created.\n", (void*)render->vk_renderPass);
+    FINITE_LOG("New type available. VkRenderPass (%p)\n", render->vk_renderPass);
+}
+
+void finite_render_create_framebuffers_debug(const char *file, const char *func, int line, FiniteRender *render, FiniteRenderFramebufferInfo *info) {
     VkFramebufferCreateInfo *framebufferCreateInfo = (VkFramebufferCreateInfo *)malloc(render->_images * sizeof(VkFramebufferCreateInfo));
     render->vk_frameBufs = (VkFramebuffer *)malloc(render->_images * sizeof(VkFramebuffer));
-    for(uint32_t i = 0; i < render->_images; i++){
+    uint32_t _atts = info->_attachments;
+    for (uint32_t i = 0; i < render->_images; i++){
+        VkImageView views[_atts];
+        for (int v = 0; v < _atts; v++) {
+            if (info->attachments[v] == VK_NULL_HANDLE) { // vk_null_handle means we want the current view
+                views[v] = render->vk_view[i];
+            } else {
+                views[v] = info->attachments[v];
+            }
+        }
+
 		framebufferCreateInfo[i].sType = VK_STRUCTURE_TYPE_FRAMEBUFFER_CREATE_INFO;
-		framebufferCreateInfo[i].pNext = VK_NULL_HANDLE;
-		framebufferCreateInfo[i].flags = 0;
+		framebufferCreateInfo[i].pNext = info->next;
+		framebufferCreateInfo[i].flags = info->flags;
 		framebufferCreateInfo[i].renderPass = render->vk_renderPass;
-		framebufferCreateInfo[i].attachmentCount = 1;
-		framebufferCreateInfo[i].pAttachments = &(render->vk_view)[i];
-		framebufferCreateInfo[i].width = render->vk_extent.width;
-		framebufferCreateInfo[i].height = render->vk_extent.height;
-		framebufferCreateInfo[i].layers = 1;
+		framebufferCreateInfo[i].attachmentCount = info->_attachments;
+		framebufferCreateInfo[i].pAttachments = (const VkImageView *)views;
+		framebufferCreateInfo[i].width = info->width;
+		framebufferCreateInfo[i].height = info->height;
+		framebufferCreateInfo[i].layers = info->layers;
 
 		VkResult res = vkCreateFramebuffer(render->vk_device, &framebufferCreateInfo[i], VK_NULL_HANDLE, &render->vk_frameBufs[i]);
         if (res != VK_SUCCESS) {
-            printf("Failed to create framebuffer %d\n", i);
-            exit(EXIT_FAILURE);
+            finite_log_internal(LOG_LEVEL_FATAL, file, line, func, "Failed to create framebuffer %d", i);
         }
 	}
 
     free(framebufferCreateInfo);
 
-    printf("Created an array of %d framebuffers (%p)\n", render->_images, render->vk_frameBufs);
+    FINITE_LOG("Created an array of %d framebuffers (%p)", render->_images, render->vk_frameBufs);
 }
 
 void finite_render_create_pipeline_layout( FiniteRender *render, FiniteRenderPipelineLayoutInfo *layoutInfo) {
@@ -570,6 +702,29 @@ bool finite_render_create_graphics_pipeline(FiniteRender *render, VkPipelineCrea
         printf("Unable to create new color blend state with NULL render (%p)\n", render);
         return false;
     }
+    VkPipelineDepthStencilStateCreateInfo *depth_stencil = VK_NULL_HANDLE;
+
+    // TODO: Make this function's params not suck
+    if (render->withDepth) {
+        depth_stencil = malloc(sizeof(VkPipelineDepthStencilStateCreateInfo));
+        depth_stencil->sType = VK_STRUCTURE_TYPE_PIPELINE_DEPTH_STENCIL_STATE_CREATE_INFO;
+        depth_stencil->pNext = NULL;
+        depth_stencil->depthTestEnable = VK_TRUE;
+        depth_stencil->depthWriteEnable = VK_TRUE;
+        depth_stencil->depthCompareOp = VK_COMPARE_OP_LESS;
+        depth_stencil->depthBoundsTestEnable = VK_FALSE;
+        depth_stencil->minDepthBounds = 0.0f;
+        depth_stencil->maxDepthBounds = 1.0f;
+        depth_stencil->stencilTestEnable = VK_FALSE;
+        depth_stencil->front.failOp = VK_STENCIL_OP_KEEP;
+        depth_stencil->front.passOp = VK_STENCIL_OP_KEEP;
+        depth_stencil->front.depthFailOp = VK_STENCIL_OP_KEEP;
+        depth_stencil->front.compareOp = VK_COMPARE_OP_ALWAYS;
+        depth_stencil->back.failOp = VK_STENCIL_OP_KEEP;
+        depth_stencil->back.passOp = VK_STENCIL_OP_KEEP;
+        depth_stencil->back.depthFailOp = VK_STENCIL_OP_KEEP;
+        depth_stencil->back.compareOp = VK_COMPARE_OP_ALWAYS;
+    }
 
     VkGraphicsPipelineCreateInfo graphics_pipeline_info = {
         .sType = VK_STRUCTURE_TYPE_GRAPHICS_PIPELINE_CREATE_INFO,
@@ -582,7 +737,7 @@ bool finite_render_create_graphics_pipeline(FiniteRender *render, VkPipelineCrea
         .pViewportState = port,
         .pRasterizationState = raster,
         .pMultisampleState = sample,
-        .pDepthStencilState = VK_NULL_HANDLE, // TODO
+        .pDepthStencilState = depth_stencil, // TODO
         .pColorBlendState = blend,
         .pDynamicState = dyna,
         .layout = render->vk_layout,

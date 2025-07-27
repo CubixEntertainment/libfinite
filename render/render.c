@@ -234,8 +234,6 @@ void finite_render_record_command_buffer(FiniteRender *render, uint32_t index) {
         exit(EXIT_FAILURE);
     }
 
-    VkClearValue clear = {{{0.0f, 0.0f, 0.0f, 1.0f}}};
-
     VkRenderPassBeginInfo rstart_info = {
         .sType = VK_STRUCTURE_TYPE_RENDER_PASS_BEGIN_INFO,
         .renderPass = render->vk_renderPass,
@@ -243,10 +241,25 @@ void finite_render_record_command_buffer(FiniteRender *render, uint32_t index) {
         .renderArea = {
             .offset = {0,0},
             .extent = render->vk_extent
-        },
-        .clearValueCount = 1,
-        .pClearValues = &clear,
+        }
     };
+
+    if (render->withDepth) {
+        VkClearValue clear[2] = {
+            {
+                .color = {{0.25f, 0.25f, 0.25f, 1.0f}}
+            },
+            {
+                .depthStencil = {1.0f, 0}
+            }
+        };
+        rstart_info.clearValueCount = 2,
+        rstart_info.pClearValues = clear;
+    } else {
+        VkClearValue clear = {{{0.0f, 0.0f, 0.0f, 1.0f}}};
+        rstart_info.clearValueCount = 1;
+        rstart_info.pClearValues = &clear;
+    }
 
     vkCmdBeginRenderPass(render->vk_buffer[render->_currentFrame], &rstart_info, VK_SUBPASS_CONTENTS_INLINE);
     vkCmdBindPipeline(render->vk_buffer[render->_currentFrame], VK_PIPELINE_BIND_POINT_GRAPHICS, render->vk_pipeline);

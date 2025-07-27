@@ -11,6 +11,12 @@
 
 typedef struct FiniteRenderSwapchainInfo FiniteRenderSwapchainInfo;
 typedef struct FiniteRender FiniteRender;
+typedef struct FiniteRenderAttachmentDescriptionInfo FiniteRenderAttachmentDescriptionInfo;
+typedef struct FiniteRenderAttachmentRefInfo FiniteRenderAttachmentRefInfo;
+typedef struct FiniteRenderSubpassDescriptionInfo FiniteRenderSubpassDescriptionInfo;
+typedef struct FiniteRenderSubpassDependencyInfo FiniteRenderSubpassDependencyInfo;
+typedef struct FiniteRenderRenderPassInfo FiniteRenderRenderPassInfo;
+typedef struct FiniteRenderFramebufferInfo FiniteRenderFramebufferInfo;
 typedef struct FiniteRenderQueueFamilies FiniteRenderQueueFamilies;
 typedef struct FiniteRenderPipelineLayoutInfo FiniteRenderPipelineLayoutInfo;
 typedef struct FiniteRenderShaderStages FiniteRenderShaderStages;
@@ -35,6 +41,7 @@ typedef struct FiniteRenderOneshotBuffer FiniteRenderOneshotBuffer;
 typedef struct FiniteRenderDescriptorInfo FiniteRenderDescriptorInfo;
 typedef enum   FiniteShaderType FiniteShaderType;
 typedef enum   FiniteDescriptorType FiniteDescriptorType;
+typedef enum   FiniteAttachmentDescriptor FiniteAttachmentDescriptor;
 
 enum FiniteShaderType {
     FINITE_SHADER_TYPE_VERTEX,
@@ -47,10 +54,78 @@ enum FiniteDescriptorType {
     FINITE_DESCRIPTOR_MULTI
 };
 
+enum FiniteAttachmentDescriptor {
+    FINITE_ATTACHMENT_DESCRIPTOR_COLOR,
+    FINITE_ATTACHMENT_DESCRIPTOR_DEPTH
+};
+
 struct FiniteRenderQueueFamilies {
     uint32_t graphicsFamily;
     uint32_t presentFamily;
     uint32_t _unique;
+};
+
+struct FiniteRenderAttachmentDescriptionInfo {
+    VkAttachmentDescriptionFlags flags;
+    VkFormat format;
+    VkSampleCountFlagBits samples;
+    VkAttachmentLoadOp loadOp;
+    VkAttachmentStoreOp storeOp;
+    VkAttachmentLoadOp stencilLoadOp;
+    VkAttachmentStoreOp stencilStoreOp;
+    VkImageLayout initialLayout;
+    VkImageLayout finalLayout;
+};
+
+struct FiniteRenderAttachmentRefInfo {
+    uint32_t _attachment;
+    VkImageLayout layout;
+    FiniteAttachmentDescriptor type;
+};
+
+struct FiniteRenderSubpassDescriptionInfo {
+    VkSubpassDescriptionFlags flags;
+    VkPipelineBindPoint pipelineBindPoint;
+    uint32_t _inputAttachments;
+    const VkAttachmentReference *inputAttachments;
+    uint32_t _colorAttachments;
+    VkAttachmentReference *colorAttachments;
+    const VkAttachmentReference *resolveAttachments;
+    VkAttachmentReference *depthStencilAttachment;
+    uint32_t _preserveAttachments;
+    const uint32_t *preserveAttachments;
+};
+
+struct FiniteRenderSubpassDependencyInfo {
+    uint32_t srcSubpass;
+    uint32_t destSubpass;
+    VkPipelineStageFlags srcStageMask;
+    VkPipelineStageFlags destStageMask;
+    VkAccessFlags srcAccessMask;
+    VkAccessFlags destAccessMask;
+    VkDependencyFlags dependencyFlags;
+};
+
+struct FiniteRenderRenderPassInfo {
+    const void *next;
+    VkRenderPassCreateFlags flags;
+    uint32_t _attachments;
+    VkAttachmentDescription *attachments;
+    uint32_t _subpasses;
+    const VkSubpassDescription *subpasses;
+    uint32_t _deps;
+    const VkSubpassDependency *dependencies;
+    uint32_t _refs;
+};
+
+struct FiniteRenderFramebufferInfo {
+    const void *next;
+    VkFramebufferCreateFlags flags;
+    uint32_t _attachments;
+    VkImageView *attachments;
+    uint32_t width;
+    uint32_t height;
+    uint32_t layers;
 };
 
 struct FiniteRenderSwapchainInfo {
@@ -81,6 +156,8 @@ struct FiniteRender {
     uint32_t _buffers; // will rename but refers to the FiniteRenderBuffers
     uint32_t _vertexBufferSize;
     uint32_t _currentFrame;
+
+    bool withDepth;
 
     FiniteRenderShaderStages stages;
     

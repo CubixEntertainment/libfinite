@@ -236,10 +236,10 @@ const FiniteKeyMapping finite_key_lookup[] = {
 FiniteKeyboard *finite_input_keyboard_init_debug(const char *file, const char *func, int line, struct wl_display *device);
 
 #define finite_key_down(key, board) finite_key_down_debug(__FILE__, __func__, __LINE__, key, board)
-bool finite_key_down(const char *file, const char *func, int line, FiniteKey key, FiniteKeyboard *board);
+bool finite_key_down_debug(const char *file, const char *func, int line, FiniteKey key, FiniteKeyboard *board);
 
 #define finite_key_up(key, board) finite_key_up_debug(__FILE__, __func__, __LINE__, key, board)
-bool finite_key_up(const char *file, const char *func, int line, FiniteKey key, FiniteKeyboard *board);
+bool finite_key_up_debug(const char *file, const char *func, int line, FiniteKey key, FiniteKeyboard *board);
 
 #define finite_key_valid(key) finite_key_valid_debug(__FILE__, __func__, __LINE__, key)
 bool finite_key_valid_debug(const char *file, const char *func, int line, FiniteKey key);
