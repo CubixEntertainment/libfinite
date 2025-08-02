@@ -1,9 +1,9 @@
 #include "../include/render/vulkan.h"
 #include "../include/log.h"
 
-FiniteRender *finite_render_init(FiniteShell *shell, char **extensions, char **layers, uint32_t _exts, uint32_t _layers ) {
+FiniteRender *finite_render_init_debug(const char *file, const char *func, int line, FiniteShell *shell, char **extensions, char **layers, uint32_t _exts, uint32_t _layers ) {
     if (!shell || !shell->surface) {
-        printf("You must create a valid shell with a window before rendering a window.\n");
+        finite_log_internal(LOG_LEVEL_ERROR, file, line, func, "You must create a valid shell with a window before rendering a window.");
     }
 
     FiniteRender *render = calloc(1, sizeof(FiniteRender));
@@ -29,13 +29,13 @@ FiniteRender *finite_render_init(FiniteShell *shell, char **extensions, char **l
 
 
     if (extensions != NULL) {
-        printf("Loading passed extensions\n");
+        FINITE_LOG("Loading passed extensions");
         create_info.enabledExtensionCount = _exts;
         create_info.ppEnabledExtensionNames = (const char **) extensions;
         render->_exts = _exts;
         render->required_extensions = extensions;
     } else {
-        printf("Using default extensions.\n");
+        FINITE_LOG("Using default extensions.");
         create_info.enabledExtensionCount = 3;
         create_info.ppEnabledExtensionNames = (const char **) required_extensions;
     }
@@ -55,10 +55,10 @@ FiniteRender *finite_render_init(FiniteShell *shell, char **extensions, char **l
 
     VkResult res = vkCreateInstance(&create_info, NULL, &render->vk_instance);
     if (res != VK_SUCCESS) {
-        printf("[Finite] - Unable to create instance.\n");
+        finite_log_internal(LOG_LEVEL_ERROR, file, line, func, "Unable to create instance.");
         return NULL;
     }
-    printf("Created Instance %p successfully.\n", render->vk_instance);
+    FINITE_LOG("Created Instance %p successfully.", render->vk_instance);
 
     VkWaylandSurfaceCreateInfoKHR surface_info = {
         .sType = VK_STRUCTURE_TYPE_WAYLAND_SURFACE_CREATE_INFO_KHR,
@@ -68,45 +68,43 @@ FiniteRender *finite_render_init(FiniteShell *shell, char **extensions, char **l
 
     res = vkCreateWaylandSurfaceKHR(render->vk_instance, &surface_info, NULL, &render->vk_surface);
     if (res != VK_SUCCESS) {
-        printf("[Finite] - Unable to attach vulkan to surface.\n");
+        finite_log_internal(LOG_LEVEL_ERROR, file, line, func, "Unable to attach vulkan to surface.");
         return NULL;
     }
 
-    printf("Created render surface %p successfully.\n", render->vk_surface);
+    FINITE_LOG("Created render surface %p successfully.", render->vk_surface);
 
     return render;
 }
 
-void finite_render_create_physical_device(FiniteRender *render) {
+void finite_render_create_physical_device_debug(const char *file, const char *func, int line, FiniteRender *render) {
     uint32_t deviceCount = 0;
     vkEnumeratePhysicalDevices(render->vk_instance, &deviceCount, NULL);
     if (deviceCount == 0) {
-        printf("[Finite] - No devices avilable.\n");
-        exit(EXIT_FAILURE);
+        finite_log_internal(LOG_LEVEL_FATAL, file, line, func, "No devices avilable.");
     }
 
-    printf("%d devices available.\n", deviceCount);
+    FINITE_LOG("%d devices available.", deviceCount);
 
     render->vk_pDevice = VK_NULL_HANDLE;
     VkPhysicalDevice *devs = malloc(deviceCount * sizeof(VkPhysicalDevice));
     vkEnumeratePhysicalDevices(render->vk_instance, &deviceCount, devs);
     for (uint32_t i = 0; i < deviceCount; ++i) {
         if (finite_render_check_device(render, devs[i])) {
-            printf("Found ideal device at index %d\n", i);
+            FINITE_LOG_INFO("Found ideal device at index %d", i);
             render->vk_pDevice = devs[i];
             break;
         }
     }
 
     if (render->vk_pDevice == VK_NULL_HANDLE) {
-        printf("[Finite] - Unable to render with Vulkan with no devices.\n");
-        exit(EXIT_FAILURE);
+        finite_log_internal(LOG_LEVEL_FATAL, file, line, func, "Unable to render with Vulkan with no devices.");
     }
 
     free(devs);
 }
 
-void finite_render_create_device(FiniteRender *render, FiniteRenderQueueFamilies fIndex, uint32_t *uniqueQueueFamilies, char **device_extentsions, uint32_t _ext) {
+void finite_render_create_device_debug(const char *file, const char *func, int line, FiniteRender *render, FiniteRenderQueueFamilies fIndex, uint32_t *uniqueQueueFamilies, char **device_extentsions, uint32_t _ext) {
     float priority = 1.0f;
     VkDeviceQueueCreateInfo *queue_infos = (VkDeviceQueueCreateInfo *)malloc(fIndex._unique * sizeof(VkDeviceQueueCreateInfo));;
     for (uint32_t i = 0; i < fIndex._unique; i++) {
@@ -117,10 +115,10 @@ void finite_render_create_device(FiniteRender *render, FiniteRenderQueueFamilies
             .pQueuePriorities = &priority
         };
         queue_infos[i] = q;
-        printf("Created queue info for item %d\n", i);
+        FINITE_LOG("Created queue info for item %d", i);
     }
 
-    printf("Created array of %d queue info(s) %p\n", fIndex._unique, queue_infos);
+    FINITE_LOG("Created array of %d queue info(s) %p", fIndex._unique, queue_infos);
 
     VkPhysicalDeviceFeatures feats;
     vkGetPhysicalDeviceFeatures(render->vk_pDevice, &feats);   
@@ -148,17 +146,17 @@ void finite_render_create_device(FiniteRender *render, FiniteRenderQueueFamilies
 
     VkResult res = vkCreateDevice(render->vk_pDevice, &device_info, NULL, &render->vk_device);
     if (res != VK_SUCCESS) {
-        printf("[Finite] - Unable to create logical device.\n");
+        finite_log_internal(LOG_LEVEL_FATAL, file, line, func, "Unable to create logical device.");
         exit(EXIT_FAILURE);
     }
 
-    printf("Created logical device %p\n", render->vk_device);
+    FINITE_LOG("Created logical device %p", render->vk_device);
 
     vkGetDeviceQueue(render->vk_device , fIndex.graphicsFamily, 0, &render->vk_graphicsQueue);
     vkGetDeviceQueue(render->vk_device , fIndex.presentFamily, 0, &render->vk_presentQueue);
 }
 
-void finite_render_create_swapchain(FiniteRender *render, FiniteRenderSwapchainInfo info) {
+void finite_render_create_swapchain_debug(FiniteRender *render, FiniteRenderSwapchainInfo info) {
     uint32_t _images = info.caps.minImageCount + 1;
     if (info.caps.maxImageCount > 0 && _images > info.caps.maxImageCount) {
         _images = info.caps.maxImageCount;
@@ -183,14 +181,13 @@ void finite_render_create_swapchain(FiniteRender *render, FiniteRenderSwapchainI
 
     VkResult res = vkCreateSwapchainKHR(render->vk_device, &swapchain_info, NULL, &render->vk_swapchain);
     if (res != VK_SUCCESS) {
-        printf("[Finite] - Unable to create a swapchain.\n");
-        exit(EXIT_FAILURE);
+        finite_log_internal(LOG_LEVEL_FATAL, file, line, func, "Unable to create a swapchain.");
     }
 
-    printf("New type VkSwapchain (render.vk_swapchain) (%p)\n", render->vk_swapchain);
+    FINITE_LOG("New type VkSwapchain (render.vk_swapchain) (%p)", render->vk_swapchain);
 }
 
-void finite_render_create_swapchain_images(FiniteRender *render) {
+void finite_render_create_swapchain_images_debug(const char *file, const char *func, int line, FiniteRender *render) {
     uint32_t imageCount;
     vkGetSwapchainImagesKHR(render->vk_device, render->vk_swapchain, &imageCount, NULL);
     render->vk_image = (VkImage *)malloc(imageCount * sizeof(VkImage));
@@ -220,17 +217,16 @@ void finite_render_create_swapchain_images(FiniteRender *render) {
 
         VkResult res = vkCreateImageView(render->vk_device, &info, NULL, &render->vk_view[i]);
         if (res != VK_SUCCESS) {
-            printf("[Finite] - Unable to create image view %ld\n", i);
-            exit(EXIT_FAILURE);
+            finite_log_internal(LOG_LEVEL_FATAL, file, line, func, "Unable to create image view %ld", i);
         }
     }
 
     render->_images = imageCount;
 
-    printf("New type available. Array of %d vk_ImageViews (%p)\n", render->_images, render->vk_view);
+    printf("New type available. Array of %d vk_ImageViews (%p)", render->_images, render->vk_view);
 }
 
-void finite_render_create_example_render_pass(FiniteRender *render) {
+void finite_render_create_example_render_pass_debug(const char *file, const char *func, int line, FiniteRender *render) {
     VkAttachmentDescription colorAttachment = {
         .flags = 0,
         .format = render->vk_imageForm.format,
@@ -284,16 +280,14 @@ void finite_render_create_example_render_pass(FiniteRender *render) {
 
     VkResult res = vkCreateRenderPass(render->vk_device, &renderPass_info, NULL, &render->vk_renderPass);
     if (res != VK_SUCCESS) {
-        printf("[Finite] - Unable to create render pass | %d \n", res);
-        exit(EXIT_FAILURE);
+        finite_log_internal(LOG_LEVEL_ERROR, file, line, func, "Unable to create render pass | %d ", res);
     }
 
-    printf("Render Pass %p created.\n", (void*)render->vk_renderPass);
-    printf("New type available. VkRenderPass (%p)\n", render->vk_renderPass);
+    FINITE_LOG("Render Pass %p created.", (void*)render->vk_renderPass);
+    FINITE_LOG("New type available. VkRenderPass (%p)", render->vk_renderPass);
 }
 
 void finite_render_create_render_pass_debug(const char *file, const char *func, int line, FiniteRender *render, FiniteRenderAttachmentDescriptionInfo **att_desc_info, FiniteRenderAttachmentRefInfo **ref_info, FiniteRenderSubpassDescriptionInfo **subpass_desc_info, FiniteRenderSubpassDependencyInfo **subpass_dep_info, FiniteRenderRenderPassInfo *info) {
-    
     const uint32_t _atts = info->_attachments;
     const uint32_t _subs = info->_subpasses;
     const uint32_t _deps = info->_deps;
@@ -410,8 +404,8 @@ void finite_render_create_render_pass_debug(const char *file, const char *func, 
         finite_log_internal(LOG_LEVEL_FATAL, file, line, func, "Unable to create render pass | %d", res);
     }
 
-    FINITE_LOG("Render Pass %p created.\n", (void*)render->vk_renderPass);
-    FINITE_LOG("New type available. VkRenderPass (%p)\n", render->vk_renderPass);
+    FINITE_LOG("Render Pass %p created.", (void*)render->vk_renderPass);
+    FINITE_LOG("New type available. VkRenderPass (%p)", render->vk_renderPass);
 }
 
 void finite_render_create_framebuffers_debug(const char *file, const char *func, int line, FiniteRender *render, FiniteRenderFramebufferInfo *info) {
@@ -449,9 +443,9 @@ void finite_render_create_framebuffers_debug(const char *file, const char *func,
     FINITE_LOG("Created an array of %d framebuffers (%p)", render->_images, render->vk_frameBufs);
 }
 
-void finite_render_create_pipeline_layout( FiniteRender *render, FiniteRenderPipelineLayoutInfo *layoutInfo) {
+void finite_render_create_pipeline_layout_debug(const char *file, const char *func, int line, FiniteRender *render, FiniteRenderPipelineLayoutInfo *layoutInfo) {
     if (!render || layoutInfo == NULL) {
-        printf("Unable to create a pipeline layout with NULL inforomation. Render: %p Layout Info: %p\n", render, layoutInfo);
+        finite_log_internal(LOG_LEVEL_ERROR, file, line, func, "Unable to create a pipeline layout with NULL inforomation. Render: %p Layout Info: %p", render, layoutInfo);
     }
 
     VkPipelineLayoutCreateInfo layout_info = {
@@ -465,16 +459,15 @@ void finite_render_create_pipeline_layout( FiniteRender *render, FiniteRenderPip
 
     VkResult res = vkCreatePipelineLayout(render->vk_device, &layout_info, NULL, &render->vk_layout);
     if (res != VK_SUCCESS) {
-        printf("Unable to create pipeline layout\n");
-        exit(EXIT_FAILURE);
+        finite_log_internal(LOG_LEVEL_FATAL, file, line, func, "Unable to create pipeline layout");
     }
 
-    printf("Created a pipeline layout %p\n", render->vk_layout);
+    FINITE_LOG("Created a pipeline layout %p", render->vk_layout);
 }
 
-bool finite_render_add_shader_stage(FiniteRender *render, FiniteRenderShaderStageInfo *stage) {
+bool finite_render_add_shader_stage_debug(const char *file, const char *func, int line, FiniteRender *render, FiniteRenderShaderStageInfo *stage) {
     if (!render || stage == NULL) {
-        printf("Unable to add new shader stage with NULL information. Render: %p Stage Info: %p\n", render, stage);
+        finite_log_internal(LOG_LEVEL_ERROR, file, line, func, "Unable to add new shader stage with NULL information. Render: %p Stage Info: %p", render, stage);
         return false;
     }
 
@@ -492,18 +485,18 @@ bool finite_render_add_shader_stage(FiniteRender *render, FiniteRenderShaderStag
     };
 
     if (stage->stage == FINITE_SHADER_TYPE_VERTEX) {
-        printf("Vertex Shader Bit detected\n");
+        FINITE_LOG_INFO("Vertex Shader Bit detected");
         stage_info.stage = VK_SHADER_STAGE_VERTEX_BIT;
     } else if (stage->stage == FINITE_SHADER_TYPE_FRAGMENT) {
-        printf("Fragment Shader Bit detected\n");
+        FINITE_LOG_INFO("Fragment Shader Bit detected");
         stage_info.stage = VK_SHADER_STAGE_FRAGMENT_BIT;
     }
 
     // now add the info to the render array
-    printf("Creating shader %d\n", render->stages._stages);
+    FINITE_LOG("Creating shader %d", render->stages._stages);
     VkPipelineShaderStageCreateInfo *info = realloc(render->stages.infos, (render->stages._stages + 1) * sizeof(VkPipelineShaderStageCreateInfo));
     if (!info) {
-        printf("Unable to allocate memory for FiniteRenderShaderStages\n");
+        finite_log_internal(LOG_LEVEL_ERROR, file, line, func, "Unable to allocate memory for FiniteRenderShaderStages");
         return false;
     }
 
@@ -514,10 +507,9 @@ bool finite_render_add_shader_stage(FiniteRender *render, FiniteRenderShaderStag
     return true;
 }
 
-VkPipelineVertexInputStateCreateInfo finite_render_create_vertex_input(FiniteRender *render, FiniteRenderVertexInputInfo *vertex) {
+VkPipelineVertexInputStateCreateInfo finite_render_create_vertex_input_debug(const char *file, const char *func, int line, FiniteRender *render, FiniteRenderVertexInputInfo *vertex) {
     if (!render || vertex == NULL) {
-        printf("Unable to create vertex input with NULL information. Render: %p Vertex Input Info: %p\n", render, vertex);
-        exit(EXIT_FAILURE);
+        finite_log_internal(LOG_LEVEL_FATAL, file, line, func, "Unable to create vertex input with NULL information. Render: %p Vertex Input Info: %p", render, vertex);
     }
 
     VkPipelineVertexInputStateCreateInfo input_state_info = {
@@ -533,10 +525,9 @@ VkPipelineVertexInputStateCreateInfo finite_render_create_vertex_input(FiniteRen
     return input_state_info;
 }
 
-VkPipelineInputAssemblyStateCreateInfo finite_render_create_assembly_state(FiniteRender *render, FiniteRenderAssemblyInfo *assemble) {
+VkPipelineInputAssemblyStateCreateInfo finite_render_create_assembly_state_debug(const char *file, const char *func, int line, FiniteRender *render, FiniteRenderAssemblyInfo *assemble) {
     if (!render || assemble == NULL) {
-        printf("Unable to create input assemble with NULL information. Render: %p Vertex Input Info: %p\n", render, assemble);
-        exit(EXIT_FAILURE);
+        finite_log_internal(LOG_LEVEL_FATAL, file, line, func, "Unable to create input assemble with NULL information. Render: %p Vertex Input Info: %p", render, assemble);
     }
 
     VkPipelineInputAssemblyStateCreateInfo assemble_info = {
@@ -550,10 +541,9 @@ VkPipelineInputAssemblyStateCreateInfo finite_render_create_assembly_state(Finit
     return assemble_info;
 }
 
-VkPipelineViewportStateCreateInfo finite_render_create_viewport_state(FiniteRender *render, FiniteRenderViewportState *state) {
+VkPipelineViewportStateCreateInfo finite_render_create_viewport_state_debug(const char *file, const char *func, int line, FiniteRender *render, FiniteRenderViewportState *state) {
     if (!render || state == NULL) {
-        printf("Unable to create new viewport state with NULL information. Render: %p State Info: %p\n", render, state);
-        exit(EXIT_FAILURE);
+        finite_log_internal(LOG_LEVEL_FATAL, file, line, func, "Unable to create new viewport state with NULL information. Render: %p State Info: %p", render, state);
     }
 
     VkPipelineViewportStateCreateInfo viewport_state  = {
@@ -568,10 +558,9 @@ VkPipelineViewportStateCreateInfo finite_render_create_viewport_state(FiniteRend
     return viewport_state;
 }
 
-VkPipelineRasterizationStateCreateInfo finite_render_create_raster_info(FiniteRender *render, FiniteRenderRasterState *state) {
+VkPipelineRasterizationStateCreateInfo finite_render_create_raster_info_debug(const char *file, const char *func, int line, FiniteRender *render, FiniteRenderRasterState *state) {
     if (!render || state == NULL) {
-        printf("Unable to create new raster state with NULL information. Render: %p State Info: %p\n", render, state);
-        exit(EXIT_FAILURE);
+        finite_log_internal(LOG_LEVEL_FATAL, file, line, func, "Unable to create new raster state with NULL information. Render: %p State Info: %p", render, state);
     }
 
     VkPipelineRasterizationStateCreateInfo raster_info = {
@@ -593,10 +582,9 @@ VkPipelineRasterizationStateCreateInfo finite_render_create_raster_info(FiniteRe
     return raster_info;
 } 
 
-VkPipelineMultisampleStateCreateInfo finite_render_create_multisample_info(FiniteRender *render, FiniteRenderMultisampleStateInfo *info) {
+VkPipelineMultisampleStateCreateInfo finite_render_create_multisample_info_debug(const char *file, const char *func, int line, FiniteRender *render, FiniteRenderMultisampleStateInfo *info) {
     if (!render || info == NULL) {
-        printf("Unable to create new multisample state with NULL information. Render: %p Multisample State Info: %p\n", render, info);
-        exit(EXIT_FAILURE);
+        finite_log_internal(LOG_LEVEL_FATAL, file, line, func, "Unable to create new multisample state with NULL information. Render: %p Multisample State Info: %p", render, info);
     }
 
     VkPipelineMultisampleStateCreateInfo sample_info = {
@@ -613,10 +601,9 @@ VkPipelineMultisampleStateCreateInfo finite_render_create_multisample_info(Finit
     return sample_info;
 }
 
-VkPipelineColorBlendAttachmentState finite_render_create_color_blend_attachment(FiniteRenderColorAttachmentInfo *att) {
+VkPipelineColorBlendAttachmentState finite_render_create_color_blend_attachment_debug(const char *file, const char *func, int line, FiniteRenderColorAttachmentInfo *att) {
     if (!att) {
-        printf("Unable to create new color blend attachment with NULL information. State Info: %p\n", att);
-        exit(EXIT_FAILURE);
+        finite_log_internal(LOG_LEVEL_FATAL, file, line, func, "Unable to create new color blend attachment with NULL information. State Info: %p", att);
     }
 
     VkPipelineColorBlendAttachmentState blend_state = {
@@ -633,10 +620,9 @@ VkPipelineColorBlendAttachmentState finite_render_create_color_blend_attachment(
     return blend_state;
 }
 
-VkPipelineColorBlendStateCreateInfo finite_render_create_color_blend_state(FiniteRender *render, VkPipelineColorBlendAttachmentState *att, FiniteRenderColorBlendInfo *blend) {
+VkPipelineColorBlendStateCreateInfo finite_render_create_color_blend_state_debug(const char *file, const char *func, int line, FiniteRender *render, VkPipelineColorBlendAttachmentState *att, FiniteRenderColorBlendInfo *blend) {
     if (!render || blend == NULL) {
-        printf("Unable to create new color blend state with NULL information. Render: %p State Info: %p\n", render, blend);
-        exit(EXIT_FAILURE);
+        finite_log_internal(LOG_LEVEL_FATAL, file, line, func, "Unable to create new color blend state with NULL information. Render: %p State Info: %p", render, blend);
     }
 
     VkPipelineColorBlendStateCreateInfo blend_state_info = {
@@ -653,12 +639,12 @@ VkPipelineColorBlendStateCreateInfo finite_render_create_color_blend_state(Finit
     };
 
     if (att != NULL) {
-        printf("Using custom type attatchment %p\n", att);
-        printf("Props srcBlend: %d(1?) dstBlend %d(0?)\n", att->srcColorBlendFactor, att->dstColorBlendFactor);
+        FINITE_LOG("Using custom type attatchment %p", att);
+        FINITE_LOG("Props srcBlend: %d(1?) dstBlend %d(0?)", att->srcColorBlendFactor, att->dstColorBlendFactor);
 
         blend_state_info.pAttachments = att;
         blend_state_info.attachmentCount = 1;
-        printf("Made color blend data");
+        FINITE_LOG("Made color blend data");
     } else {
         blend_state_info.pAttachments = blend->attachments;
         blend_state_info.attachmentCount = blend->_attachments;
@@ -667,9 +653,9 @@ VkPipelineColorBlendStateCreateInfo finite_render_create_color_blend_state(Finit
     return blend_state_info;
 }
 
-bool finite_render_create_descriptor_layout(FiniteRender *render, FiniteRenderDescriptorSetLayout **info, uint32_t layouts) {
+bool finite_render_create_descriptor_layout_debug(const char *file, const char *func, int line, FiniteRender *render, FiniteRenderDescriptorSetLayout **info, uint32_t layouts) {
     if (!render) {
-        printf("Unable to create new color descriptor set with NULL render (%p)\n", render);
+        finite_log_internal(LOG_LEVEL_ERROR, file, line, func, "Unable to create new color descriptor set with NULL render (%p)", render);
         return false;
     }
 
@@ -690,16 +676,16 @@ bool finite_render_create_descriptor_layout(FiniteRender *render, FiniteRenderDe
 
     VkResult res = vkCreateDescriptorSetLayout(render->vk_device, &layout_info, NULL, &render->vk_descriptorLayout);
     if (res != VK_SUCCESS) {
-        printf("Unable to create descriptor set(s).\n");
+        finite_log_internal(LOG_LEVEL_ERROR, file, line, func, "Unable to create descriptor set(s).");
         return false;
     }
 
     return true;
 }
 
-bool finite_render_create_graphics_pipeline(FiniteRender *render, VkPipelineCreateFlags flags, VkPipelineVertexInputStateCreateInfo *vertex, VkPipelineInputAssemblyStateCreateInfo *assemble, VkPipelineTessellationStateCreateInfo *tess, VkPipelineViewportStateCreateInfo *port, VkPipelineRasterizationStateCreateInfo *raster, VkPipelineMultisampleStateCreateInfo *sample, VkPipelineColorBlendStateCreateInfo *blend, VkPipelineDynamicStateCreateInfo *dyna)  {
+bool finite_render_create_graphics_pipeline_debug(const char *file, const char *func, int line, FiniteRender *render, VkPipelineCreateFlags flags, VkPipelineVertexInputStateCreateInfo *vertex, VkPipelineInputAssemblyStateCreateInfo *assemble, VkPipelineTessellationStateCreateInfo *tess, VkPipelineViewportStateCreateInfo *port, VkPipelineRasterizationStateCreateInfo *raster, VkPipelineMultisampleStateCreateInfo *sample, VkPipelineColorBlendStateCreateInfo *blend, VkPipelineDynamicStateCreateInfo *dyna)  {
     if (!render) {
-        printf("Unable to create new color blend state with NULL render (%p)\n", render);
+        finite_log_internal(LOG_LEVEL_ERROR, file, line, func, "Unable to create new color blend state with NULL render (%p)", render);
         return false;
     }
     VkPipelineDepthStencilStateCreateInfo *depth_stencil = VK_NULL_HANDLE;
@@ -749,17 +735,17 @@ bool finite_render_create_graphics_pipeline(FiniteRender *render, VkPipelineCrea
 
     VkResult res = vkCreateGraphicsPipelines(render->vk_device, VK_NULL_HANDLE, 1, &graphics_pipeline_info, NULL, &render->vk_pipeline);
     if (res != VK_SUCCESS) {
-        printf("Unable to create graphics pipeline.\n");
+        finite_log_internal(LOG_LEVEL_ERROR, file, line, func, "Unable to create graphics pipeline.");
         return false;
     }
 
-    printf("Created a graphics pipeline (%p)\n", render->vk_pipeline);
+    FINITE_LOG("Created a graphics pipeline (%p)", render->vk_pipeline);
     return true;
 }
 
-bool finite_render_create_vertex_buffer(FiniteRender *render, FiniteRenderBufferInfo *info, FiniteRenderMemAllocInfo *mem_info, uint64_t vertexSize, FiniteRenderReturnBuffer *rtrn) {
+bool finite_render_create_vertex_buffer_debug(const char *file, const char *func, int line, FiniteRender *render, FiniteRenderBufferInfo *info, FiniteRenderMemAllocInfo *mem_info, uint64_t vertexSize, FiniteRenderReturnBuffer *rtrn) {
     if (!render) {
-        printf("Unable to create new vertex buffer with NULL information Render: %p Info: %p\n", render, info);
+        finite_log_internal(LOG_LEVEL_ERROR, file, line, func, "Unable to create new vertex buffer with NULL information Render: %p Info: %p", render, info);
         return false;
     }
     
@@ -786,7 +772,7 @@ bool finite_render_create_vertex_buffer(FiniteRender *render, FiniteRenderBuffer
     if (rtrn || render->vk_vertexBuf == NULL) {
         VkResult res = vkCreateBuffer(render->vk_device, &buffer_info, NULL, &trn.buf);
         if (res != VK_SUCCESS) {
-            printf("[Finite] - Unable to create the Vertex Buffer\n");
+            finite_log_internal(LOG_LEVEL_ERROR, file, line, func, "Unable to create the Vertex Buffer");
             return false;
         }
         
@@ -819,8 +805,7 @@ bool finite_render_create_vertex_buffer(FiniteRender *render, FiniteRenderBuffer
         VkDeviceSize initialOffset = 0;
         current_buf = realloc(render->buffers, sizeof(FiniteRenderBuffer) * (render->_buffers + 1));
         if (!current_buf) {
-            printf("Unable to add new FiniteRenderBuffer to array.\n");
-            exit(EXIT_FAILURE);
+            finite_log_internal(LOG_LEVEL_FATAL, file, line, func, "Unable to add new FiniteRenderBuffer to array.");
         }
         render->buffers = current_buf;
 
@@ -855,7 +840,7 @@ bool finite_render_create_vertex_buffer(FiniteRender *render, FiniteRenderBuffer
 
     VkResult res = vkAllocateMemory(render->vk_device, &alloc_info, NULL, &trn.mem);
     if (res != VK_SUCCESS) {
-        printf("[Finite] - Unable to create the Vertex Buffer Memory\n");
+        finite_log_internal(LOG_LEVEL_ERROR, file, line, func, "Unable to create the Vertex Buffer Memory");
         return false;
     }
 
@@ -871,9 +856,9 @@ bool finite_render_create_vertex_buffer(FiniteRender *render, FiniteRenderBuffer
 }
 
 // generic buffer creator
-bool finite_render_create_generic_buffer(FiniteRender *render, FiniteRenderBufferInfo *info, FiniteRenderMemAllocInfo *mem_info, uint64_t vertexSize, FiniteRenderReturnBuffer *rtrn) {
+bool finite_render_create_generic_buffer_debug(const char *file, const char *func, int line, FiniteRender *render, FiniteRenderBufferInfo *info, FiniteRenderMemAllocInfo *mem_info, uint64_t vertexSize, FiniteRenderReturnBuffer *rtrn) {
     if (!render) {
-        printf("Unable to create new buffer with NULL information Render: %p Info: %p\n", render, info);
+        finite_log_internal(LOG_LEVEL_ERROR, file, line, func, "Unable to create new buffer with NULL information Render: %p Info: %p", render, info);
         return false;
     }
     
@@ -896,7 +881,7 @@ bool finite_render_create_generic_buffer(FiniteRender *render, FiniteRenderBuffe
     
     VkResult res = vkCreateBuffer(render->vk_device, &buffer_info, NULL, &trn.buf);
     if (res != VK_SUCCESS) {
-        printf("[Finite] - Unable to create the Vertex Buffer\n");
+        finite_log_internal(LOG_LEVEL_ERROR, file, line, func, "Unable to create the Vertex Buffer");
         return false;
     }
 
@@ -924,7 +909,7 @@ bool finite_render_create_generic_buffer(FiniteRender *render, FiniteRenderBuffe
 
     res = vkAllocateMemory(render->vk_device, &alloc_info, NULL, &trn.mem);
     if (res != VK_SUCCESS) {
-        printf("[Finite] - Unable to create the Vertex Buffer Memory\n");
+        finite_log_internal(LOG_LEVEL_ERROR, file, line, func, "Unable to create the Vertex Buffer Memory");
         return false;
     }
 
@@ -934,9 +919,9 @@ bool finite_render_create_generic_buffer(FiniteRender *render, FiniteRenderBuffe
     return true;
 }
 
-bool finite_render_create_uniform_buffer(FiniteRender *render, FiniteRenderBufferInfo *info, FiniteRenderMemAllocInfo *mem_info) {
+bool finite_render_create_uniform_buffer_debug(const char *file, const char *func, int line, FiniteRender *render, FiniteRenderBufferInfo *info, FiniteRenderMemAllocInfo *mem_info) {
     if (!render) {
-        printf("Unable to create new uniform buffer with NULL information Render: %p Info: %p\n", render, info);
+        finite_log_internal(LOG_LEVEL_ERROR, file, line, func, "Unable to create new uniform buffer with NULL information Render: %p Info: %p", render, info);
         return false;
     }
 
@@ -959,7 +944,7 @@ bool finite_render_create_uniform_buffer(FiniteRender *render, FiniteRenderBuffe
     for (int i = 0; i < MAX_FRAMES_IN_FLIGHT; i++) {
         VkResult res = vkCreateBuffer(render->vk_device, &buffer_info, NULL, &render->vk_uniformBuf[i]);
         if (res != VK_SUCCESS) {
-            printf("[Finite] - Unable to create the Vertex Buffer\n");
+            finite_log_internal(LOG_LEVEL_ERROR, file, line, func, "Unable to create the Vertex Buffer");
             return false;
         }
 
@@ -974,13 +959,13 @@ bool finite_render_create_uniform_buffer(FiniteRender *render, FiniteRenderBuffe
 
         res = vkAllocateMemory(render->vk_device, &alloc_info, NULL, &render->vk_uniformMemory[i]);
         if (res != VK_SUCCESS) {
-            printf("[Finite] - Unable to create uniform buffer memory\n");
+            finite_log_internal(LOG_LEVEL_ERROR, file, line, func, "Unable to create uniform buffer memory");
             return false;
         }
 
         vkBindBufferMemory(render->vk_device, render->vk_uniformBuf[i], render->vk_uniformMemory[i], 0);
 
-        printf("Created Uniform buffer %d\n", i);
+        FINITE_LOG("Created Uniform buffer %d", i);
         vkMapMemory(render->vk_device, render->vk_uniformMemory[i], 0, info->size, 0, &render->uniformData[i]);
     }
 
@@ -988,9 +973,9 @@ bool finite_render_create_uniform_buffer(FiniteRender *render, FiniteRenderBuffe
 }
 
 // when autoCreate = true, a descriptor set will be automatically created
-bool finite_render_create_descriptor_pool(FiniteRender *render, FiniteRenderDescriptorPoolInfo **info, bool autoCreate, uint32_t _infos) {
+bool finite_render_create_descriptor_pool_debug(const char *file, const char *func, int line, FiniteRender *render, FiniteRenderDescriptorPoolInfo **info, bool autoCreate, uint32_t _infos) {
     if (!render) {
-        printf("Unable to create a descriptor pool with NULL render (%p)\n", render);
+        finite_log_internal(LOG_LEVEL_ERROR, file, line, func, "Unable to create a descriptor pool with NULL render (%p)", render);
         return false;
     }
 
@@ -1024,11 +1009,11 @@ bool finite_render_create_descriptor_pool(FiniteRender *render, FiniteRenderDesc
 
     VkResult res = vkCreateDescriptorPool(render->vk_device, &pool_info, NULL, &render->vk_descPool);
     if (res != VK_SUCCESS) {
-        printf("[Finite] - Unable to create a descriptor pool.\n");
+        finite_log_internal(LOG_LEVEL_ERROR, file, line, func, "Unable to create a descriptor pool.");
         return false;
     }
 
-    printf("Created Descriptor Pool\n");
+    FINITE_LOG("Created Descriptor Pool");
 
     if (autoCreate) {
         VkDescriptorSetLayout layouts[MAX_FRAMES_IN_FLIGHT];
@@ -1043,24 +1028,24 @@ bool finite_render_create_descriptor_pool(FiniteRender *render, FiniteRenderDesc
             .pSetLayouts = layouts
         };
 
-        printf("Allocating %u descriptor sets from pool...\n", alloc_info.descriptorSetCount);
+        FINITE_LOG("Allocating %u descriptor sets from pool...", alloc_info.descriptorSetCount);
 
         render->vk_descriptor = malloc(sizeof(VkDescriptorSet) * MAX_FRAMES_IN_FLIGHT);
         VkResult res = vkAllocateDescriptorSets(render->vk_device, &alloc_info, render->vk_descriptor);
         if (res != VK_SUCCESS) {
-            printf("[Finite] - Unable to create a descriptor set.\n");
+            finite_log_internal(LOG_LEVEL_ERROR, file, line, func, "Unable to create a descriptor set.");
             return false;
         }        
     }
 
-    printf("Allocated descriptors\n");
+    FINITE_LOG("Allocated descriptors");
 
     return true;
 }
 
-bool finite_render_write_to_descriptor(FiniteRender *render, FiniteRenderWriteSetInfo **info, FiniteRenderDescriptorInfo *desc_info, uint32_t _infos) {
+bool finite_render_write_to_descriptor_debug(const char *file, const char *func, int line, FiniteRender *render, FiniteRenderWriteSetInfo **info, FiniteRenderDescriptorInfo *desc_info, uint32_t _infos) {
     if (!render) {
-        printf("Unable to write to a descriptor with a NULL render (%p)\n", render);
+        finite_log_internal(LOG_LEVEL_ERROR, file, line, func, "Unable to write to a descriptor with a NULL render (%p)", render);
         return false;
     }
       
@@ -1087,8 +1072,7 @@ bool finite_render_write_to_descriptor(FiniteRender *render, FiniteRenderWriteSe
                 buffer_info.offset = desc_info->buffer_offset;
                 buffer_info.range  = desc_info->buffer_range;
             } else {
-                printf("Unknown descriptor type.\n");
-                exit(EXIT_FAILURE);
+                finite_log_internal(LOG_LEVEL_FATAL, file, line, func, "Unknown descriptor type.");
             }
         }
     }
@@ -1122,10 +1106,10 @@ bool finite_render_write_to_descriptor(FiniteRender *render, FiniteRenderWriteSe
     return true;
 }
 
-bool finite_render_create_command_buffer(FiniteRender *render, bool autocreate, bool isPrimary, uint32_t _buffs) {
+bool finite_render_create_command_buffer_debug(const char *file, const char *func, int line, FiniteRender *render, bool autocreate, bool isPrimary, uint32_t _buffs) {
     if (autocreate && render->vk_pool == NULL) {
         // create a command pool
-        printf("Attempting to auto create a command pool.\n");
+        FINITE_LOG("Attempting to auto create a command pool.");
         VkCommandPoolCreateInfo pool_info = {
             .sType = VK_STRUCTURE_TYPE_COMMAND_POOL_CREATE_INFO,
             .flags = VK_COMMAND_POOL_CREATE_RESET_COMMAND_BUFFER_BIT,
@@ -1134,11 +1118,11 @@ bool finite_render_create_command_buffer(FiniteRender *render, bool autocreate, 
 
         VkResult res = vkCreateCommandPool(render->vk_device, &pool_info, NULL, &render->vk_pool);
         if (res != VK_SUCCESS) {
-            printf("[Finite] - Unable to create the command pool\n");
+            finite_log_internal(LOG_LEVEL_ERROR, file, line, func, "Unable to create the command pool");
             return false;
         }
 
-        printf("Created a command pool (%p)\n", render->vk_pool);
+        FINITE_LOG("Created a command pool (%p)", render->vk_pool);
     }
 
     render->vk_buffer = malloc(sizeof(VkCommandBuffer) * MAX_FRAMES_IN_FLIGHT);
@@ -1152,17 +1136,17 @@ bool finite_render_create_command_buffer(FiniteRender *render, bool autocreate, 
 
     VkResult res = vkAllocateCommandBuffers(render->vk_device, &alloc_info, render->vk_buffer);
     if (res != VK_SUCCESS) {
-        printf("[Finite] - Unable to create the command buffer\n");
+        finite_log_internal(LOG_LEVEL_ERROR, file, line, func, "Unable to create the command buffer");
         return false;
     }
 
-    printf("Allocated command buffer (%p)\n", render->vk_buffer);
+    FINITE_LOG("Allocated command buffer (%p)", render->vk_buffer);
     return true;
 }
 
-bool finite_render_create_semaphore(FiniteRender *render) {
+bool finite_render_create_semaphore_debug(const char *file, const char *func, int line, FiniteRender *render) {
     if (!render) {
-        printf("Unable to create a semaphore with NULL render (%p)\n", render);
+        finite_log_internal(LOG_LEVEL_ERROR, file, line, func, "Unable to create a semaphore with NULL render (%p)", render);
         return false;
     }
 
@@ -1174,20 +1158,20 @@ bool finite_render_create_semaphore(FiniteRender *render) {
     VkSemaphore newSignal;
     VkResult res = vkCreateSemaphore(render->vk_device, &signalInfo, NULL, &newSignal);
     if (res != VK_SUCCESS) {
-        printf("[Finite] - Unable to create the signal\n");
+        finite_log_internal(LOG_LEVEL_ERROR, file, line, func, "Unable to create the signal");
         return false;
     }
 
     render->signals[render->_signals] = newSignal;
     render->_signals += 1;
 
-    printf("New signal is at %p.\n", render->signals[render->_signals - 1]);
+    FINITE_LOG("New signal is at %p.", render->signals[render->_signals - 1]);
     return true;
 }
 
-bool finite_render_create_fence(FiniteRender *render, VkFenceCreateFlags initialState) {
+bool finite_render_create_fence_debug(const char *file, const char *func, int line, FiniteRender *render, VkFenceCreateFlags initialState) {
     if (!render) {
-        printf("Unable to create a fence with NULL render (%p)\n", render);
+        finite_log_internal(LOG_LEVEL_ERROR, file, line, func, ("Unable to create a fence with NULL render (%p)", render);
         return false;
     }
 
@@ -1200,20 +1184,20 @@ bool finite_render_create_fence(FiniteRender *render, VkFenceCreateFlags initial
     VkFence newFence;
     VkResult res = vkCreateFence(render->vk_device, &fenceInfo, NULL, &newFence);
     if (res != VK_SUCCESS) {
-        printf("[Finite] - Unable to create the fence\n");
+        finite_log_internal(LOG_LEVEL_ERROR, file, line, func, "Unable to create the fence");
         return false;
     }
 
     render->fences[render->_fences] = newFence;
     render->_fences += 1;
 
-    printf("New Fence is at %p.\n", render->fences[render->_fences - 1]);
+    FINITE_LOG("New Fence is at %p.", render->fences[render->_fences - 1]);
     return true;
 }
 
-bool finite_render_submit_frame(FiniteRender *render, FiniteRenderSubmitInfo *info, uint32_t fenceId, bool safeExit) {
+bool finite_render_submit_frame_debug(const char *file, const char *func, int line, FiniteRender *render, FiniteRenderSubmitInfo *info, uint32_t fenceId, bool safeExit) {
     if (!render || !info) {
-        printf("Unable to submit frame with NULL info. Render: %p Submit Info: %p\n", render, info);
+        finite_log_internal(LOG_LEVEL_ERROR, file, line, func, "Unable to submit frame with NULL info. Render: %p Submit Info: %p", render, info);
         if (safeExit && render) {
             finite_render_cleanup(render);
             exit(EXIT_FAILURE);
@@ -1237,7 +1221,7 @@ bool finite_render_submit_frame(FiniteRender *render, FiniteRenderSubmitInfo *in
     VkFence fence;
     if (fenceId >= 0) {
         if (fenceId > render->_fences) {
-            printf("Requested fence %d is out of range.\n", fenceId);
+            finite_log_internal(LOG_LEVEL_ERROR, file, line, func, "Requested fence %d is out of range.", fenceId);
             if (safeExit) {
                 finite_render_cleanup(render);
                 exit(EXIT_FAILURE);
@@ -1253,19 +1237,18 @@ bool finite_render_submit_frame(FiniteRender *render, FiniteRenderSubmitInfo *in
 
     VkResult res = vkQueueSubmit(render->vk_graphicsQueue, 1, &submit_info, fence);
     if (res != VK_SUCCESS) {
-        printf("[Finite] - Unable to connect to the inFlight signal\n");
+        finite_log_internal(LOG_LEVEL_ERROR, file, line, func, "Unable to connect to the inFlight signal");
         return false;
     }
 
     return true;
 }
 
-
 // attempts to present the given image
 // ? returns true if it attempted to run vkQueuePresentKHR. If vkQueuePresentKHR failed, it will still return true.
-bool finite_render_present_frame(FiniteRender *render, FiniteRenderPresentInfo *info, bool safeExit) {
+bool finite_render_present_frame_debug(const char *file, const char *func, int line, FiniteRender *render, FiniteRenderPresentInfo *info, bool safeExit) {
     if (!render || !info) {
-        printf("Unable to present frame with NULL info. Render: %p Present Info: %p\n", render, info);
+        finite_log_internal(LOG_LEVEL_ERROR, file, line, func, "Unable to present frame with NULL info. Render: %p Present Info: %p", render, info);
         if (safeExit && render) {
             finite_render_cleanup(render);
             exit(EXIT_FAILURE);
