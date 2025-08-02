@@ -1,7 +1,7 @@
 project(
     'libfinite',
     'c',
-    version: '0.5.11-dev'
+    version: '0.6.0-dev'
 )
 
 cc = meson.get_compiler('c')
@@ -91,7 +91,7 @@ src = [
 libfinite = library(
     'libfinite', 
     src, 
-    version : '0.5.11', 
+    version : '0.6.0', 
     soversion : '1', 
     dependencies: deps,
     install: true,
@@ -100,28 +100,38 @@ libfinite = library(
 
 # install the headers
 headers = [
-    'include/draw/draw.h',
-    'include/draw/cairo.h',
-    'include/draw/window.h',
-    'include/draw/wl_shm.h',
-
-    'include/input/input.h',
-    'include/input/input-core.h',
-    'include/input/keyboard.h',
-
+    'include/draw.h',
+    'include/input.h',
     'include/audio/audio.h',
-    
-    'include/render/render-core.h',
-    'include/render/vulkan.h',
-    'include/render/render.h',
-    'include/render/stb_image.h',
-    'include/render/render-image.h',
-
+    'include/render.h',
     'include/core.h',
     'include/log.h'
 ]
 
+draw_headers = [
+  'include/draw/cairo.h',
+  'include/draw/window.h',
+  'include/draw/wl_shm.h',
+]
+
+render_headers = [
+  'include/render/render-core.h',
+  'include/render/vulkan.h',
+  'include/render/stb_image.h',
+  'include/render/render-image.h',
+]
+
+input_headers = [
+  'include/input/input-core.h',
+  'include/input/keyboard.h',
+]
+
 install_headers(headers, subdir: 'finite')
+install_headers(draw_headers, subdir: 'finite/draw')
+install_headers(render_headers, subdir: 'finite/render')
+install_headers(input_headers, subdir: 'finite/input')
+
+
 
 # setup pkg-config
 pkgconfig = import('pkgconfig')
@@ -129,7 +139,7 @@ pkgconfig.generate(
     libfinite,
     name: 'libfinite',
     description: 'The Cubix Infinite Development Library',
-    version: '0.5.11',
+    version: '0.6.0',
     filebase: 'finite',
     subdirs: 'finite',
     requires: ['wayland-client', 'wayland-protocols', 'cairo', 'alsa', 'vulkan']

@@ -1,4 +1,4 @@
-#include "include/input/input.h"
+#include "include/input.h"
 #include "include/draw/window.h"
 #include "include/log.h"
 

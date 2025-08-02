@@ -120,4 +120,8 @@ void finite_render_create_sampler(FiniteRender *render, FiniteRenderImage *img, 
 void finite_render_transition_image_layout_debug(const char *file, const char *func, int line, FiniteRender *render, FiniteRenderImageBarrierInfo *info, VkFormat format, FiniteRenderPipelineDirections *dir);
 
 void finite_render_copy_buffer_to_image(FiniteRender *render, FiniteRenderImageCopyDirections *dir);
+
+#define finite_render_generate_mipmaps(render, info) finite_render_generate_mipmaps_debug(__FILE__, __func__, __LINE__, render, info)
+void finite_render_generate_mipmaps_debug(const char *file, const char *func, int line, FiniteRender *render, FiniteRenderImageBarrierInfo *info);
+
 #endif
