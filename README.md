@@ -22,9 +22,9 @@ The Infinite C Library
 - [ ] Audio Effects
 - [ ] Logging/Core Functions
 - [ ] Avatar
-- [ ] Gameshare
+- [ ] GameShare
 - [ ] Notifications
-- [ ] Papernet Integration
+- [ ] Papernet Service Integration
   
 
 ## Project Goals
