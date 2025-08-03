@@ -1,7 +1,7 @@
 # libfinite
 The Infinite C Library
 
-<img src="BANNER-1.png">
+<img src="BANNER 1.png">
 
 ## Are we there yet?
 [List is subject to change!]
