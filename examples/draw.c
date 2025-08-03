@@ -4,13 +4,16 @@
 */
 
 #include "finite/draw.h"
+#include "finite/log.h"
 
 int main() {
     // create a new shell
     FiniteShell *myShell = finite_shell_init("wayland-0");
 
+    finite_log_init(stdout, LOG_LEVEL_DEBUG, false);
+
     if (!myShell) {
-        printf("Unable to init shell");
+        FINITE_LOG("Unable to init shell");
         return 1;
     }
 
@@ -18,7 +21,7 @@ int main() {
     finite_window_init(myShell);
 
     if (!myShell) {
-        printf("Unable to make shell");
+        FINITE_LOG("Unable to make shell");
         return 1;
     }
 
@@ -47,7 +50,7 @@ int main() {
     myShell->cairo_surface = cairo_image_surface_create_for_data(myShell->pool_data, CAIRO_FORMAT_RGB24, width, height, stride);
     // optional error checking
     if (cairo_surface_status(myShell->cairo_surface) != CAIRO_STATUS_SUCCESS) {
-        printf("Unable to create window geometry with NULL information.\n");
+        FINITE_LOG_ERROR("Unable to create window geometry with NULL information.\n");
         wl_display_disconnect(myShell->display);
         return 1;
     }
@@ -80,13 +83,12 @@ int main() {
     // the last param should only be true if you enabled alpha earlier
     bool success = finite_draw_finish(myShell, width, height, stride, false);
     if (!success) {
-        printf("Something went wrong.\n");
+        FINITE_LOG_ERROR("Something went wrong.\n");
         free(myShell);
     }
 
     // now just keep the window alive
     while (wl_display_dispatch(myShell->display) != -1) {}
-    // no need to free at the end since thats handled internally
-    
+    finite_draw_cleanup(myShell);    
     wl_display_disconnect(myShell->display);
 }
