@@ -3,8 +3,9 @@ The Infinite C Library
 
 <img src="BANNER 1.png">
 
-## Are we there yet?
-[List is subject to change!]
+## Are we there yet...?
+> [!NOTE]
+> This list is subject to change. Check back regularly to see if anything new has been added!
 
 - [x] Window Rendering (with Cairo)
 - [x] Window Rendering Example
@@ -28,11 +29,12 @@ The Infinite C Library
   
 
 ## Project Goals
-The objective of Libfinite is to create an abstractable, simple and lightweight development library for Infinite Game Developers that handles the complexities of interacting with the console behind simple, easy to understand functions while still giving developers freedom of choice to implement their own versions of these functions.
+The objective of Libfinite is to create an abstractable, simple and lightweight development library for Infinite game developers that handles the complexities of interacting with the console behind simple, easy to understand APIs and functions while still giving developers the freedom-of-choice to implement their own versions of these functions.
 
 # Dependencies
 You'll need the following packages in order to build libfinite.
-> Libfinite is intended to be used in a Linux environment.
+> [!IMPORTANT]
+> Libfinite is intended to be used in a Linux environment. We will not help resolve issues that may arise from attempting to run this on WSL or any other non-Linux environments.
 
 - Meson
 - Ninja
