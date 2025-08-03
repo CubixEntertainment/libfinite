@@ -1,23 +1,24 @@
 #include "../include/render/render-core.h"
+#include "../include/log.h"
 
-FiniteRenderQueueFamilies finite_render_find_queue_families(VkPhysicalDevice pDevice, VkSurfaceKHR vk_surface) {
+FiniteRenderQueueFamilies finite_render_find_queue_families_debug(const char *file, const char *func, int line, VkPhysicalDevice pDevice, VkSurfaceKHR vk_surface) {
     FiniteRenderQueueFamilies indices;
     uint32_t _families = 0;
     vkGetPhysicalDeviceQueueFamilyProperties(pDevice, &_families, NULL);
-    printf("Searching through %d families.\n", _families);
+    finite_log_internal(LOG_LEVEL_ERROR, file, line, func, "Searching through %d families.", _families);
     VkQueueFamilyProperties families[_families];
     vkGetPhysicalDeviceQueueFamilyProperties(pDevice, &_families, families);
 
     for (uint32_t i = 0; i < _families; ++i) {
-        printf("Searching through family %d \n", i);
+        FINITE_LOG("Searching through family %d ", i);
         if (families[i].queueFlags & VK_QUEUE_GRAPHICS_BIT) {
-            printf("Found Graphics Channel at %d\n", i);
+            FINITE_LOG("Found Graphics Channel at %d", i);
             indices.graphicsFamily = i;
         }
         VkBool32 presentSupport = false;
         vkGetPhysicalDeviceSurfaceSupportKHR(pDevice, i, vk_surface, &presentSupport);
         if (presentSupport) {
-            printf("Found Present Channel at %d\n", i);
+            FINITE_LOG("Found Present Channel at %d", i);
             indices.presentFamily = i;
         }
 
@@ -34,35 +35,34 @@ FiniteRenderQueueFamilies finite_render_find_queue_families(VkPhysicalDevice pDe
     }
 
     if (indices.graphicsFamily < 0) {
-        printf("[Finite] - Unable to find graphics queue group.\n");
-        exit(EXIT_FAILURE);
+        finite_log_internal(LOG_LEVEL_FATAL, file, line, func, "Unable to find graphics queue group.");
     }
 
     return indices;
 }
 
-bool finite_render_check_extensions(FiniteRender *render, VkPhysicalDevice pDevice) {
+bool finite_render_check_extensions_debug(const char *file, const char *func, int line, FiniteRender *render, VkPhysicalDevice pDevice) {
     if (!pDevice) {
-        printf("Unable to check extensions for NULL device.\n");
+        finite_log_internal(LOG_LEVEL_ERROR, file, line, func, "Unable to check extensions for NULL device.");
         return false;
     }
 
-    printf("Finding extension from device\n");
+    FINITE_LOG("Finding extension from device");
 
     uint32_t extensionCount;
     vkEnumerateDeviceExtensionProperties(pDevice, NULL, &extensionCount, NULL);
-    printf("Found %d extensions\n", extensionCount);
+    FINITE_LOG("Found %d extensions", extensionCount);
     VkExtensionProperties *props = malloc(extensionCount * sizeof(VkExtensionProperties));
     vkEnumerateDeviceExtensionProperties(pDevice, NULL, &extensionCount, props);
     
     bool isFound[render->_devExts];
 
     for (uint32_t i = 0; i < extensionCount; ++i) {
-        // printf("Found extension %s\n", props[i].extensionName);
+        // printf("Found extension %s", props[i].extensionName);
         for (size_t j = 0; j < render->_devExts; ++j) {
             if (strcmp(props[i].extensionName, render->required_deviceExtensions[j]) == 0) {
                 isFound[j] = true;
-                printf("Found extension %s\n", props[i].extensionName);
+                FINITE_LOG_INFO("Found extension %s", props[i].extensionName);
             }
         }
     }
@@ -71,23 +71,23 @@ bool finite_render_check_extensions(FiniteRender *render, VkPhysicalDevice pDevi
 
     for (size_t i = 0; i < render->_devExts; ++i) {
         if (!isFound[i]) {
-            printf("Unable to find the needed extensions.\n");
+            finite_log_internal(LOG_LEVEL_ERROR, file, line, func, "Unable to find the needed extensions.");
             return false;
         }
     }
 
-    printf("Found %d required extension(s)\n", render->_devExts);
+    FINITE_LOG("Found %d required extension(s)", render->_devExts);
     return true;
 }
 
-FiniteRenderSwapchainInfo finite_render_get_swapchain_info(FiniteRender *render, VkPhysicalDevice pDevice) {
+FiniteRenderSwapchainInfo finite_render_get_swapchain_info_debug(const char *file, const char *func, int line, FiniteRender *render, VkPhysicalDevice pDevice) {
     if (!pDevice) {
-        printf("Unable to get swapchain info for NULL device.\n");
+        finite_log_internal(LOG_LEVEL_FATAL, file, line, func, "Unable to get swapchain info for NULL device.");
         exit(EXIT_FAILURE);
     }
 
     if (!render->vk_surface) {
-        printf("Unable to get swapchain info for NULL surface.\n");
+        finite_log_internal(LOG_LEVEL_FATAL, file, line, func, "Unable to get swapchain info for NULL surface.");
         exit(EXIT_FAILURE);
     }
     
@@ -103,81 +103,75 @@ FiniteRenderSwapchainInfo finite_render_get_swapchain_info(FiniteRender *render,
     if (_modes >= 0) {
         info.modes = calloc(_modes, sizeof(VkPresentModeKHR));
         if (!info.modes) {
-            printf("Unable to allocate memory for mode storage \n");
-            exit(EXIT_FAILURE);
+            finite_log_internal(LOG_LEVEL_FATAL, file, line, func, "Unable to allocate memory for mode storage");
         }
         info._modes = _modes;
         vkGetPhysicalDeviceSurfacePresentModesKHR(pDevice, render->vk_surface, &_modes, info.modes);
 
         if (!info.modes) {
-            printf("Unable to get a valid array of modes.\n");
-            exit(EXIT_FAILURE);
+            finite_log_internal(LOG_LEVEL_FATAL, file, line, func, "Unable to get a valid array of modes.");
         }
     }
 
     if (_formats >= 0) {
         info.forms = calloc(_formats, sizeof(VkSurfaceFormatKHR));
         if (!info.forms) {
-            printf("Unable to allocate memory for format storage \n");
-            exit(EXIT_FAILURE);
+            finite_log_internal(LOG_LEVEL_FATAL, file, line, func, "Unable to allocate memory for format storage ");
         }
 
         info._forms = _formats;
         vkGetPhysicalDeviceSurfaceFormatsKHR(pDevice, render->vk_surface, &_formats, info.forms);
 
         if (!info.forms) {
-            printf("Unable to get a valid array of forms.\n");
-            exit(EXIT_FAILURE);
+            finite_log_internal(LOG_LEVEL_FATAL, file, line, func, "Unable to get a valid array of forms.");
         }
     }
-    printf("Found the requested info.\n");
+    FINITE_LOG("Found the requested info.");
 
     return info;
 }
 
-VkSurfaceFormatKHR finite_render_get_best_format(FiniteRender *render, VkSurfaceFormatKHR *forms, uint32_t _forms) {
+VkSurfaceFormatKHR finite_render_get_best_format_debug(const char *file, const char *func, int line, FiniteRender *render, VkSurfaceFormatKHR *forms, uint32_t _forms) {
     if (_forms < 0 ) {
-        printf("Unable to get a valid format when #_forms is not a valid integer");
-        exit(EXIT_FAILURE);
+        finite_log_internal(LOG_LEVEL_FATAL, file, line, func, "Unable to get a valid format when #_forms is not a valid integer");
     }
 
     for (uint32_t i = 0; i < _forms; ++i) {
         if (forms[i].format == VK_FORMAT_B8G8R8A8_SRGB && forms[i].colorSpace == VK_COLOR_SPACE_SRGB_NONLINEAR_KHR) {
-            printf("Using format %d\n", forms[i].format);
+            FINITE_LOG("Using format %d", forms[i].format);
             render->vk_imageForm = forms[i];
             return forms[i]; // use this format
         }
     }
 
     // otherwise use format[0]
-    printf("Using default format %d\n", forms[0].format);
+    FINITE_LOG("Using default format %d", forms[0].format);
     render->vk_imageForm = forms[0];
     return forms[0];
 }
 
-VkPresentModeKHR finite_render_get_best_present_mode(FiniteRender *render, VkPresentModeKHR *modes, uint32_t _modes) {
+VkPresentModeKHR finite_render_get_best_present_mode_debug(const char *file, const char *func, int line, FiniteRender *render, VkPresentModeKHR *modes, uint32_t _modes) {
     if (_modes < 0 ) {
-        printf("Unable to get valid mode when #_modes is not a valid integer");
-        exit(EXIT_FAILURE);
+        finite_log_internal(LOG_LEVEL_FATAL, file, line, func, "Unable to get valid mode when #_modes is not a valid integer");
     }
 
     for (uint32_t i = 0; i < _modes; ++i) {
         if (modes[i] == VK_PRESENT_MODE_FIFO_KHR) {
-            printf("Using FIFO Mode\n");
+            FINITE_LOG("Using FIFO Mode");
             render->mode = modes[i];
             return modes[i]; // use mailbox
         }
     }
 
     // otherwise use format[0]
-    printf("Using first available mode.\n");
+    FINITE_LOG("Using first available mode.");
     render->mode = modes[0];
     return modes[0];
 }
 
 VkExtent2D finite_render_get_best_extent(FiniteRender *render, VkSurfaceCapabilitiesKHR *caps, FiniteShell *shell) {
     if (caps->currentExtent.width != UINT32_MAX) {
-        printf("Current extent of %d x %d is acceptable.\n", caps->currentExtent.width, caps->currentExtent.height);
+        FINITE_LOG_INFO("Current extent of %d x %d is acceptable.", caps->currentExtent.width, caps->currentExtent.height);
         render->vk_extent = caps->currentExtent;
         return caps->currentExtent;
     } else {
@@ -187,14 +181,14 @@ VkExtent2D finite_render_get_best_extent(FiniteRender *render, VkSurfaceCapabili
             .height = (uint32_t) shell->details->height
         };
 
-        printf("Checking if new extent of %d x %d is acceptable.\n", realExtent.width, realExtent.height);
+        FINITE_LOG("Checking if new extent of %d x %d is acceptable.", realExtent.width, realExtent.height);
 
         realExtent.width = realExtent.width < caps->minImageExtent.width ? caps->minImageExtent.width : realExtent.width;
         realExtent.width = realExtent.width > caps->maxImageExtent.width ? caps->maxImageExtent.width : realExtent.width;
 
         realExtent.height= realExtent.height > caps->maxImageExtent.height ? caps->maxImageExtent.height : realExtent.height;
         realExtent.height = realExtent.height < caps->minImageExtent.height ? caps->minImageExtent.height : realExtent.height;
-        printf("New extent of %d x %d is acceptable.\n", realExtent.width, realExtent.height);
+        FINITE_LOG_INFO("New extent of %d x %d is acceptable.", realExtent.width, realExtent.height);
         render->vk_extent = realExtent;
         return realExtent;
     }
@@ -206,7 +200,7 @@ bool finite_render_check_device(FiniteRender *render, VkPhysicalDevice pDevice) 
     VkPhysicalDeviceFeatures feats;
     vkGetPhysicalDeviceFeatures(pDevice, &feats);
 
-    printf("Found device named: %s\n", props.deviceName);
+    FINITE_LOG("Found device named: %s", props.deviceName);
 
     bool extSupported = finite_render_check_extensions(render, pDevice);
     bool isSwapchainUsable = false;
@@ -221,7 +215,7 @@ bool finite_render_check_device(FiniteRender *render, VkPhysicalDevice pDevice) 
     return (props.deviceType == VK_PHYSICAL_DEVICE_TYPE_INTEGRATED_GPU || props.deviceType == VK_PHYSICAL_DEVICE_TYPE_DISCRETE_GPU) && feats.geometryShader && extSupported && isSwapchainUsable;
 }
 
-void finite_render_record_command_buffer(FiniteRender *render, uint32_t index) {
+void finite_render_record_command_buffer_debug(const char *file, const char *func, int line, FiniteRender *render, uint32_t index) {
     VkCommandBufferBeginInfo start_info = {
         .sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO,
         .flags = 0,
@@ -230,8 +224,7 @@ void finite_render_record_command_buffer(FiniteRender *render, uint32_t index) {
 
     VkResult res = vkBeginCommandBuffer(render->vk_buffer[render->_currentFrame], &start_info);
     if (res != VK_SUCCESS) {
-        printf("[Finite] - Unable to start command buffer recording.\n");
-        exit(EXIT_FAILURE);
+        finite_log_internal(LOG_LEVEL_FATAL, file, line, func, "Unable to start command buffer recording.");
     }
 
     VkRenderPassBeginInfo rstart_info = {
@@ -288,9 +281,9 @@ void finite_render_record_command_buffer(FiniteRender *render, uint32_t index) {
             FiniteRenderBuffer currentBuf = render->buffers[i];
             vkCmdBindVertexBuffers(render->vk_buffer[render->_currentFrame], 0, 1, &render->vk_vertexBuf, &currentBuf.vertexOffset);
             if (render->vk_descriptor != NULL) {
-                // printf("Attempting to bind set %d\n", render->_currentFrame);
+                FINITE_LOG("Attempting to bind set %d", render->_currentFrame);
                 vkCmdBindDescriptorSets(render->vk_buffer[render->_currentFrame], VK_PIPELINE_BIND_POINT_GRAPHICS, render->vk_layout, 0, 1, &render->vk_descriptor[render->_currentFrame], 0, NULL);
-                // printf("Done with set %d\n", render->_currentFrame);
+                FINITE_LOG("Done with set %d", render->_currentFrame);
             }
             if (currentBuf._indices == true) {
                 vkCmdBindIndexBuffer(render->vk_buffer[render->_currentFrame], render->vk_vertexBuf, currentBuf.indexOffset, VK_INDEX_TYPE_UINT16);
@@ -308,14 +301,13 @@ void finite_render_record_command_buffer(FiniteRender *render, uint32_t index) {
     vkCmdEndRenderPass(render->vk_buffer[render->_currentFrame]);
     res = vkEndCommandBuffer(render->vk_buffer[render->_currentFrame]);
     if (res != VK_SUCCESS) {
-        printf("[Finite] - Unable to Record command buffer\n");
-        exit(EXIT_FAILURE);
+        finite_log_internal(LOG_LEVEL_FATAL, file, line, func, "Unable to Record command buffer");
     }
 }
 
-FiniteRenderOneshotBuffer finite_render_begin_onshot_command(FiniteRender *render) {
+FiniteRenderOneshotBuffer finite_render_begin_onshot_command_debug(const char *file, const char *func, int line, FiniteRender *render) {
     // create a temp pool
-    printf("Attempting to create a temporary command pool.\n");
+    FINITE_LOG("Attempting to create a temporary command pool.");
     VkCommandPoolCreateInfo pool_info = {
         .sType = VK_STRUCTURE_TYPE_COMMAND_POOL_CREATE_INFO,
         .flags = VK_COMMAND_POOL_CREATE_TRANSIENT_BIT,
@@ -326,11 +318,10 @@ FiniteRenderOneshotBuffer finite_render_begin_onshot_command(FiniteRender *rende
 
     VkResult res = vkCreateCommandPool(render->vk_device, &pool_info, NULL, &cmd_poole);
     if (res != VK_SUCCESS) {
-        printf("[Finite] - Unable to create the command pool\n");
-        exit(EXIT_FAILURE);
+        finite_log_internal(LOG_LEVEL_FATAL, file, line, func, "Unable to create the command pool");
     }
 
-    printf("Created a command pool (%p)\n", cmd_poole);
+    FINITE_LOG("Created a command pool (%p)", cmd_poole);
 
     VkCommandBuffer cmd_buffet;
 
@@ -343,11 +334,10 @@ FiniteRenderOneshotBuffer finite_render_begin_onshot_command(FiniteRender *rende
     
     res = vkAllocateCommandBuffers(render->vk_device, &alloc_info, &cmd_buffet);
     if (res != VK_SUCCESS) {
-        printf("[Finite] - Unable to create the command buffer\n");
-        exit(EXIT_FAILURE);
+        finite_log_internal(LOG_LEVEL_FATAL, file, line, func, "Unable to create the command buffer");
     }
 
-    printf("Created cmd buffer %p\n", cmd_buffet);
+    FINITE_LOG("Created cmd buffer %p", cmd_buffet);
 
     VkCommandBufferBeginInfo cmd = {
         .sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO,
@@ -364,7 +354,7 @@ FiniteRenderOneshotBuffer finite_render_begin_onshot_command(FiniteRender *rende
     return buffet;
 }
 
-void finite_render_finish_onshot_command(FiniteRender *render, FiniteRenderOneshotBuffer cmd_block) {
+void finite_render_finish_onshot_command_debug(const char *file, const char *func, int line, FiniteRender *render, FiniteRenderOneshotBuffer cmd_block) {
     VkCommandBuffer cmd_buffet = cmd_block.buffer;
     VkCommandPool cmd_poole = cmd_block.pool;
 
@@ -385,29 +375,27 @@ void finite_render_finish_onshot_command(FiniteRender *render, FiniteRenderOnesh
     VkFence newFence;
     VkResult res = vkCreateFence(render->vk_device, &fenceInfo, NULL, &newFence);
     if (res != VK_SUCCESS) {
-        printf("[Finite] - Unable to create the fence\n");
-        exit(EXIT_FAILURE);
+        finite_log_internal(LOG_LEVEL_FATAL, file, line, func, "Unable to create the fence");
     }
 
-    printf("Created temporary fence %p\n", newFence);
+    FINITE_LOG("Created temporary fence %p", newFence);
 
     vkQueueSubmit(render->vk_graphicsQueue, 1, &info, newFence);
     vkWaitForFences(render->vk_device, 1, &newFence, VK_TRUE, UINT64_MAX);
-    printf("Done.\n");
 
     vkDestroyFence(render->vk_device, newFence, NULL);
     vkFreeCommandBuffers(render->vk_device, cmd_poole, 1, &cmd_buffet);
     vkDestroyCommandPool(render->vk_device, cmd_poole, NULL);
 }
 
-bool finite_render_get_shader_module(FiniteRender *render, char *code, uint32_t size) {
+bool finite_render_get_shader_module_debug(const char *file, const char *func, int line, FiniteRender *render, char *code, uint32_t size) {
     if (!render) {
-        printf("Can not apply shader module to NULL renderer\n");
+        finite_log_internal(LOG_LEVEL_ERROR, file, line, func, "Can not apply shader module to NULL renderer");
         return false;
     }
 
     if (!code) {
-        printf("Unable to load code.\n");
+        finite_log_internal(LOG_LEVEL_ERROR, file, line, func, "Unable to load code.");
         return false;
     }
 
@@ -421,13 +409,13 @@ bool finite_render_get_shader_module(FiniteRender *render, char *code, uint32_t 
     // check now for shader modules
     render->modules = realloc(render->modules, ((render->_modules + 1)*sizeof(VkShaderModule)));
     if (!render->modules) {
-        printf("Unable to create space for new ShaderModule");
+        finite_log_internal(LOG_LEVEL_ERROR, file, line, func, "Unable to create space for new ShaderModule");
         return false;
     }
 
     VkResult res = vkCreateShaderModule(render->vk_device, &shader, NULL, &render->modules[render->_modules]);
     if (res != VK_SUCCESS) {
-        printf("Unable to create Shader Module\n");
+        finite_log_internal(LOG_LEVEL_ERROR, file, line, func, "Unable to create Shader Module");
         return false;
     }
 
@@ -436,10 +424,9 @@ bool finite_render_get_shader_module(FiniteRender *render, char *code, uint32_t 
     return true;
 }
 
-uint32_t finite_render_get_memory_format(FiniteRender *render, uint32_t filter, VkMemoryPropertyFlags props) {
+uint32_t finite_render_get_memory_format_debug(const char *file, const char *func, int line, FiniteRender *render, uint32_t filter, VkMemoryPropertyFlags props) {
     if (!render) {
-        printf("Can not query memory format with NULL renderer.\n");
-        exit(EXIT_FAILURE);
+        finite_log_internal(LOG_LEVEL_FATAL, file, line, func, "Can not query memory format with NULL renderer.");
     }
 
     VkPhysicalDeviceMemoryProperties memProps;
@@ -451,8 +438,7 @@ uint32_t finite_render_get_memory_format(FiniteRender *render, uint32_t filter, 
         }
     }
 
-    printf("Could not find usable memory type with given filer.\n");
-    exit(EXIT_FAILURE);
+    finite_log_internal(LOG_LEVEL_FATAL, file, line, func, "Could not find usable memory type with given filer.");
 }
 
 void finite_render_copy_buffer(FiniteRender *render, VkBuffer src, VkBuffer dest, VkDeviceSize size) {

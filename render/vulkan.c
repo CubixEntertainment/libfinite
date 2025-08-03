@@ -156,7 +156,7 @@ void finite_render_create_device_debug(const char *file, const char *func, int l
     vkGetDeviceQueue(render->vk_device , fIndex.presentFamily, 0, &render->vk_presentQueue);
 }
 
-void finite_render_create_swapchain_debug(FiniteRender *render, FiniteRenderSwapchainInfo info) {
+void finite_render_create_swapchain_debug(const char *file, const char *func, int line, FiniteRender *render, FiniteRenderSwapchainInfo info) {
     uint32_t _images = info.caps.minImageCount + 1;
     if (info.caps.maxImageCount > 0 && _images > info.caps.maxImageCount) {
         _images = info.caps.maxImageCount;
@@ -1171,7 +1171,7 @@ bool finite_render_create_semaphore_debug(const char *file, const char *func, in
 
 bool finite_render_create_fence_debug(const char *file, const char *func, int line, FiniteRender *render, VkFenceCreateFlags initialState) {
     if (!render) {
-        finite_log_internal(LOG_LEVEL_ERROR, file, line, func, ("Unable to create a fence with NULL render (%p)", render);
+        finite_log_internal(LOG_LEVEL_ERROR, file, line, func, "Unable to create a fence with NULL render (%p)", render);
         return false;
     }
 

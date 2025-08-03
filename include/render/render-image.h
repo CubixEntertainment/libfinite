@@ -113,7 +113,10 @@ void finite_render_cleanup_textures(FiniteRender *render, FiniteRenderImage *img
 
 #define finite_render_create_image(render, info, mem_info) finite_render_create_image_debug(__FILE__, __func__, __LINE__, render, info, mem_info)
 FiniteRenderImage *finite_render_create_image_debug(const char *file, const char *func, int line, FiniteRender *render, FiniteRenderImageInfo *info, FiniteRenderMemAllocInfo *mem_info);
-void finite_render_create_view(FiniteRender *render, FiniteRenderImage *img, FiniteRenderImageViewInfo *info);
+
+#define finite_render_create_view(render, img, info) finite_render_create_view_debug(__FILE__, __func__, __LINE__, render, img, info)
+void finite_render_create_view_debug(const char *file, const char *func, int line, FiniteRender *render, FiniteRenderImage *img, FiniteRenderImageViewInfo *info);
+
 void finite_render_create_sampler(FiniteRender *render, FiniteRenderImage *img, FiniteRenderTextureSamplerInfo *info);
 
 #define finite_render_transition_image_layout(render, info, format, dir) finite_render_transition_image_layout_debug(__FILE__, __func__, __LINE__, render, info, format, dir)

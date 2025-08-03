@@ -16,6 +16,7 @@ void finite_render_create_texture_debug(const char *rfile, const char *func, int
 }
 
 void finite_render_destroy_pixels(FiniteRenderTextureInfo *image) {
+    FINITE_LOG("Cleaing up stbi data");
     stbi_image_free(image->pixels);
     image->pixels = NULL;
 }
@@ -31,8 +32,7 @@ void finite_render_cleanup_textures(FiniteRender *render, FiniteRenderImage *img
 
 FiniteRenderImage *finite_render_create_image_debug(const char *file, const char *func, int line, FiniteRender *render, FiniteRenderImageInfo *info, FiniteRenderMemAllocInfo *mem_info) {
     if (!render) {
-        finite_log_internal(LOG_LEVEL_ERROR, file, line, func, "Unable create FiniteRender Image");
-        exit(EXIT_FAILURE);
+        finite_log_internal(LOG_LEVEL_FATAL, file, line, func, "Unable create FiniteRender Image");
     }
 
     FiniteRenderImage *image = malloc(sizeof(FiniteRenderImage));
@@ -56,8 +56,7 @@ FiniteRenderImage *finite_render_create_image_debug(const char *file, const char
 
     VkResult res = vkCreateImage(render->vk_device, &image_info, NULL, &image->textureImage);
     if (res != VK_SUCCESS) {
-        finite_log_internal(LOG_LEVEL_ERROR, file, line, func, "Unable to create image");
-        exit(EXIT_FAILURE);
+        finite_log_internal(LOG_LEVEL_FATAL, file, line, func, "Unable to create image");
     }
 
     VkMemoryRequirements memRequirements;
@@ -72,7 +71,7 @@ FiniteRenderImage *finite_render_create_image_debug(const char *file, const char
 
     res = vkAllocateMemory(render->vk_device, &alloc_info, NULL, &image->textureImageMemory);
     if (res != VK_SUCCESS) {
-        printf("[Finite] - Unable to create the image memory\n");
+        finite_log_internal(LOG_LEVEL_FATAL, file, line, func, "Unable to create the image memory\n");
         return false;
     }
 
@@ -81,9 +80,9 @@ FiniteRenderImage *finite_render_create_image_debug(const char *file, const char
     return image;
 }
 
-void finite_render_create_view(FiniteRender *render, FiniteRenderImage *img, FiniteRenderImageViewInfo *info) {
+void finite_render_create_view_debug(const char *file, const char *func, int line, FiniteRender *render, FiniteRenderImage *img, FiniteRenderImageViewInfo *info) {
     if (img->textureImage != info->image) {
-        printf("Unable to create view with mismatch info. (%p) (%p)\n", img->textureImage, info->image);
+        finite_log_internal(LOG_LEVEL_ERROR, file, line, func, "Unable to create view with mismatch info. (%p) (%p)\n", img->textureImage, info->image);
     }
     
     VkImageViewCreateInfo view_info = {
@@ -99,7 +98,7 @@ void finite_render_create_view(FiniteRender *render, FiniteRenderImage *img, Fin
 
     VkResult res = vkCreateImageView(render->vk_device, &view_info, NULL, &img->textureImageView);
     if (res != VK_SUCCESS) {
-        printf("Unable to create image view.\n");
+        finite_log_internal(LOG_LEVEL_FATAL, file, line, func, "Unable to create image view.\n");
         exit(EXIT_FAILURE);
     }
 }
@@ -138,8 +137,7 @@ void finite_render_create_sampler(FiniteRender *render, FiniteRenderImage *img, 
 
 void finite_render_transition_image_layout_debug(const char *file, const char *func, int line, FiniteRender *render, FiniteRenderImageBarrierInfo *info, VkFormat format, FiniteRenderPipelineDirections *dir) {
     if (!info) {
-        printf("Unable to transition NULL image (%p)\n", info);
-        exit(EXIT_FAILURE);
+        finite_log_internal(LOG_LEVEL_FATAL, file, line, func, "Unable to transition NULL image (%p)\n", info);
     }
 
     FiniteRenderOneshotBuffer cmd_block = finite_render_begin_onshot_command(render);
@@ -163,8 +161,7 @@ void finite_render_transition_image_layout_debug(const char *file, const char *f
         dir->srcFlags = VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT;
         dir->destFlags = VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT;
     } else {
-        finite_log_internal(LOG_LEVEL_ERROR, file, line, func, "Unknown/unsupported transition.");
-        exit(EXIT_FAILURE);
+        finite_log_internal(LOG_LEVEL_FATAL, file, line, func, "Unknown/unsupported transition.");
     }
 
     VkImageMemoryBarrier wall = {

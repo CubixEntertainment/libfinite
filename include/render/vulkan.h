@@ -3,7 +3,7 @@
 #include "render-core.h"
 
 #define finite_render_init(shell, extensions, layers, _exts, _layers) finite_render_init_debug(__FILE__, __func__, __LINE__, shell, extensions, layers, _exts, _layers)
-FiniteRender *finite_render_init(const char *file, const char *func, int line, FiniteShell *shell, char **extensions, char **layers, uint32_t _exts, uint32_t _layers);
+FiniteRender *finite_render_init_debug(const char *file, const char *func, int line, FiniteShell *shell, char **extensions, char **layers, uint32_t _exts, uint32_t _layers);
 
 #define finite_render_create_physical_device(render) finite_render_create_physical_device_debug(__FILE__, __func__, __LINE__, render)
 void finite_render_create_physical_device_debug(const char *file, const char *func, int line, FiniteRender *render);
@@ -30,10 +30,10 @@ void finite_render_create_framebuffers_debug(const char *file, const char *func,
 void finite_render_create_pipeline_layout_debug(const char *file, const char *func, int line, FiniteRender *render, FiniteRenderPipelineLayoutInfo *layoutInfo);
 
 #define finite_render_add_shader_stage(render, stage) finite_render_add_shader_stage_debug(__FILE__, __func__, __LINE__, render, stage)
-bool finite_render_add_shader_stage_debug(__FILE__, __func__, __LINE__, FiniteRender *render, FiniteRenderShaderStageInfo *stage);
+bool finite_render_add_shader_stage_debug(const char *file, const char *func, int line,  FiniteRender *render, FiniteRenderShaderStageInfo *stage);
 
-#define finite_render_create_vertex_input(render, vertex) finite_render_create_vertex_input_debug(render, vertex)
-VkPipelineVertexInputStateCreateInfo finite_render_create_vertex_input_debug(FiniteRender *render, FiniteRenderVertexInputInfo *vertex);
+#define finite_render_create_vertex_input(render, vertex) finite_render_create_vertex_input_debug(__FILE__, __func__, __LINE__, render, vertex)
+VkPipelineVertexInputStateCreateInfo finite_render_create_vertex_input_debug(const char *file, const char *func, int line, FiniteRender *render, FiniteRenderVertexInputInfo *vertex);
 
 #define finite_render_create_assembly_state(render, assemble) finite_render_create_assembly_state_debug(__FILE__, __func__, __LINE__, render, assemble)
 VkPipelineInputAssemblyStateCreateInfo finite_render_create_assembly_state_debug(const char *file, const char *func, int line, FiniteRender *render, FiniteRenderAssemblyInfo *assemble);
@@ -45,13 +45,13 @@ VkPipelineViewportStateCreateInfo finite_render_create_viewport_state_debug(cons
 VkPipelineRasterizationStateCreateInfo finite_render_create_raster_info_debug(const char *file, const char *func, int line, FiniteRender *render, FiniteRenderRasterState *state);
 
 #define finite_render_create_multisample_info(render, info) finite_render_create_multisample_info_debug(__FILE__, __func__, __LINE__, render, info)
-VkPipelineMultisampleStateCreateInfo finite_render_create_multisample_info_debug(FiniteRender *render, FiniteRenderMultisampleStateInfo *info);
+VkPipelineMultisampleStateCreateInfo finite_render_create_multisample_info_debug(const char *file, const char *func, int line, FiniteRender *render, FiniteRenderMultisampleStateInfo *info);
 
 #define finite_render_create_color_blend_attachment(att) finite_render_create_color_blend_attachment_debug(__FILE__, __func__, __LINE__, att)
 VkPipelineColorBlendAttachmentState finite_render_create_color_blend_attachment_debug(const char *file, const char *func, int line, FiniteRenderColorAttachmentInfo *att);
 
 #define finite_render_create_color_blend_state(render, att, blend) finite_render_create_color_blend_state_debug(__FILE__, __func__, __LINE__, render, att, blend)
-VkPipelineColorBlendStateCreateInfo finite_render_create_color_blend_state_debug(__FILE__, __func__, __LINE__, FiniteRender *render, VkPipelineColorBlendAttachmentState *att, FiniteRenderColorBlendInfo *blend);
+VkPipelineColorBlendStateCreateInfo finite_render_create_color_blend_state_debug(const char *file, const char *func, int line, FiniteRender *render, VkPipelineColorBlendAttachmentState *att, FiniteRenderColorBlendInfo *blend);
 
 #define finite_render_create_graphics_pipeline(render, flags, vertex, assemble, tees, port, raster, sample, blend, dyna) finite_render_create_graphics_pipeline_debug(__FILE__, __func__, __LINE__, render, flags, vertex, assemble, tees, port, raster, sample, blend, dyna)
 bool finite_render_create_graphics_pipeline_debug(const char *file, const char *func, int line, FiniteRender *render, VkPipelineCreateFlags flags, VkPipelineVertexInputStateCreateInfo *vertex, VkPipelineInputAssemblyStateCreateInfo *assemble, VkPipelineTessellationStateCreateInfo *tess, VkPipelineViewportStateCreateInfo *port, VkPipelineRasterizationStateCreateInfo *raster, VkPipelineMultisampleStateCreateInfo *sample, VkPipelineColorBlendStateCreateInfo *blend, VkPipelineDynamicStateCreateInfo *dyna);
@@ -69,13 +69,26 @@ bool finite_render_create_fence_debug(const char *file, const char *func, int li
 bool finite_render_submit_frame_debug(const char *file, const char *func, int line, FiniteRender *render, FiniteRenderSubmitInfo *info, uint32_t fenceId, bool safeExit);
 
 #define finite_render_present_frame(render, info, safeExit) finite_render_present_frame_debug(__FILE__, __func__, __LINE__, render, info, safeExit)
-bool finite_render_present_frame_debug(FiniteRender *render, FiniteRenderPresentInfo *info, bool safeExit);
+bool finite_render_present_frame_debug(const char *file, const char *func, int line, FiniteRender *render, FiniteRenderPresentInfo *info, bool safeExit);
 
-bool finite_render_create_vertex_buffer(FiniteRender *render, FiniteRenderBufferInfo *info, FiniteRenderMemAllocInfo *mem_info, uint64_t vertexSize, FiniteRenderReturnBuffer *rtrn);
-bool finite_render_alloc_buffer_memory(FiniteRender *render, FiniteRenderMemAllocInfo *info, VkDeviceSize offset);
-bool finite_render_create_descriptor_layout(FiniteRender *render, FiniteRenderDescriptorSetLayout **info, uint32_t layouts);
-bool finite_render_create_uniform_buffer(FiniteRender *render, FiniteRenderBufferInfo *info, FiniteRenderMemAllocInfo *mem_info);
-bool finite_render_create_descriptor_pool(FiniteRender *render, FiniteRenderDescriptorPoolInfo **info, bool autoCreate, uint32_t _infos);
-bool finite_render_write_to_descriptor(FiniteRender *render, FiniteRenderWriteSetInfo **info, FiniteRenderDescriptorInfo *desc_info, uint32_t _infos);
-bool finite_render_create_generic_buffer(FiniteRender *render, FiniteRenderBufferInfo *info, FiniteRenderMemAllocInfo *mem_info, uint64_t vertexSize, FiniteRenderReturnBuffer *rtrn);
+#define finite_render_create_vertex_buffer(render, info, mem_info, vertexSize, rtrn) finite_render_create_vertex_buffer_debug(__FILE__, __func__, __LINE__, render, info, mem_info, vertexSize, rtrn)
+bool finite_render_create_vertex_buffer_debug(const char *file, const char *func, int line, FiniteRender *render, FiniteRenderBufferInfo *info, FiniteRenderMemAllocInfo *mem_info, uint64_t vertexSize, FiniteRenderReturnBuffer *rtrn);
+
+#define finite_render_alloc_buffer_memory(render, info, offset) finite_render_alloc_buffer_memory_debug(__FILE__, __func__, __LINE__, render, info, offset)
+bool finite_render_alloc_buffer_memory_debug(const char *file, const char *func, int line, FiniteRender *render, FiniteRenderMemAllocInfo *info, VkDeviceSize offset);
+
+#define finite_render_create_descriptor_layout(render, info, layouts) finite_render_create_descriptor_layout_debug(__FILE__, __func__, __LINE__, render, info, layouts)
+bool finite_render_create_descriptor_layout_debug(const char *file, const char *func, int line, FiniteRender *render, FiniteRenderDescriptorSetLayout **info, uint32_t layouts);
+
+#define finite_render_create_uniform_buffer(render, info, mem_info) finite_render_create_uniform_buffer_debug(__FILE__, __func__, __LINE__, render, info, mem_info)
+bool finite_render_create_uniform_buffer_debug(const char *file, const char *func, int line, FiniteRender *render, FiniteRenderBufferInfo *info, FiniteRenderMemAllocInfo *mem_info);
+
+#define finite_render_create_descriptor_pool(render, info, autoCreate, _infos) finite_render_create_descriptor_pool_debug(__FILE__, __func__, __LINE__, render, info, autoCreate, _infos)
+bool finite_render_create_descriptor_pool_debug(const char *file, const char *func, int line, FiniteRender *render, FiniteRenderDescriptorPoolInfo **info, bool autoCreate, uint32_t _infos);
+
+#define finite_render_write_to_descriptor(render, info, desc_info, _infos) finite_render_write_to_descriptor_debug(__FILE__, __func__, __LINE__, render, info, desc_info, _infos)
+bool finite_render_write_to_descriptor_debug(const char *file, const char *func, int line, FiniteRender *render, FiniteRenderWriteSetInfo **info, FiniteRenderDescriptorInfo *desc_info, uint32_t _infos);
+
+#define finite_render_create_generic_buffer(render, info, mem_info, vertexSize, rtrn) finite_render_create_generic_buffer_debug(__FILE__, __func__, __LINE__, render, info, mem_info, vertexSize, rtrn)
+bool finite_render_create_generic_buffer_debug(const char *file, const char *func, int line, FiniteRender *render, FiniteRenderBufferInfo *info, FiniteRenderMemAllocInfo *mem_info, uint64_t vertexSize, FiniteRenderReturnBuffer *rtrn);
 #endif

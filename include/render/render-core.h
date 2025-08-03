@@ -390,19 +390,41 @@ struct FiniteRenderPresentInfo {
     VkResult *results;
 };
 
-FiniteRenderQueueFamilies finite_render_find_queue_families(VkPhysicalDevice pDevice, VkSurfaceKHR vk_surface);
-bool finite_render_check_extensions(FiniteRender *render, VkPhysicalDevice pDevice);
-FiniteRenderSwapchainInfo finite_render_get_swapchain_info(FiniteRender *render, VkPhysicalDevice pDevice);
-VkSurfaceFormatKHR finite_render_get_best_format(FiniteRender *render, VkSurfaceFormatKHR *forms, uint32_t _forms);
-VkPresentModeKHR finite_render_get_best_present_mode(FiniteRender *render, VkPresentModeKHR *modes, uint32_t _modes);
+#define finite_render_find_queue_families(pDevice, vk_surface) finite_render_find_queue_families_debug(__FILE__, __func__, __LINE__, pDevice, vk_surface)
+FiniteRenderQueueFamilies finite_render_find_queue_families_debug(const char *file, const char *func, int line, VkPhysicalDevice pDevice, VkSurfaceKHR vk_surface);
+
+#define finite_render_check_extensions(render, pDevice) finite_render_check_extensions_debug(__FILE__, __func__, __LINE__, render, pDevice)
+bool finite_render_check_extensions_debug(const char *file, const char *func, int line, FiniteRender *render, VkPhysicalDevice pDevice);
+
+#define finite_render_get_swapchain_info(render, pDevice) finite_render_get_swapchain_info_debug(__FILE__, __func__, __LINE__, render, pDevice)
+FiniteRenderSwapchainInfo finite_render_get_swapchain_info_debug(const char *file, const char *func, int line, FiniteRender *render, VkPhysicalDevice pDevice);
+
+#define finite_render_get_best_format(render, forms, _forms) finite_render_get_best_format_debug(__FILE__, __func__, __LINE__, render, forms, _forms)
+VkSurfaceFormatKHR finite_render_get_best_format_debug(const char *file, const char *func, int line, FiniteRender *render, VkSurfaceFormatKHR *forms, uint32_t _forms);
+
+#define finite_render_get_best_present_mode(render, modes, _modes) finite_render_get_best_present_mode_debug(__FILE__, __func__, __LINE__, render, modes, _modes)
+VkPresentModeKHR finite_render_get_best_present_mode_debug(const char *file, const char *func, int line, FiniteRender *render, VkPresentModeKHR *modes, uint32_t _modes);
+
 VkExtent2D finite_render_get_best_extent(FiniteRender *render, VkSurfaceCapabilitiesKHR *caps, FiniteShell *shell);
 bool finite_render_check_device(FiniteRender *render, VkPhysicalDevice pDevice);
-void finite_render_record_command_buffer(FiniteRender *render, uint32_t index);
-bool finite_render_get_shader_module(FiniteRender *render, char *code, uint32_t size);
+
+#define finite_render_record_command_buffer(render, index) finite_render_record_command_buffer_debug(__FILE__, __func__, __LINE__, render, index)
+void finite_render_record_command_buffer_debug(const char *file, const char *func, int line, FiniteRender *render, uint32_t index);
+
+#define finite_render_get_shader_module(render, code, size) finite_render_get_shader_module_debug(__FILE__, __func__, __LINE__, render, code, size)
+bool finite_render_get_shader_module_debug(const char *file, const char *func, int line, FiniteRender *render, char *code, uint32_t size);
+
 void finite_render_cleanup(FiniteRender *render);
 char *finite_render_get_shader_code(const char *fileName, uint32_t *pShaderSize);
-uint32_t finite_render_get_memory_format(FiniteRender *render, uint32_t filter, VkMemoryPropertyFlags props);
+
+#define finite_render_get_memory_format(render, filter, props) finite_render_get_memory_format_debug(__FILE__, __func__, __LINE__, render, filter, props)
+uint32_t finite_render_get_memory_format_debug(const char *file, const char *func, int line, FiniteRender *render, uint32_t filter, VkMemoryPropertyFlags props);
+
 void finite_render_copy_buffer(FiniteRender *render, VkBuffer src, VkBuffer dest, VkDeviceSize size);
-FiniteRenderOneshotBuffer finite_render_begin_onshot_command(FiniteRender *render);
-void finite_render_finish_onshot_command(FiniteRender *render, FiniteRenderOneshotBuffer cmd_block);
+
+#define finite_render_begin_onshot_command(render) finite_render_begin_onshot_command_debug(__FILE__, __func__, __LINE__, render)
+FiniteRenderOneshotBuffer finite_render_begin_onshot_command_debug(const char *file, const char *func, int line, FiniteRender *render);
+
+#define finite_render_finish_onshot_command(render, cmd_block) finite_render_finish_onshot_command_debug(__FILE__, __func__, __LINE__, render, cmd_block)
+void finite_render_finish_onshot_command_debug(const char *file, const char *func, int line, FiniteRender *render, FiniteRenderOneshotBuffer cmd_block);
 #endif
