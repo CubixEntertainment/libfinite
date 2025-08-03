@@ -1,12 +1,12 @@
 # libfinite
 The Infinite C Library
 
-<img src="libfinite thing.png">
+<img src="BANNER-1.png">
 
-## Are We Libfinite?
-List is subject to change
+## Are we there yet?
+[List is subject to change!]
 
-- [x] Window Rendering (with Ciaro)
+- [x] Window Rendering (with Cairo)
 - [x] Window Rendering Example
 - [x] Keyboard Input
 - [x] Controller Input
@@ -24,7 +24,7 @@ List is subject to change
 - [ ] Avatar
 - [ ] Gameshare
 - [ ] Notifications
-- [ ] Maelink Intergrations
+- [ ] Papernet Integration
   
 
 ## Project Goals
@@ -38,7 +38,7 @@ You'll need the following packages in order to build libfinite.
 - Ninja
 - wayland
 - wayland-protocols
-- ciaro
+- cairo
 - libdvdev
 - xkbcommon (x related dependencies not needed)
 - vulkan
@@ -47,4 +47,4 @@ You'll need the following packages in order to build libfinite.
 ## License
 This project is intended to be open source to members of the Infinite Developer Environment. As a developer for Infinite Hardware you are free to edit, change or otherwise modify this project with the intention of contributing to the improve of the Infinte Developer tools. You may **not** however redistribute or resell any version of this project without the express written consent of Cubix Entertainment LLC.
 
-© Cubix Entertainment 2025. Cubi and the Cubix Logo are trademarks of Cubix Entertainment LLC.
+© Cubix Entertainment 2025. Cubi and the Cubix Logo are trademarks of Cubix Entertainment LLC. All rights reserved.
