@@ -3,7 +3,7 @@ The Infinite C Library
 
 <img src="BANNER 1.png">
 
-## Are We Libfinite Yet?
+## Are we Libfinite yet...?
 > [!NOTE]
 > This list is subject to change. Check back regularly to see if anything new has been added!
 
