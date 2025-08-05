@@ -37,7 +37,7 @@ void finite_draw_set_text_debug(const char *file, const char *func, int line, Fi
 #define finite_draw_set_draw_position(shell, x, y) finite_draw_set_draw_position_debug(__FILE__, __func__, __LINE__, shell, x, y)
 void finite_draw_set_draw_position_debug(const char *file, const char *func, int line, FiniteShell *shell, double x, double y);
 
-#define finite_draw_text_group(shell, groups, x, y, n) finite_draw_text_group_debug(__FILE__, __func, __LINE__, shell, groups, x, y, n)
+#define finite_draw_text_group(shell, groups, x, y, n) finite_draw_text_group_debug(__FILE__, __func__, __LINE__, shell, groups, x, y, n)
 void finite_draw_text_group_debug(const char *file, const char *func, int line, FiniteShell *shell, FiniteTextGroup *groups, double x, double y, size_t n);
 
 #define finite_draw_get_font_extents(shell) finite_draw_get_font_extents_debug(__FILE__, __func__, __LINE__, shell)
