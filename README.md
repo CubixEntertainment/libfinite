@@ -15,13 +15,13 @@ The Infinite C Library
 - [x] Vulkan Examples
 - [x] Vulkan Rendering (with basic 3D rendering)
 - [x] Vulkan Rendering (with texture loading)
-- [ ] Vulkan Rendering (with mesh loading)
+- [x] Vulkan Rendering (with mesh loading)
 - [ ] Vulkan Memory Allocation Integration
 - [x] Audio
 - [x] Audio Example
 - [ ] Audio Seeking (rewind,pausing)
 - [ ] Audio Effects
-- [ ] Logging/Core Functions
+- [x] Logging/Core Functions
 - [ ] Avatar
 - [ ] GameShare
 - [ ] Notifications
