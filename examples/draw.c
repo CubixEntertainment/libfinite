@@ -7,11 +7,11 @@
 #include "finite/log.h"
 
 int main() {
+    finite_log_init(stdout, LOG_LEVEL_DEBUG, false);
+    FINITE_LOG("Starting.");
     // create a new shell
     FiniteShell *myShell = finite_shell_init("wayland-0");
-
-    finite_log_init(stdout, LOG_LEVEL_DEBUG, false);
-
+    
     if (!myShell) {
         FINITE_LOG("Unable to init shell");
         return 1;
