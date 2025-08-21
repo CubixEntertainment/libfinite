@@ -442,7 +442,7 @@ void finite_draw_png_debug(const char *file, const char *func, int line, FiniteS
 }
 
 bool finite_draw_finish_debug(const char *file, const char *func, int line, FiniteShell *shell, int width, int height, int stride, bool withAlpha) {
-    finite_log_internal(LOG_LEVEL_ERROR, file, line, func, "Checks: %d %d %d %d", width, height, stride, withAlpha);
+    FINITE_LOG("Checks: %d %d %d %d", width, height, stride, withAlpha);
     cairo_destroy(shell->cr); 
     shell->cr = NULL;
 
@@ -451,7 +451,7 @@ bool finite_draw_finish_debug(const char *file, const char *func, int line, Fini
         return false;
     }
 
-    finite_log_internal(LOG_LEVEL_ERROR, file, line, func, "Surface status: %s", cairo_status_to_string(cairo_surface_status(shell->cairo_surface)));
+    FINITE_LOG("Surface status: %s", cairo_status_to_string(cairo_surface_status(shell->cairo_surface)));
 
     if (shell->buffer) {
         wl_buffer_destroy(shell->buffer);
