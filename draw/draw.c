@@ -46,15 +46,15 @@ void finite_draw_rounded_rect_debug(const char *file, const char *func, int line
             } else {
                 cairo_set_source_rgb(cr, color->r, color->g, color->b);
             }
-        } else {
-            finite_log_internal(LOG_LEVEL_ERROR, file, line, func, "Unable to fill. (Did you define a color or a pattern?)");
-        }
-    }
 
-    if (withPreserve) {
-        cairo_fill_preserve(cr);
-    } else {
-        cairo_fill(cr);
+            if (withPreserve) {
+                cairo_fill_preserve(cr);
+            } else {
+                cairo_fill(cr);
+            }
+        } else {
+            finite_log_internal(LOG_LEVEL_WARN, file, line, func, "Unable to fill. (Did you intend to not define a color or a pattern?)");
+        }
     }
 }
 
@@ -367,7 +367,7 @@ void finite_draw_rect_debug(const char *file, const char *func, int line, Finite
             }
             cairo_fill(cr);
         } else {
-            finite_log_internal(LOG_LEVEL_ERROR, file, line, func, "Unable to fill. (Did you define a color or a pattern?)");
+            finite_log_internal(LOG_LEVEL_WARN, file, line, func, "Unable to fill. (Did you intend to not define a color or a pattern?)");
         }
     }
 }

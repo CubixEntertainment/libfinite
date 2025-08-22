@@ -1,7 +1,7 @@
 project(
     'libfinite',
     'c',
-    version: '0.6.0-dev'
+    version: '0.6.1-dev'
 )
 
 cc = meson.get_compiler('c')
