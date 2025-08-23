@@ -459,7 +459,7 @@ bool finite_draw_finish_debug(const char *file, const char *func, int line, Fini
     }
 
     enum wl_shm_format form = WL_SHM_FORMAT_ARGB8888;
-    shell->buffer = wl_shm_pool_create_buffer(shell->pool, 0, shell->details->width, shell->details->height, shell->stride, form);
+    shell->buffer = wl_shm_pool_create_buffer(shell->pool, 0, width, height, shell->stride, form);
 
     cairo_surface_flush(shell->cairo_surface);
     cairo_surface_mark_dirty(shell->cairo_surface);
@@ -471,7 +471,7 @@ bool finite_draw_finish_debug(const char *file, const char *func, int line, Fini
     }
 
     wl_surface_attach(shell->isle_surface, shell->buffer, 0,0);
-    wl_surface_damage(shell->isle_surface, 0,0, shell->details->width, shell->details->height); // tell the surface to redraw
+    wl_surface_damage(shell->isle_surface, 0,0, width, height); // tell the surface to redraw
     wl_surface_commit(shell->isle_surface);
    return true;
 }
