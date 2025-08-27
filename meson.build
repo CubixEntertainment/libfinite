@@ -1,7 +1,7 @@
 project(
     'libfinite',
     'c',
-    version: '0.6.1-dev'
+    version: '0.6.2-dev'
 )
 
 cc = meson.get_compiler('c')
@@ -9,6 +9,7 @@ cc = meson.get_compiler('c')
 cglm = dependency('cglm')
 wayland_client = dependency('wayland-client', required: true)
 # gls = dependency('glslang')
+math = cc.find_library('m', required: true)
 wayland_protos = dependency('wayland-protocols', version: '>=1.24', default_options: ['tests=false'], required: true)
 cairo = dependency('cairo', required: true)
 evdev = dependency('libevdev', required: true)
@@ -53,6 +54,7 @@ layer_shell = custom_target('layer-shell',
 inc = include_directories('include')
 
 deps = [
+    math,
     wayland_client,
     wayland_protos,
     cairo,
@@ -91,7 +93,7 @@ src = [
 libfinite = library(
     'libfinite', 
     src, 
-    version : '0.6.0', 
+    version : '0.6.2', 
     soversion : '1', 
     dependencies: deps,
     install: true,
@@ -139,7 +141,7 @@ pkgconfig.generate(
     libfinite,
     name: 'libfinite',
     description: 'The Cubix Infinite Development Library',
-    version: '0.6.0',
+    version: '0.6.2',
     filebase: 'finite',
     subdirs: 'finite',
     requires: ['wayland-client', 'wayland-protocols', 'cairo', 'alsa', 'vulkan']
