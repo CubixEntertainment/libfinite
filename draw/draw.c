@@ -53,7 +53,7 @@ void finite_draw_rounded_rect_debug(const char *file, const char *func, int line
                 cairo_fill(cr);
             }
         } else {
-            finite_log_internal(LOG_LEVEL_WARN, file, line, func, "Unable to fill. (Did you intend to not define a color or a pattern?)");
+            finite_log_internal(LOG_LEVEL_WARN, file, line, func, "Unable to fill - a color/pattern was not defined. (Did you intend for this?)");
         }
     }
 }
@@ -115,7 +115,7 @@ void finite_draw_stroke_debug(const char *file, const char *func, int line, Fini
                 cairo_set_source_rgb(cr, color->r, color->g, color->b);
             }
         } else {
-            finite_log_internal(LOG_LEVEL_ERROR, file, line, func, "Unable to fill. (Did you define a color or a pattern?)");
+            finite_log_internal(LOG_LEVEL_ERROR, file, line, func, "Unable to fill - a color/pattern was not defined. (Did you intend for this?)");
         }
     }
 
@@ -367,14 +367,14 @@ void finite_draw_rect_debug(const char *file, const char *func, int line, Finite
             }
             cairo_fill(cr);
         } else {
-            finite_log_internal(LOG_LEVEL_WARN, file, line, func, "Unable to fill. (Did you intend to not define a color or a pattern?)");
+            finite_log_internal(LOG_LEVEL_WARN, file, line, func, "Unable to fill - a color/pattern was not defined. (Did you intend for this?)");
         }
     }
 }
 
 void finite_draw_create_snapshot_debug(const char *file, const char *func, int line, FiniteShell *shell) {
     if (!shell->cairo_surface) {
-        finite_log_internal(LOG_LEVEL_ERROR, file, line, func, "Unable to snapshot window with no cairo_surface");
+        finite_log_internal(LOG_LEVEL_ERROR, file, line, func, "Unable to snapshot window with no cairo_surface.");
         return;
     }
 
@@ -403,7 +403,8 @@ void finite_draw_create_snapshot_debug(const char *file, const char *func, int l
 // ?! you must call finite_draw_finish after loading a snapshot!!
 void finite_draw_load_snapshot_debug(const char *file, const char *func, int line, FiniteShell *shell) {
     if (!shell || !shell->snapshot) {
-        finite_log_internal(LOG_LEVEL_ERROR, file, line, func, "Unable to load snapshop.");
+        finite_log_internal(LOG_LEVEL_ERROR, file, line, func, "Unable to load snapshot!");
+        finite_log_internal(LOG_LEVEL_DEBUG, file, line, func, "You must call finite_draw_finish after loading a snapshot.");
         return;
     }
 
@@ -477,7 +478,7 @@ bool finite_draw_finish_debug(const char *file, const char *func, int line, Fini
 }
 
 void finite_draw_cleanup_debug(const char *file, const char *func, int line, FiniteShell *shell) {
-    finite_log_internal(LOG_LEVEL_ERROR, file, line, func, "Close Requested.");
+    finite_log_internal(LOG_LEVEL_ERROR, file, line, func, "Close requested.");
     cairo_surface_destroy(shell->cairo_surface);
     munmap(shell->pool_data, shell->pool_size);
     close(shell->shm_fd);
