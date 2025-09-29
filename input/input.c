@@ -186,7 +186,8 @@ void finite_keyboard_destroy_debug(const char *file, const char *func, int line,
 }
 
 void finite_input_poll_keys_debug(const char *file, const char *func, int line, FiniteKeyboard *board, FiniteShell *shell) {
-    wl_display_dispatch_pending(board->input->display);
+    // wl_display_dispatch_pending(board->input->display);
+    // ? buck bumble
 
     // update buttons
     if (shell->btns != NULL) {
@@ -194,48 +195,70 @@ void finite_input_poll_keys_debug(const char *file, const char *func, int line, 
         if ( shell->_btns > 1 ) {
             if (finite_key_pressed(FINITE_KEY_DOWN, board)) {
                 // go to the next based on if there are relations between buttons
-                FINITE_LOG("[Finite] Current btn: %d/%d", shell->activeButton, shell->_btns);
-                if (self->relations && self->relations->down >= 0) {
+                FINITE_LOG("Current btn: %d/%d", shell->activeButton, (shell->_btns - 1));
+                if (self->relations && self->relations->down >= 0 ) {
                     self->isActive = false;
-                    self->on_unfocus_callback(self, self->id, self->data);
-                    int next = self->relations->down;
-                    self = shell->btns[next];
-                    if (self) {
-                        self->isActive = true;
-                        self->on_focus_callback(self, self->id, self->data);
-                        shell->activeButton = self->id;
-                    } else {
-                        FINITE_LOG_WARN("No next available");
-                        return;
+                    if (self->on_unfocus_callback) {
+                        self->on_unfocus_callback(self, self->id, self->data);
                     }
+                    int next = self->relations->down;
+                    if (next < shell->_btns) {  
+                        self = shell->btns[next];
+                        if (!self) {
+                            FINITE_LOG_WARN("No next available");
+                            return;
+                        }
+
+                        FINITE_LOG("New button: %d", self->id);
+                        self->isActive = true;
+                        shell->activeButton = self->id;
+                        if (self->on_focus_callback) {
+                            self->on_focus_callback(self, self->id, self->data);
+                        }
+                        FINITE_LOG("New button: %d", shell->activeButton);
+                    }
+
                 } else {
                     int next = shell->activeButton + 1;
-                    if (next >= shell->_btns) {
+                    if (next < shell->_btns) {                        
+                        self->isActive = false;
+                        if (self->on_unfocus_callback) {
+                            self->on_unfocus_callback(self, self->id, self->data);
+                        }
+                        self = shell->btns[next];
+                        if (self != NULL) {
+                            FINITE_LOG_ERROR("No next available");
+                        } else {
+                            self->isActive = true;
+                            if (self->on_focus_callback) {
+                                self->on_focus_callback(self, self->id, self->data);
+                            }
+                            shell->activeButton = next;
+                        }
+                    } else {
                         // no loop back
                         FINITE_LOG_WARN("No next available");
-                    } else {
-                        self->isActive = false;
-                        self->on_unfocus_callback(self, self->id, self->data);
-                        self = shell->btns[next];
-                        self->isActive = true;
-                        self->on_focus_callback(self, next, self->data);
-                        shell->activeButton = next;
                     }
                 }
             }
 
             if (finite_key_pressed(FINITE_KEY_UP, board)) {
                 // go to the next based on if there are relations between buttons
-                FINITE_LOG("[Finite] Current btn: %d/%d", shell->activeButton, shell->_btns);
+                FINITE_LOG("Current btn: %d/%d", shell->activeButton, (shell->_btns - 1));
+
                 if (self->relations && self->relations->up >= 0) {
                     self->isActive = false;
-                    self->on_unfocus_callback(self, self->id, self->data);
+                    if (self->on_unfocus_callback) {
+                        self->on_unfocus_callback(self, self->id, self->data);
+                    }
                     int next = self->relations->up;
                     self = shell->btns[next];
                     if (self) {
                         self->isActive = true;
-                        self->on_focus_callback(self, self->id, self->data);
                         shell->activeButton = self->id;
+                        if (self->on_focus_callback) {
+                            self->on_focus_callback(self, self->id, self->data);
+                        }
                     } else {
                         FINITE_LOG_WARN("No next available");
                         return;
@@ -245,16 +268,21 @@ void finite_input_poll_keys_debug(const char *file, const char *func, int line, 
 
             if (finite_key_pressed(FINITE_KEY_RIGHT, board)) {
                 // go to the next based on if there are relations between buttons
-                FINITE_LOG("[Finite] Current btn: %d/%d", shell->activeButton, shell->_btns);
+                FINITE_LOG("Current btn: %d/%d", shell->activeButton, (shell->_btns - 1));
+
                 if (self->relations && self->relations->right >= 0) {
                     self->isActive = false;
-                    self->on_unfocus_callback(self, self->id, self->data);
+                    if (self->on_unfocus_callback) {
+                        self->on_unfocus_callback(self, self->id, self->data);
+                    }
                     int next = self->relations->right;
                     self = shell->btns[next];
                     if (self) {
                         self->isActive = true;
-                        self->on_focus_callback(self, self->id, self->data);
                         shell->activeButton = self->id;
+                        if (self->on_focus_callback) {
+                            self->on_focus_callback(self, self->id, self->data);
+                        }
                     } else {
                         FINITE_LOG_WARN("No next available");
                         return;
@@ -264,16 +292,21 @@ void finite_input_poll_keys_debug(const char *file, const char *func, int line, 
 
             if (finite_key_pressed(FINITE_KEY_LEFT, board)) {
                 // go to the next based on if there are relations between buttons
-                FINITE_LOG("[Finite] Current btn: %d/%d", shell->activeButton, shell->_btns);
+                FINITE_LOG("Current btn: %d/%d", shell->activeButton, (shell->_btns - 1));
+
                 if (self->relations && self->relations->left >= 0) {
                     self->isActive = false;
-                    self->on_unfocus_callback(self, self->id, self->data);
+                    if (self->on_unfocus_callback) {
+                        self->on_unfocus_callback(self, self->id, self->data);
+                    }
                     int next = self->relations->left;
                     self = shell->btns[next];
                     if (self) {
                         self->isActive = true;
-                        self->on_focus_callback(self, self->id, self->data);
                         shell->activeButton = self->id;
+                        if (self->on_focus_callback) {
+                            self->on_focus_callback(self, self->id, self->data);
+                        }
                     } else {
                         FINITE_LOG_WARN("No next available");
                         return;
@@ -283,8 +316,11 @@ void finite_input_poll_keys_debug(const char *file, const char *func, int line, 
         }
         // handle selected
         if (finite_key_pressed(FINITE_KEY_ENTER, board)) {
-            FINITE_LOG("[Finite] Current btn: %d/%d", shell->activeButton, shell->_btns);
-            self->on_select_callback(self, self->id, self->data);
+            FINITE_LOG("Current btn: %d/%d", shell->activeButton, (shell->_btns - 1));
+
+            if (self->on_select_callback) {
+                self->on_select_callback(self, self->id, self->data);
+            }
         }
     }
 
