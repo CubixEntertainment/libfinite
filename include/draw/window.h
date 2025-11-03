@@ -71,6 +71,19 @@ typedef struct {
     int height;
 } FiniteWindowInfo;
 
+typedef struct {
+    int top;
+    int bottom;
+    int left;
+    int right;
+} FiniteOverlayMargin;
+typedef struct {
+    uint32_t anchor;
+    int width;
+    int height;
+    FiniteOverlayMargin margin;
+} FiniteOverlayInfo;
+
 
 /*
     # FiniteShell
@@ -113,6 +126,7 @@ struct FiniteShell{
     struct zwlr_layer_shell_v1 *shell;
     struct zwlr_layer_surface_v1 *layer_surface;
     FiniteWindowInfo *details;
+    FiniteOverlayInfo *overlay_details;
     cairo_t *cr;
     cairo_surface_t *cairo_surface;
     unsigned char *snapshot; // refers to a single item
@@ -146,6 +160,9 @@ void finite_window_init_debug(const char *file, const char *func, int line, Fini
 
 #define finite_overlay_init(shell, layer, name) finite_overlay_init_debug(__FILE__, __func__, __LINE__, shell, layer, name)
 void finite_overlay_init_debug(const char *file, const char *func, int line, FiniteShell *shell, int layer, char *name);
+
+#define finite_overlay_set_size_and_position(shell, width, height, anchor) finite_overlay_set_size_and_position_debug(__FILE__, __func__, __LINE__, shell, width, height, anchor)
+void finite_overlay_set_size_and_position_debug(const char *file, const char *func, int line, FiniteShell *shell, int width, int height, uint32_t anchor);
 
 #define finite_window_size_set(shell, xPos, yPos, width, height) finite_window_size_set_debug(__FILE__, __func__, __LINE__, shell, xPos, yPos, width, height)
 void finite_window_size_set_debug(const char *file, const char *func, int line, FiniteShell *shell, int xPos, int yPos, int width, int height);

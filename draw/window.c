@@ -25,6 +25,20 @@ const struct xdg_surface_listener surface_listener = {
     .configure = surface_configure_handle
 };
 
+void layer_configure_handle(void *data, struct zwlr_layer_surface_v1 *surface, uint32_t serial, uint32_t w, uint32_t h) {
+    zwlr_layer_surface_v1_ack_configure(surface, serial);    
+    return;
+};
+
+void layer_closed_handle(void *data, struct zwlr_layer_surface_v1 *surface) {
+	zwlr_layer_surface_v1_destroy(surface);
+}
+
+struct zwlr_layer_surface_v1_listener layer_listener = {
+	.configure = layer_configure_handle,
+	.closed = layer_closed_handle,
+};
+
 /*
     # finite_shell_init
     
@@ -69,7 +83,7 @@ FiniteShell *finite_shell_init_debug(const char *file, const char *func, int lin
         finite_log_internal(LOG_LEVEL_FATAL, file, line, func, "Unable to find a wl_output");
     }
 
-    FINITE_LOG("Compositor with xdg found. Adding new surface");
+    FINITE_LOG("Adding new surface");
 
     shell->isle_surface = wl_compositor_create_surface(shell->isle);
     if (!shell->isle_surface) {
@@ -145,7 +159,7 @@ void finite_window_init_debug(const char *file, const char *func, int line, Fini
 void finite_overlay_init_debug(const char *file, const char *func, int line, FiniteShell *shell, int layer, char *name) {
     if (!shell) {
         // if no shell throw an error
-        finite_log_internal(LOG_LEVEL_ERROR, file, line, func,"Unable to attach to a NULL shell. "); // TODO create a finite_log function
+        finite_log_internal(LOG_LEVEL_ERROR, file, line, func,"Unable to attach to a NULL shell. ");
         shell = NULL;
         return;
     }
@@ -165,6 +179,9 @@ void finite_overlay_init_debug(const char *file, const char *func, int line, Fin
         return;
     }
 
+    // add listeners
+    zwlr_layer_surface_v1_add_listener(shell->layer_surface, &layer_listener, shell);
+    wl_display_roundtrip(shell->display);
     return;
 }
 
@@ -193,4 +210,35 @@ void finite_window_size_set_debug(const char *file, const char *func, int line, 
     shell->details = det;
     
     FINITE_LOG("Set window info to %d x %d at (%d,%d)", det->width, det->height, det->xPos, det->yPos);
+}
+
+
+/* 
+    # finite_overlay_size_set_and_position
+
+    Attempt to set the size of the overlay window
+*/
+void finite_overlay_set_size_and_position_debug(const char *file, const char *func, int line, FiniteShell *shell, int width, int height, uint32_t anchor) {
+    if (!shell) {
+        // if no shell throw an error
+        finite_log_internal(LOG_LEVEL_ERROR, file, line, func,"Unable to attach to a NULL shell. ");
+        shell = NULL;
+        return;
+    }
+
+    if (width < 0 || height < 0) {
+        finite_log_internal(LOG_LEVEL_ERROR, file, line, func,"Unable to attach to resize a shell to a number under 0. ");
+    }
+
+    // TODO: handle margin
+    shell->overlay_details = calloc(1, sizeof(FiniteOverlayInfo));
+    
+    shell->overlay_details->anchor = anchor;
+    shell->overlay_details->width = width;
+    shell->overlay_details->height = height;
+
+    zwlr_layer_surface_v1_set_size(shell->layer_surface, width, height);
+    zwlr_layer_surface_v1_set_anchor(shell->layer_surface, anchor);
+    wl_surface_commit(shell->isle_surface);
+    wl_display_roundtrip(shell->display);
 }

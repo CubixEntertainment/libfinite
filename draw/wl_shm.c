@@ -56,8 +56,20 @@ void finite_shm_alloc_debug(const char *file, const char *func, int line, Finite
         return;
     }
 	FINITE_LOG("Attempting to allocate the shm");
-    FiniteWindowInfo *det = shell->details;
-	const int width = det->width, height = det->height;
+
+	int width, height;
+
+	// use layer shell info if available
+	if (shell->overlay_details != NULL) {
+		FiniteOverlayInfo *det = shell->overlay_details;
+		width = det->width;
+		height = det->height;
+	} else {
+	    FiniteWindowInfo *det = shell->details;
+		width = det->width;
+		height = det->height;
+	}
+
 	enum _cairo_format form = (withAlpha) ? CAIRO_FORMAT_ARGB32 : CAIRO_FORMAT_RGB24;
     int stride = cairo_format_stride_for_width(form, width);
 

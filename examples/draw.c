@@ -44,18 +44,8 @@ int main() {
     finite_shm_alloc(myShell, false);
 
     // now draw
-    // before you can draw we must create a cairo surface manually with the data from finite_shm_alloc
-    // most notably you must set CAIRO_FORMAT to either CAIRO_FORMAT_RGB24 or CAIRO_FORMAT_ARGB32 to enable transparency
-    int stride = cairo_format_stride_for_width(CAIRO_FORMAT_RGB24, width);// you must call this function for the stride to avoid issues.
-    myShell->cairo_surface = cairo_image_surface_create_for_data(myShell->pool_data, CAIRO_FORMAT_RGB24, width, height, stride);
-    // optional error checking
-    if (cairo_surface_status(myShell->cairo_surface) != CAIRO_STATUS_SUCCESS) {
-        FINITE_LOG_ERROR("Unable to create window geometry with NULL information.\n");
-        wl_display_disconnect(myShell->display);
-        return 1;
-    }
 
-    // now lets create a red box (#d33f49)
+    // lets create a red box (#d33f49)
     // colors are RGBA values where RGB is value/255 and A is a double between 1 and 0 where 1 is transparent
     // ? You can pass decimals but for clearity, the math to get aforementioned decimals is shown
     FiniteColorGroup myColor = {
@@ -81,7 +71,7 @@ int main() {
 
     // when done rendering clean it up and commit with finite_draw_finish()
     // the last param should only be true if you enabled alpha earlier
-    bool success = finite_draw_finish(myShell, width, height, stride, false);
+    bool success = finite_draw_finish(myShell, width, height, myShell->stride, false);
     if (!success) {
         FINITE_LOG_ERROR("Something went wrong.\n");
         free(myShell);
