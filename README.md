@@ -44,6 +44,9 @@ You'll need the following packages in order to build libfinite.
 - libdvdev
 - xkbcommon (x related dependencies not needed)
 - vulkan
+- [cglm](https://github.com/recp/cglm/releases/latest)
+- [libsndfile](https://github.com/libsndfile/libsndfile)
+- [libasound (ALSA development wrappers)](https://github.com/pop-os/libasound2)
 
 
 ## License
