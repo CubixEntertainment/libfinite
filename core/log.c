@@ -46,45 +46,47 @@ void finite_log_shutdown(void) {
 }
 
 void finite_log_internal(FiniteLogLevel level, const char *file, int line, const char *func, const char *fmt, ...) {
-    if (level < g_logger.level) {
-        // if its below the required level ignore
-        return;
-    }
+    if (g_logger.level > 0) {
+        if (level < g_logger.level) {
+            // if its below the required level ignore
+            return;
+        }
 
-    pthread_mutex_lock(&g_logger.lock);
+        pthread_mutex_lock(&g_logger.lock);
 
-    char timestampBuf[64] = ""; // empty string if no timestamp is requested
-    if (g_logger.withTimestamp == true) {
-        struct timespec ts;
-        clock_gettime(CLOCK_REALTIME, &ts);
-        time_t now = ts.tv_sec;
-        struct tm tm_now;
-        localtime_r(&now, &tm_now);
-        strftime(timestampBuf, sizeof(timestampBuf), "%H:%M:%S", &tm_now);
-    }
+        char timestampBuf[64] = ""; // empty string if no timestamp is requested
+        if (g_logger.withTimestamp == true) {
+            struct timespec ts;
+            clock_gettime(CLOCK_REALTIME, &ts);
+            time_t now = ts.tv_sec;
+            struct tm tm_now;
+            localtime_r(&now, &tm_now);
+            strftime(timestampBuf, sizeof(timestampBuf), "%H:%M:%S", &tm_now);
+        }
 
-    
+        
 
-    // print prep info
-    fprintf(g_logger.output, "%s[Finite]%s - %s[%s]%s",ORANGE, RESET,colors[level], names[level], RESET);
+        // print prep info
+        fprintf(g_logger.output, "%s[Finite]%s - %s[%s]%s",ORANGE, RESET,colors[level], names[level], RESET);
 
 
-    if (g_logger.withTimestamp) {
-        fprintf(g_logger.output, " (%s): ",timestampBuf);
-    } else {
-        fprintf(g_logger.output, ": ");
-    }
+        if (g_logger.withTimestamp) {
+            fprintf(g_logger.output, " (%s): ",timestampBuf);
+        } else {
+            fprintf(g_logger.output, ": ");
+        }
 
-    va_list args;
-    va_start(args, fmt);
-    vfprintf(g_logger.output, fmt, args);
-    va_end(args);
+        va_list args;
+        va_start(args, fmt);
+        vfprintf(g_logger.output, fmt, args);
+        va_end(args);
 
-    fprintf(g_logger.output, "%s (in function %s() at line %d)%s\n", DIM, func, line, RESET);
-    fflush(g_logger.output);
+        fprintf(g_logger.output, "%s (in function %s() at line %d)%s\n", DIM, func, line, RESET);
+        fflush(g_logger.output);
 
-    pthread_mutex_unlock(&g_logger.lock);
-    if (level == LOG_LEVEL_FATAL) { // fatal
-        exit(EXIT_FAILURE);
+        pthread_mutex_unlock(&g_logger.lock);
+        if (level == LOG_LEVEL_FATAL) { // fatal
+            exit(EXIT_FAILURE);
+        }
     }
 }

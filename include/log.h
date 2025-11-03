@@ -18,11 +18,12 @@ typedef struct FiniteLog FiniteLog;
 typedef enum FiniteLogLevel FiniteLogLevel;
 
 enum FiniteLogLevel {
-    LOG_LEVEL_DEBUG = 0,
-    LOG_LEVEL_INFO = 1,
-    LOG_LEVEL_WARN = 2,
-    LOG_LEVEL_ERROR = 3,
-    LOG_LEVEL_FATAL = 4
+    LOG_LEVEL_NONE = 0,
+    LOG_LEVEL_DEBUG = 1,
+    LOG_LEVEL_INFO = 2,
+    LOG_LEVEL_WARN = 3,
+    LOG_LEVEL_ERROR = 4,
+    LOG_LEVEL_FATAL = 5
 };
 
 struct FiniteLogEntry {

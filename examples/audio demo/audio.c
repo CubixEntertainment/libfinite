@@ -2,7 +2,7 @@
 
 int main() {
     FinitePlaybackDevice *dev = finite_audio_device_init();
-    char *jingle = "/home/ship/Downloads/jingle2.mp3";
+    char *jingle = "jingle.mp3";
 
     finite_audio_get_audio_params(jingle, dev);
     // print out the audio duration

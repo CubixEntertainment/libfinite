@@ -1,6 +1,7 @@
 project(
     'libfinite',
     'c',
+    default_options: 'default_library=static',
     version: '0.6.3-dev'
 )
 
