@@ -1,4 +1,5 @@
 #include "../include/log.h"
+#define NONE ""
 #define RED    "\033[38;5;160m"
 #define ORANGE "\033[38;5;208m"
 #define YELLOW "\033[38;5;220m"
@@ -18,7 +19,8 @@ static struct FiniteLog {
     pthread_mutex_t lock;
 } g_logger;
 
-const char *colors[5] = {
+const char *colors[6] = {
+    NONE,
     GREY,
     BLUE,
     YELLOW,
@@ -26,7 +28,8 @@ const char *colors[5] = {
     PURPLE
 };
 
-const char *names[5] = {
+const char *names[6] = {
+    "", // ignore 0
     "DEBUG",
     "INFO",
     "WARNING",
