@@ -3,8 +3,8 @@
     Written by Gabriel Thompson <gabriel.thomp@cubixdev.org>
 */
 
-#include "finite/draw.h"
-#include "finite/log.h"
+#include <finite/draw.h>
+#include <finite/log.h>
 
 int main() {
     finite_log_init(stdout, LOG_LEVEL_DEBUG, false);
