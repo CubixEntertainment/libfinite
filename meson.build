@@ -2,7 +2,7 @@ project(
     'libfinite',
     'c',
     default_options: 'default_library=static',
-    version: '0.6.4-dev'
+    version: '0.6.5-dev'
 )
 
 cc = meson.get_compiler('c')
@@ -94,7 +94,7 @@ src = [
 libfinite = library(
     'libfinite', 
     src, 
-    version : '0.6.4', 
+    version : '0.6.5', 
     soversion : '1', 
     dependencies: deps,
     install: true,
@@ -142,7 +142,7 @@ pkgconfig.generate(
     libfinite,
     name: 'libfinite',
     description: 'The Cubix Infinite Development Library',
-    version: '0.6.4',
+    version: '0.6.5',
     filebase: 'finite',
     subdirs: 'finite',
     requires: ['wayland-client', 'wayland-protocols', 'cairo', 'alsa', 'vulkan']

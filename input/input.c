@@ -414,3 +414,18 @@ void finite_input_poll_keys_debug(const char *file, const char *func, int line, 
     }
 
 }
+
+bool finite_key_is_number_debug(const char *file, const char *func, int line, FiniteKey key) {
+    size_t count = sizeof(finite_key_lookup) / sizeof(finite_key_lookup[0]);
+    for (size_t i = 0; i < count; i++) {
+        if (finite_key_lookup[i].key == key) {
+            if (atoi(finite_key_lookup[i].name) != 0 || key == FINITE_KEY_0) {
+                return true;
+            } else {
+                return false;
+            }
+        }
+    }
+
+    return false;
+}   

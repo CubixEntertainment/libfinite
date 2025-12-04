@@ -97,7 +97,7 @@ typedef enum {
     FINITE_KEY_BACKSLASH,
     FINITE_KEY_SEMICOLON,
     FINITE_KEY_APOSTROPHE,
-    FINITE_KEY_GRAVE,
+    FINITE_KEY_GRAVE, // `
     FINITE_KEY_COMMA,
     FINITE_KEY_PERIOD,
     FINITE_KEY_SLASH,
@@ -174,5 +174,8 @@ void finite_keyboard_destroy_debug(const char *file, const char *func, int line,
 
 #define finite_input_poll_keys(board, shell) finite_input_poll_keys_debug(__FILE__, __func__, __LINE__, board, shell)
 void finite_input_poll_keys_debug(const char *file, const char *func, int line, FiniteKeyboard *board, FiniteShell *shell);
+
+#define finite_key_is_number(key) finite_key_is_number_debug(__FILE__, __func__, __LINE__, key)
+bool finite_key_is_number_debug(const char *file, const char *func, int line, FiniteKey key);
 
 #endif
