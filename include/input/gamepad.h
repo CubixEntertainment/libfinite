@@ -1,0 +1,30 @@
+typedef enum {
+    // letters
+    FINITE_BTN_A,
+    FINITE_BTN_B,
+    FINITE_BTN_X,
+    FINITE_BTN_Y,
+
+    //dpad
+    FINITE_BTN_LEFT,
+    FINITE_BTN_RIGHT,
+    FINITE_BTN_DOWN,
+    FINITE_BTN_UP,
+
+    // Triggers
+    FINITE_BTN_RIGHT_SHOULDER,
+    FINITE_BTN_RIGHT_TRIGGER,
+    FINITE_BTN_RIGHT_SPECIAL, // the r4 or rz on  some controlleres
+    FINITE_BTN_LEFT_SHOULDER,
+    FINITE_BTN_LEFT_TRIGGERS,
+    FINITE_BTN_LEFT_SPECIAL,
+
+    // Joystick buttons
+    FINITE_BTN_LEFT_JOYSTICK,
+    FINITE_BTN_RIGHT_JOYSTICK,
+
+    // Meta
+    FINITE_BTN_START,
+    FINITE_BTN_SELECT,
+    FINITE_BTN_HOME,
+} FiniteGamepadKey;

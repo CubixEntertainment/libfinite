@@ -47,6 +47,8 @@ typedef struct {
     int ctrl_rc; // libevdev referene to the file and device as a pair
     struct libevdev *device; // the libevdev device
 
+    int order; // the number the controller
+
     double lAxis;
     double rAxis;
 
