@@ -9,6 +9,7 @@
 #include <sys/mman.h>
 #include <wayland-client-protocol.h>
 #include <cairo/cairo.h>
+#include "input/input-core.h"
 #include "xdg-shell-client-protocol.h" // from wayland scanner
 #include "layer-shell-client-protocol.h" // from wayland scanner
 
@@ -24,7 +25,8 @@ typedef enum {
     FINITE_DIRECTION_LEFT_UP,
     FINITE_DIRECTION_LEFT_DOWN,
     FINITE_DIRECTION_RIGHT_UP,
-    FINITE_DIRECTION_RIGHT_DOWN
+    FINITE_DIRECTION_RIGHT_DOWN,
+    FINITE_DIRECTION_DONE // select event
 } FiniteDirectionType;
 
 typedef struct {
@@ -181,5 +183,8 @@ void finite_button_delete_debug(const char *file, const char *func, int line, Fi
 
 #define finite_button_delete_all(shell) finite_button_delete_all_debug(__FILE__, __func__, __LINE__, shell)
 void finite_button_delete_all_debug(const char *file, const char *func, int line, FiniteShell *shell);
+
+// Non-exposed function for input handling
+void finite_button_handle_poll(FiniteDirectionType dir, FiniteShell *shell);
 
 #endif
