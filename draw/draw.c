@@ -367,7 +367,7 @@ void finite_draw_rect_debug(const char *file, const char *func, int line, Finite
             }
             cairo_fill(cr);
         } else {
-            finite_log_internal(LOG_LEVEL_WARN, file, line, func, "Unable to fill - a color/pattern was not defined. (Did you intend for this?)");
+            finite_log_internal(LOG_LEVEL_DEBUG, file, line, func, "Unable to fill - a color/pattern was not defined. (Did you intend for this?)");
         }
     }
 }
