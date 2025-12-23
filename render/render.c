@@ -439,6 +439,7 @@ uint32_t finite_render_get_memory_format_debug(const char *file, const char *fun
     }
 
     finite_log_internal(LOG_LEVEL_FATAL, file, line, func, "Could not find usable memory type with given filer.");
+    return 0; // this line never runs but we include it to silence errors.
 }
 
 void finite_render_copy_buffer(FiniteRender *render, VkBuffer src, VkBuffer dest, VkDeviceSize size) {
