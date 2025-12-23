@@ -38,7 +38,7 @@ layer_shell = custom_target('layer-shell',
     ]
 )
 
-finite = dependency('finite', version: '>=0.6.3') # libfinite
+finite = dependency('finite', version: '>=0.7.0') # libfinite
 
 src = [
     xdg_shell,
