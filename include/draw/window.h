@@ -9,12 +9,12 @@
 #include <sys/mman.h>
 #include <wayland-client-protocol.h>
 #include <cairo/cairo.h>
-#include "input/input-core.h"
+#include <pthread.h>
 #include "xdg-shell-client-protocol.h" // from wayland scanner
 #include "layer-shell-client-protocol.h" // from wayland scanner
 
 typedef struct FiniteShell FiniteShell;
-
+typedef struct FiniteGamepad FiniteGamepad;
 typedef struct FiniteBtn FiniteBtn;
 
 typedef enum {
@@ -83,7 +83,7 @@ typedef struct {
     uint32_t anchor;
     int width;
     int height;
-    FiniteOverlayMargin margin;
+    FiniteOverlayMargin *margin;
 } FiniteOverlayInfo;
 
 
@@ -138,6 +138,15 @@ struct FiniteShell{
     int _btns; // _ vars are indexes
     int activeButton;
 
+    // an array of gamepads currently available to the shell
+    FiniteGamepad **gamepads;
+    int _gamepads;
+    int primaryGamepadId;
+    pthread_mutex_t mutex;
+    bool canInput;
+    bool canHomeMenu;
+    bool gamepadAvailable;
+
     // any extra data which you can set yourself
     void *data;
 };
@@ -165,6 +174,9 @@ void finite_overlay_init_debug(const char *file, const char *func, int line, Fin
 
 #define finite_overlay_set_size_and_position(shell, width, height, anchor) finite_overlay_set_size_and_position_debug(__FILE__, __func__, __LINE__, shell, width, height, anchor)
 void finite_overlay_set_size_and_position_debug(const char *file, const char *func, int line, FiniteShell *shell, int width, int height, uint32_t anchor);
+
+#define finite_overlay_set_margin(shell, top, bottom, left, right) finite_overlay_set_margin_debug(__FILE__, __func__, __LINE__, shell, top, bottom, left, right)
+void finite_overlay_set_margin_debug(const char *file, const char *func, int line, FiniteShell *shell, int top, int bottom, int left, int right);
 
 #define finite_window_size_set(shell, xPos, yPos, width, height) finite_window_size_set_debug(__FILE__, __func__, __LINE__, shell, xPos, yPos, width, height)
 void finite_window_size_set_debug(const char *file, const char *func, int line, FiniteShell *shell, int xPos, int yPos, int width, int height);

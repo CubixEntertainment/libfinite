@@ -3,15 +3,12 @@
 
 #include <stdbool.h>
 #include <stdio.h>
-#include <stdlib.h>
+#include "gamepad.h"
 #include <libevdev/libevdev.h>
 #include <wayland-client.h>
 #include <xkbcommon/xkbcommon.h>
 
-enum FiniteControllerType {
-    FINITE_CONTROLLER_MAIN,
-    FINITE_CONTROLLER_OTHER
-}; 
+typedef FiniteGamepad FiniteGamepad;
 
 typedef struct {
     struct wl_display *display;
@@ -36,27 +33,30 @@ typedef struct {
     struct xkb_state  *xkb_state;
 
     FiniteKeyState keys[256];
-    bool keys_down[256];
-    bool keys_up[256];
 } FiniteKeyboard;
 
 typedef struct {
-    FiniteInput *input;
+    uint16_t id;
+    bool isHeld;
+    bool isDown;
+    bool isUp;
+} FiniteGamepadKeyState;
 
-    int ctrl_fd; // controller file
-    int ctrl_rc; // libevdev referene to the file and device as a pair
-    struct libevdev *device; // the libevdev device
-
+struct FiniteGamepad {
+    int fd;
     int order; // the number the controller
+    char *path; // the device node of the controller
 
-    double lAxis;
-    double rAxis;
+    bool canInput; // whether input is disabled on this device
 
-    bool btns[12]; // temp
-    bool btns_down[12]; // temp
-    bool btns_up[12]; // temp
-
-} FiniteGamepad;
+    FiniteShell *shell;
+    FiniteJoystick *lAxis;
+    FiniteJoystick *rAxis;
+    FiniteDpad *dpad;
+    FiniteTrigger *lt;
+    FiniteTrigger *rt;
+    FiniteGamepadKeyState btns[1024];
+};
 
 void islands_key_registry_handle(void *data, struct wl_registry* registry, uint32_t id, const char* interface, uint32_t version);
 void islands_key_registry_handle_remove(void *data, struct wl_registry* registry, uint32_t id);
