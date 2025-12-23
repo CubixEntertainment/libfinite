@@ -144,8 +144,6 @@ typedef struct {
     uint16_t evdev_code;
 } FiniteKeyMapping;
 
-extern const FiniteKeyMapping finite_key_lookup[];
-
 #define finite_input_keyboard_init(device) finite_input_keyboard_init_debug(__FILE__, __func__, __LINE__, device)
 FiniteKeyboard *finite_input_keyboard_init_debug(const char *file, const char *func, int line, struct wl_display *device);
 
