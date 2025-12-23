@@ -27,6 +27,8 @@ const struct xdg_surface_listener surface_listener = {
 
 void layer_configure_handle(void *data, struct zwlr_layer_surface_v1 *surface, uint32_t serial, uint32_t w, uint32_t h) {
     zwlr_layer_surface_v1_ack_configure(surface, serial);    
+    FINITE_LOG("Live resolution: %d x %d", w, h);
+
     return;
 };
 
@@ -230,7 +232,6 @@ void finite_overlay_set_size_and_position_debug(const char *file, const char *fu
         finite_log_internal(LOG_LEVEL_ERROR, file, line, func,"Unable to attach to resize a shell to a number under 0. ");
     }
 
-    // TODO: handle margin
     shell->overlay_details = calloc(1, sizeof(FiniteOverlayInfo));
     
     shell->overlay_details->anchor = anchor;
@@ -241,4 +242,36 @@ void finite_overlay_set_size_and_position_debug(const char *file, const char *fu
     zwlr_layer_surface_v1_set_anchor(shell->layer_surface, anchor);
     wl_surface_commit(shell->isle_surface);
     wl_display_roundtrip(shell->display);
+}
+
+void finite_overlay_set_margin_debug(const char *file, const char *func, int line, FiniteShell *shell, int top, int bottom, int left, int right) {
+    if (!shell) {
+        // if no shell throw an error
+        finite_log_internal(LOG_LEVEL_ERROR, file, line, func,"Unable to margin to a NULL shell. ");
+        shell = NULL;
+        return;
+    }
+
+    if (!shell->layer_surface) {
+        finite_log_internal(LOG_LEVEL_ERROR, file, line, func,"Unable to set margin to a NULL surface. ");
+        return;
+    } 
+
+    if (!shell->overlay_details || !shell->overlay_details->anchor) {
+        finite_log_internal(LOG_LEVEL_WARN, file, line, func,"Setting margin to an overlay that doesn't have a set anchor may cause nothing to render.");
+    }
+
+    zwlr_layer_surface_v1_set_margin(shell->layer_surface, top, right, bottom, left);
+
+    // make sure we set the overlay info
+
+    if (shell->overlay_details) {
+        shell->overlay_details->margin = calloc(1, sizeof(FiniteOverlayMargin));
+        shell->overlay_details->margin->top = top;
+        shell->overlay_details->margin->bottom = bottom;
+        shell->overlay_details->margin->left = left;
+        shell->overlay_details->margin->right = right;
+    }
+
+
 }

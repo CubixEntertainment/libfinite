@@ -9,6 +9,7 @@
 */
 void islands_registry_handle(void *data, struct wl_registry* registry, uint32_t id, const char* interface, uint32_t version) {
     FiniteShell *shell = data;
+    FINITE_LOG("Interface: %s", interface);
     // we want to save the found compositor so that we can attach it to the finite_render_info event
     if (strcmp(interface, wl_compositor_interface.name) == 0) {
         shell->isle = wl_registry_bind(registry, id, &wl_compositor_interface, 4);
@@ -28,6 +29,7 @@ void islands_registry_handle(void *data, struct wl_registry* registry, uint32_t 
         shell->shm = wl_registry_bind(registry, id, &wl_shm_interface, 1);
     }
     if (strcmp(interface, zwlr_layer_shell_v1_interface.name) == 0) {
+        FINITE_LOG("Added layer-shell to shell");
         shell->shell = wl_registry_bind(registry, id, &zwlr_layer_shell_v1_interface, 4);
     }
 }   
