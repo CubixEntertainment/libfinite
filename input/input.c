@@ -1,7 +1,7 @@
 #include "include/input.h"
 #include "include/draw/window.h"
 #include "include/log.h"
-#include "input/keyboard.h"
+#include "include/input/keyboard.h"
 
 // create a registry_listener struct for future use
 const struct wl_registry_listener key_registry_listener = {
@@ -105,7 +105,6 @@ const FiniteKeyMapping finite_key_lookup[] = {
     { "Kp9",          FINITE_KEY_KP_9, KEY_KP9 },
     { "KpPeriod",     FINITE_KEY_KP_PERIOD, KEY_KPDOT },
 };
-
 
 FiniteKeyboard *finite_input_keyboard_init_debug(const char *file, const char *func, int line, struct wl_display *device) {
     FiniteKeyboard *keyboard = calloc(1, sizeof(FiniteKeyboard));
@@ -277,22 +276,21 @@ void finite_keyboard_destroy_debug(const char *file, const char *func, int line,
 
 void finite_input_poll_keys_debug(const char *file, const char *func, int line, FiniteKeyboard *board, FiniteShell *shell) {
     // wl_display_dispatch_pending(board->input->display);
-    // ? buck bumble
 
     // update buttons
-    if (finite_key_pressed_debug(file, func, line, FINITE_KEY_DOWN, board) == 0) {
+    if (finite_key_pressed_debug(file, func, line, FINITE_KEY_DOWN, board)) {
         finite_button_handle_poll(FINITE_DIRECTION_DOWN, shell);
     }
-    if (finite_key_pressed_debug(file, func, line, FINITE_KEY_UP, board) == 0) {
+    if (finite_key_pressed_debug(file, func, line, FINITE_KEY_UP, board)) {
         finite_button_handle_poll(FINITE_DIRECTION_UP, shell);
     }
-    if (finite_key_pressed_debug(file, func, line, FINITE_KEY_LEFT, board) == 0) {
+    if (finite_key_pressed_debug(file, func, line, FINITE_KEY_LEFT, board) ) {
         finite_button_handle_poll(FINITE_DIRECTION_LEFT, shell);
     }
-    if (finite_key_pressed_debug(file, func, line, FINITE_KEY_RIGHT, board) == 0) {
+    if (finite_key_pressed_debug(file, func, line, FINITE_KEY_RIGHT, board)) {
         finite_button_handle_poll(FINITE_DIRECTION_RIGHT, shell);
     }
-    if (finite_key_pressed_debug(file, func, line, FINITE_KEY_ENTER, board) == 0) {
+    if (finite_key_pressed_debug(file, func, line, FINITE_KEY_ENTER, board)) {
         finite_button_handle_poll(FINITE_DIRECTION_DONE, shell);
     }
 
