@@ -165,7 +165,7 @@ void finite_audio_play_debug(const char *file, const char *func, int line, Finit
     dev->isPaused = false;
     while (true) {
         snd_pcm_state_t state = snd_pcm_state(dev->device);
-        if (state != SND_PCM_STATE_PAUSED) {
+        if (state != SND_PCM_STATE_PAUSED && dev->isPlaying == true) {
             if ((_read = sf_readf_short(dev->file, dev->audioBuffer, _frames)) == 0) {
                 break;
             }
@@ -179,6 +179,8 @@ void finite_audio_play_debug(const char *file, const char *func, int line, Finit
             } else if (pcm_data != _read) {
                 finite_log_internal(LOG_LEVEL_FATAL, file, line, func, "Write data does not match read data.");
             }
+        } else if (dev->isPlaying == false) {
+            break;
         }
     }
 
@@ -196,6 +198,8 @@ bool finite_audio_stop_debug(const char *file, const char *func, int line, Finit
         finite_log_internal(LOG_LEVEL_ERROR, file, line, func, "Unable to stop audio that isn't playing.");
         return false;
     }
+
+    dev->isPlaying = false;
 
     snd_pcm_drop(dev->device);
     return true;
