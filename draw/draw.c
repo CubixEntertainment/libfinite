@@ -417,7 +417,7 @@ void finite_draw_load_snapshot_debug(const char *file, const char *func, int lin
     cairo_surface_mark_dirty(shell->cairo_surface);
 }
 
-void finite_draw_png_debug(const char *file, const char *func, int line, FiniteShell *shell, const char *path, double x, double y) {
+void finite_draw_png_debug(const char *file, const char *func, int line, FiniteShell *shell, const char *path, double x, double y, double width, double height, bool fillOnFail) {
     if (!shell) {
         finite_log_internal(LOG_LEVEL_ERROR, file, line, func, "Unable to draw png on NULL shell");
         return;
@@ -430,16 +430,35 @@ void finite_draw_png_debug(const char *file, const char *func, int line, FiniteS
     cairo_t *cr = shell->cr;
 
     cairo_surface_t *image = cairo_image_surface_create_from_png(path);
-    if (cairo_surface_status(image) != CAIRO_STATUS_SUCCESS) {
-        finite_log_internal(LOG_LEVEL_ERROR, file, line, func, "Image not created");
-        return;
+
+    int w = cairo_image_surface_get_width(image), h = cairo_image_surface_get_height(image);
+    cairo_rectangle(cr, x, y, width, height);
+
+    if (cairo_surface_status(image) == CAIRO_STATUS_SUCCESS) {
+        cairo_save(cr);
+        cairo_clip(cr);
+        cairo_new_path(cr);
+        cairo_translate(cr, x, y);
+
+        cairo_scale(cr, width/w, height/h);
+        finite_log_internal(LOG_LEVEL_DEBUG, file, line, func, "Width: %f, height: %f Ratio: (%f : %f)", width, height, width/w, height/h);
+
+        cairo_set_source_surface(cr, image, 0, 0);
+        cairo_paint(cr);
+        cairo_surface_destroy(image);
+
+        cairo_restore(cr);
+        
+    } else {
+        finite_log_internal(LOG_LEVEL_WARN, file, line, func, "Image not created");
+
+        if (!fillOnFail) {
+            finite_log_internal(LOG_LEVEL_DEBUG, file, line, func, "Not filling box on failure");
+        } else {
+            cairo_set_source_rgb(cr, 0, 0, 1);
+            cairo_fill(cr);
+        }
     }
-
-    cairo_image_surface_get_height(image);
-
-    cairo_set_source_surface(cr, image, x, y);
-    cairo_paint(cr);
-    cairo_surface_destroy(image);
 }
 
 bool finite_draw_finish_debug(const char *file, const char *func, int line, FiniteShell *shell, int width, int height, int stride, bool withAlpha) {
@@ -459,8 +478,8 @@ bool finite_draw_finish_debug(const char *file, const char *func, int line, Fini
         shell->buffer = NULL;
     }
 
-    enum wl_shm_format form = WL_SHM_FORMAT_ARGB8888;
-    shell->buffer = wl_shm_pool_create_buffer(shell->pool, 0, width, height, shell->stride, form);
+    enum wl_shm_format form = withAlpha ? WL_SHM_FORMAT_ARGB8888 : WL_SHM_FORMAT_XRGB8888;
+    shell->buffer = wl_shm_pool_create_buffer(shell->pool, 0, width, height, stride, form);
 
     cairo_surface_flush(shell->cairo_surface);
     cairo_surface_mark_dirty(shell->cairo_surface);
@@ -474,19 +493,68 @@ bool finite_draw_finish_debug(const char *file, const char *func, int line, Fini
     wl_surface_attach(shell->isle_surface, shell->buffer, 0,0);
     wl_surface_damage(shell->isle_surface, 0,0, width, height); // tell the surface to redraw
     wl_surface_commit(shell->isle_surface);
+
+    // force redraw with a flush (is this overkill?)
+    wl_display_flush(shell->display);
+
    return true;
 }
 
 void finite_draw_cleanup_debug(const char *file, const char *func, int line, FiniteShell *shell) {
-    finite_log_internal(LOG_LEVEL_ERROR, file, line, func, "Close requested.");
-    cairo_surface_destroy(shell->cairo_surface);
-    munmap(shell->pool_data, shell->pool_size);
-    close(shell->shm_fd);
-    wl_buffer_destroy(shell->buffer);
-    wl_shm_pool_destroy(shell->pool);
-    wl_shm_destroy(shell->shm);
-    wl_display_disconnect(shell->display);
-    free(shell->pool_data);
+    if (!shell) {
+        finite_log_internal(LOG_LEVEL_ERROR, file, line, func, "Unable free null shell.");
+        return; 
+    }
+
+    finite_log_internal(LOG_LEVEL_DEBUG, file, line, func, "Close requested.");
+
+    if (shell->cairo_surface) {
+        cairo_surface_destroy(shell->cairo_surface);
+        finite_log_internal(LOG_LEVEL_DEBUG, file, line, func, "Cairo closed.");
+    }
+
+    if (shell->pool_data) {
+        munmap(shell->pool_data, shell->pool_size);
+        finite_log_internal(LOG_LEVEL_DEBUG, file, line, func, "Pool unmapped.");
+    }
+
+    if (shell->shm_fd >= 0) {
+        close(shell->shm_fd);
+        finite_log_internal(LOG_LEVEL_DEBUG, file, line, func, "shm file buffer closed.");
+    }
+
+    if (shell->buffer) {
+        wl_buffer_destroy(shell->buffer);
+        finite_log_internal(LOG_LEVEL_DEBUG, file, line, func, "wl_buffer closed.");
+    }
+
+    if (shell->pool) {
+        wl_shm_pool_destroy(shell->pool);
+        finite_log_internal(LOG_LEVEL_DEBUG, file, line, func, "pool closed.");
+
+    }
+
+    if (shell->shm) {
+        wl_shm_destroy(shell->shm);
+        finite_log_internal(LOG_LEVEL_DEBUG, file, line, func, "wl_shm destroyed.");
+    }
+
+    if (shell->isle_surface) {
+        wl_surface_destroy(shell->isle_surface);
+        finite_log_internal(LOG_LEVEL_DEBUG, file, line, func, "isle_surface closed.");
+    }
+
+    if (shell->display) {
+        wl_display_disconnect(shell->display);
+        finite_log_internal(LOG_LEVEL_DEBUG, file, line, func, "display disconnected closed.");
+
+    }
+    
     free(shell->details);
+    finite_log_internal(LOG_LEVEL_DEBUG, file, line, func, "window details freed.");
+    free(shell->overlay_details);
+    finite_log_internal(LOG_LEVEL_DEBUG, file, line, func, "overlay details freed.");
     free(shell);
+    finite_log_internal(LOG_LEVEL_DEBUG, file, line, func, "shell freed.");
+
 }
