@@ -2,7 +2,7 @@ project(
     'libfinite',
     'c',
     default_options: 'default_library=static',
-    version: '0.6.5-dev'
+    version: '0.7.0-dev'
 )
 
 cc = meson.get_compiler('c')
@@ -78,6 +78,7 @@ src = [
 
     'input/input.c',
     'input/listen.c',
+    'input/gamepad.c',
 
     'audio/audio.c',
 
@@ -94,7 +95,7 @@ src = [
 libfinite = library(
     'libfinite', 
     src, 
-    version : '0.6.5', 
+    version : '0.7.0', 
     soversion : '1', 
     dependencies: deps,
     install: true,
@@ -127,6 +128,7 @@ render_headers = [
 input_headers = [
   'include/input/input-core.h',
   'include/input/keyboard.h',
+  'include/input/gamepad.h',
 ]
 
 install_headers(headers, subdir: 'finite')
@@ -142,7 +144,7 @@ pkgconfig.generate(
     libfinite,
     name: 'libfinite',
     description: 'The Cubix Infinite Development Library',
-    version: '0.6.5',
+    version: '0.7.0',
     filebase: 'finite',
     subdirs: 'finite',
     requires: ['wayland-client', 'wayland-protocols', 'cairo', 'alsa', 'vulkan']
