@@ -1,7 +1,7 @@
 # libfinite
 The Infinite C Library
 
-<img src="BANNER 1.png">
+<img src="BANNER.png">
 
 ## Are We Libfinite Yet?
 > [!NOTE]
@@ -52,4 +52,4 @@ You'll need the following packages in order to build libfinite.
 ## License
 This project is intended to be open source to members of the Infinite Developer Environment. As a developer for Infinite Hardware you are free to edit, change or otherwise modify this project with the intention of contributing to the improve of the Infinte Developer tools. You may **not** however redistribute or resell any version of this project without the express written consent of Cubix Entertainment LLC.
 
-###### *Copyright © 2025 Cubix Entertainment LLC | All rights reserved. Cubi, the Libfinite Logo and the Cubix Logo are trademarks of Cubix Entertainment LLC.*
+###### *Copyright © 2025 Cubix Entertainment LLC / All rights reserved. Cubi, the Libfinite Logo and the Cubix Logo are trademarks of Cubix Entertainment LLC.*
