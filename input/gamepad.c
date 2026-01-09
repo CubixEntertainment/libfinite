@@ -5,8 +5,6 @@
 #include <errno.h>
 #include <fcntl.h>
 #include <dirent.h>
-#include <finite/draw/cairo.h>
-#include <finite/log.h>
 #include <float.h>
 #include <limits.h>
 #include <linux/input-event-codes.h>
@@ -27,10 +25,11 @@
 #include <wayland-client-protocol.h>
 #include <xkbcommon/xkbcommon.h>
 #include "draw/cairo.h"
+#include "include/draw/cairo.h"
 #include "include/draw/window.h"
 #include "include/input.h"
 #include "include/draw.h"
-#include "log.h"
+#include "include/log.h"
 
 #define BITS_PER_LONG (sizeof(long) * 8)
 #define NBITS(x) ((((x) - 1) / BITS_PER_LONG) + 1)
