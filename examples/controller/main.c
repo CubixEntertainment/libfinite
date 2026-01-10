@@ -239,7 +239,7 @@ int main() {
 
     // ensure a gamepad is connected
     bool withGP = finite_gamepad_init(myShell);
-    myShell->canHomeMenu = false;
+    myShell->canHomeMenu = false; // disable home memu
 
     if (!withGP) {
         // this will only be false if the device is unable to search for a gamepad.
