@@ -1021,15 +1021,14 @@ static void *finite_gamepad_poll_buttons_async(void *data) {
 
                     if (d > 0 ) {
                         
-                        FINITE_LOG_INFO("ev: type=%d, code=%d (%s), value=%d", ev.type, ev.code, finite_gamepad_evdev_to_string(ev.code),  ev.value);
+                        FINITE_LOG("ev: type=%d, code=%d (%s), value=%d", ev.type, ev.code, finite_gamepad_evdev_to_string(ev.code),  ev.value);
                         if (ev.type == EV_KEY) {
-                            FINITE_LOG_INFO("Key %s pressed", finite_gamepad_evdev_to_string(ev.code));
+                            FINITE_LOG("Key %s pressed", finite_gamepad_evdev_to_string(ev.code));
                             current->btns[ev.code].isDown = (ev.value == 1) ? true : false;
                             current->btns[ev.code].isUp = (ev.value == 0) ? true : false;
 
                             if (finite_gamepad_key_pressed(g, shell, FINITE_BTN_HOME) ) {
                                 FINITE_LOG("Home Button pressed");
-                                // TODO: allow games to disable shortcuts
                                 if (shell->canHomeMenu) {
                                     FINITE_LOG("Home menu requested.");
                                     // TODO: close anim
@@ -1048,7 +1047,7 @@ static void *finite_gamepad_poll_buttons_async(void *data) {
                         } else if (ev.type == EV_ABS) {
                             if (ev.code == current->dpad->xAxis) {
                                 if (ev.value < 0) {
-                                    FINITE_LOG_INFO("Key %s pressed", finite_gamepad_key_string_from_key(FINITE_BTN_LEFT));
+                                    FINITE_LOG("Key %s pressed", finite_gamepad_key_string_from_key(FINITE_BTN_LEFT));
                                     current->btns[finite_gamepad_key_to_evdev(FINITE_BTN_LEFT)].isDown = true;
                                     current->btns[finite_gamepad_key_to_evdev(FINITE_BTN_LEFT)].isUp = false;
                                     current->btns[finite_gamepad_key_to_evdev(FINITE_BTN_RIGHT)].isDown = false;
@@ -1057,7 +1056,7 @@ static void *finite_gamepad_poll_buttons_async(void *data) {
                                     finite_button_handle_poll(FINITE_DIRECTION_LEFT, shell);
 
                                 } else if (ev.value > 0) {
-                                    FINITE_LOG_INFO("Key %s pressed", finite_gamepad_key_string_from_key(FINITE_BTN_RIGHT));
+                                    FINITE_LOG("Key %s pressed", finite_gamepad_key_string_from_key(FINITE_BTN_RIGHT));
                                     current->btns[finite_gamepad_key_to_evdev(FINITE_BTN_LEFT)].isDown = false;
                                     current->btns[finite_gamepad_key_to_evdev(FINITE_BTN_LEFT)].isUp = true;
                                     current->btns[finite_gamepad_key_to_evdev(FINITE_BTN_RIGHT)].isDown = true;
@@ -1074,14 +1073,14 @@ static void *finite_gamepad_poll_buttons_async(void *data) {
                                 }
                             } else if (ev.code == current->dpad->yAxis) {
                                 if (ev.value < 0) {
-                                    FINITE_LOG_INFO("Key %s pressed", finite_gamepad_key_string_from_key(FINITE_BTN_UP));
+                                    FINITE_LOG("Key %s pressed", finite_gamepad_key_string_from_key(FINITE_BTN_UP));
                                     current->btns[finite_gamepad_key_to_evdev(FINITE_BTN_UP)].isDown = true;
                                     current->btns[finite_gamepad_key_to_evdev(FINITE_BTN_UP)].isUp = false;
                                     current->btns[finite_gamepad_key_to_evdev(FINITE_BTN_DOWN)].isDown = false;
                                     current->btns[finite_gamepad_key_to_evdev(FINITE_BTN_DOWN)].isUp = true;
                                     current->dpad->yValue = ev.value;
                                 } else if (ev.value > 0) {
-                                    FINITE_LOG_INFO("Key %s pressed", finite_gamepad_key_string_from_key(FINITE_BTN_DOWN));
+                                    FINITE_LOG("Key %s pressed", finite_gamepad_key_string_from_key(FINITE_BTN_DOWN));
                                     current->btns[finite_gamepad_key_to_evdev(FINITE_BTN_UP)].isDown = false;
                                     current->btns[finite_gamepad_key_to_evdev(FINITE_BTN_UP)].isUp = true;
                                     current->btns[finite_gamepad_key_to_evdev(FINITE_BTN_DOWN)].isDown = true;
@@ -1099,10 +1098,10 @@ static void *finite_gamepad_poll_buttons_async(void *data) {
 
                                 }
                             } else if (ev.code == current->lt->axis) {
-                                    FINITE_LOG_INFO("Key %s event", finite_gamepad_key_string_from_key(FINITE_BTN_LEFT_TRIGGER));
+                                    FINITE_LOG("Key %s event", finite_gamepad_key_string_from_key(FINITE_BTN_LEFT_TRIGGER));
 
                                 if (ev.value > 0) {
-                                    FINITE_LOG_INFO("Key %s pressed", finite_gamepad_key_string_from_key(FINITE_BTN_LEFT_TRIGGER));
+                                    FINITE_LOG("Key %s pressed", finite_gamepad_key_string_from_key(FINITE_BTN_LEFT_TRIGGER));
                                     current->btns[finite_gamepad_key_to_evdev(FINITE_BTN_LEFT_TRIGGER)].isDown = true;
                                     current->btns[finite_gamepad_key_to_evdev(FINITE_BTN_LEFT_TRIGGER)].isUp = false;
                                     current->lt->value = ev.value;
