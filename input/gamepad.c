@@ -1078,6 +1078,7 @@ static void *finite_gamepad_poll_buttons_async(void *data) {
                                     current->btns[finite_gamepad_key_to_evdev(FINITE_BTN_UP)].isUp = false;
                                     current->btns[finite_gamepad_key_to_evdev(FINITE_BTN_DOWN)].isDown = false;
                                     current->btns[finite_gamepad_key_to_evdev(FINITE_BTN_DOWN)].isUp = true;
+                                    finite_button_handle_poll(FINITE_DIRECTION_UP, shell);
                                     current->dpad->yValue = ev.value;
                                 } else if (ev.value > 0) {
                                     FINITE_LOG("Key %s pressed", finite_gamepad_key_string_from_key(FINITE_BTN_DOWN));
@@ -1094,7 +1095,6 @@ static void *finite_gamepad_poll_buttons_async(void *data) {
                                     current->btns[finite_gamepad_key_to_evdev(FINITE_BTN_DOWN)].isDown = false;
                                     current->btns[finite_gamepad_key_to_evdev(FINITE_BTN_DOWN)].isUp = true;
                                     current->dpad->yValue = ev.value;
-                                    finite_button_handle_poll(FINITE_DIRECTION_UP, shell);
 
                                 }
                             } else if (ev.code == current->lt->axis) {
