@@ -89,6 +89,10 @@ void finite_log_internal(FiniteLogLevel level, const char *file, int line, const
 
         pthread_mutex_unlock(&g_logger.lock);
         if (level == LOG_LEVEL_FATAL) { // fatal
+            // close the file if its not stderr or stdout
+            if (g_logger.output != stdout && g_logger.output != stderr) {
+                fclose(g_logger.output);
+            }
             exit(EXIT_FAILURE);
         }
     }
