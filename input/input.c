@@ -85,6 +85,7 @@ const FiniteKeyMapping finite_key_lookup[] = {
     { "Comma",        FINITE_KEY_COMMA, KEY_COMMA },
     { "Period",       FINITE_KEY_PERIOD, KEY_DOT },
     { "Slash",        FINITE_KEY_SLASH, KEY_SLASH },
+    { "Qoute",        FINITE_KEY_QOUTE, KEY_APOSTROPHE},
 
     // Numpad
     { "NumLock",      FINITE_KEY_NUM_LOCK, KEY_NUMLOCK },
@@ -303,6 +304,21 @@ bool finite_key_is_number_debug(const char *file, const char *func, int line, Fi
     for (size_t i = 0; i < count; i++) {
         if (finite_key_lookup[i].key == key) {
             if (atoi(finite_key_lookup[i].name) != 0 || key == FINITE_KEY_0) {
+                return true;
+            } else {
+                return false;
+            }
+        }
+    }
+
+    return false;
+}   
+
+bool finite_key_is_alpha_debug(const char *file, const char *func, int line, FiniteKey key) {
+    size_t count = sizeof(finite_key_lookup) / sizeof(finite_key_lookup[0]);
+    for (size_t i = 0; i < count; i++) {
+        if (finite_key_lookup[i].key == key) {
+            if (atoi(finite_key_lookup[i].name) != 0 && key == FINITE_KEY_0 && strlen(finite_key_lookup[i].name) == 1) {
                 return true;
             } else {
                 return false;

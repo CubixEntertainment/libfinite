@@ -101,6 +101,7 @@ typedef enum {
     FINITE_KEY_COMMA,
     FINITE_KEY_PERIOD,
     FINITE_KEY_SLASH,
+    FINITE_KEY_QOUTE,
 
     // Meta
     FINITE_KEY_PRINT_SCREEN,
@@ -175,5 +176,8 @@ void finite_input_poll_keys_debug(const char *file, const char *func, int line, 
 
 #define finite_key_is_number(key) finite_key_is_number_debug(__FILE__, __func__, __LINE__, key)
 bool finite_key_is_number_debug(const char *file, const char *func, int line, FiniteKey key);
+
+#define finite_key_is_alpha(key) finite_key_is_alpha_debug(__FILE__, __func__, __LINE__, key)
+bool finite_key_is_alpha_debug(const char *file, const char *func, int line, FiniteKey key);
 
 #endif
