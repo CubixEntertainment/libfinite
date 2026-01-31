@@ -185,48 +185,23 @@ void finite_button_handle_poll(FiniteDirectionType dir, FiniteShell *shell) {
             if (dir == FINITE_DIRECTION_DOWN) {
                 // go to the next based on if there are relations between buttons
                 FINITE_LOG("Current btn: %d/%d", shell->activeButton, (shell->_btns - 1));
-                if (self->relations && self->relations->down >= 0 ) {
+
+                if (self->relations && self->relations->down >= 0) {
                     self->isActive = false;
                     if (self->on_unfocus_callback) {
                         self->on_unfocus_callback(self, self->id, self->data);
                     }
                     int next = self->relations->down;
-                    if (next < shell->_btns) {  
-                        self = shell->btns[next];
-                        if (!self) {
-                            FINITE_LOG_WARN("No next available");
-                            return;
-                        }
-
-                        FINITE_LOG("New button: %d", self->id);
+                    self = shell->btns[next];
+                    if (self) {
                         self->isActive = true;
                         shell->activeButton = self->id;
                         if (self->on_focus_callback) {
                             self->on_focus_callback(self, self->id, self->data);
                         }
-                        FINITE_LOG("New button: %d", shell->activeButton);
-                    }
-
-                } else {
-                    int next = shell->activeButton + 1;
-                    if (next < shell->_btns) {                        
-                        self->isActive = false;
-                        if (self->on_unfocus_callback) {
-                            self->on_unfocus_callback(self, self->id, self->data);
-                        }
-                        self = shell->btns[next];
-                        if (self != NULL) {
-                            FINITE_LOG_ERROR("No next available");
-                        } else {
-                            self->isActive = true;
-                            if (self->on_focus_callback) {
-                                self->on_focus_callback(self, self->id, self->data);
-                            }
-                            shell->activeButton = next;
-                        }
                     } else {
-                        // no loop back
                         FINITE_LOG_WARN("No next available");
+                        return;
                     }
                 }
             }
