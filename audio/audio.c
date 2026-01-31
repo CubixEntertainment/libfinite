@@ -9,7 +9,7 @@ void finite_audio_get_audio_duration_debug(const char *file, const char *func, i
         exit(EXIT_FAILURE);
     }
 
-    double time = dev->sfFrames / dev->sample_rate;
+    double time = (double) dev->sfFrames / dev->sample_rate;
     FINITE_LOG("true time is %f", time);
 
     int hours = (int) time / 3600;
