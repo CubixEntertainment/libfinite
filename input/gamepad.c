@@ -308,10 +308,6 @@ bool finite_gamepad_init_debug(const char *file, const char *func, int line, Fin
         }
         _gamepads += 1;
         shell->_gamepads = _gamepads;
-
-
-
-
     }
 
     finite_free_devices(devices);
@@ -472,163 +468,166 @@ static void *finite_draw_controller_popup(void *data) {
         FINITE_LOG_FATAL("Unable to poll gamepads with null shell.");
     }
 
-    FiniteShell *popupShell = finite_shell_init("wayland-0");
-    finite_overlay_init(popupShell, 3, "pair_device_overlay");
-    double width = shell->details->width, height = shell->details->height; // this is the window size which may not always be the screen size
-    double w = (width * 0.78125), h = (height * 0.648);
-    
-    
-    finite_overlay_set_size_and_position(popupShell, w, h, ZWLR_LAYER_SURFACE_V1_ANCHOR_TOP | ZWLR_LAYER_SURFACE_V1_ANCHOR_LEFT);
-    finite_overlay_set_margin(popupShell, (int)( (width - w) / 2 ) , 0, ((height - h) / 2), 0);
-    finite_shm_alloc(popupShell, false);
-
-    FiniteColorGroup bg = { 0.192, 0.192, 0.192, 1};
-    FiniteColorGroup white = {1,1,1,1};
-    FiniteColorGroup bar_bg = {0.262,0.262,0.262,1};
-    FiniteColorGroup bar_btn_active = {1, 0.670, 0.49, 1};
-    FiniteColorGroup bar_btn_inactive = {0.349,0.349,0.349, 1};
-    FiniteColorGroup finite_gris0 = {0.317,0.317,0.317,1.0};// #515151
-
-    finite_draw_rounded_rect(popupShell, 0, 0, w, h, (height * 0.02), &bg, NULL, false);    
-    
-    int size = (height * 0.033);
-    finite_draw_set_font(popupShell, "Kumbh Sans", false, true, size);
-
-    cairo_text_extents_t ext = finite_draw_get_text_extents(popupShell, "Pair your controllers");
-    finite_draw_set_draw_position(popupShell, ((w / 2) - (ext.width / 2)), (h - (h - (ext.height * 2))));
-    finite_draw_set_text(popupShell, "Pair your controllers", &white);
-
-    cairo_surface_t *image = cairo_image_surface_create_from_png("/console/icons/controllerv2.png");
-    int iw = cairo_image_surface_get_width(image), ih = cairo_image_surface_get_height(image);
-
-    FINITE_LOG("Width: %f (%d)", w, width);
-    cairo_surface_destroy(image);
-    finite_draw_png(popupShell, "/console/icons/controllerv2.png", ((w / 2) - ((double) iw / 2)), ((h / 2) - (double)ih / 2), ( (double)width * 0.2119), ((double)height * 0.265), true);
-
-    // draw status bar
-    int devs = popupShell->_gamepads;
-    double bw = ((double)width * 0.109), bh = (height * 0.023);
-    double bx = ((w / 2) - (bw / 2)), by = (h * 0.85);
-    finite_draw_rounded_rect(popupShell, bx, by, bw, bh, (height * 0.009), &bar_bg, NULL, false);
-
-    for (int i = 0; i < 4; i++) {
-        double mbw = ((double) width * 0.024), mbh = ((double) height *0.013);
-        double mbx = (bx + (mbw * i) + ((width * 0.0022) * (i + 1))), mby = (by + ((bh / 2) - (mbh / 2 )));
-        if (i < devs) {
-            finite_draw_rounded_rect(popupShell, mbx, mby, mbw, mbh, (height * 0.005), &bar_btn_active, NULL, false);
-        } else {
-            finite_draw_rounded_rect(popupShell, mbx, mby, mbw, mbh, (height * 0.005), &bar_btn_inactive, NULL, false);
-
-        }
-    }
-
-    if (devs > 0 ) {
-        size = (height * 0.024); // ~26 on 1080p
-        finite_draw_set_font(popupShell, "Kumbh Sans", false, true, size);
-        double xW = (width * 0.176), yH = (height * 0.0629); // ~338x68
-        double nW = ((double)w - (xW * 1.15)), nY = ((double)h - (yH * 1.5));
-        double nRad = ((double)height * 0.03);
-
-        finite_draw_rounded_rect(popupShell, (nW), nY, xW, yH, nRad, &finite_gris0, NULL, true);
-
-        FiniteGradientPoint new_points[2] = {
-            {0, 1, 0.325, 0.325, 1},
-            {1, 1, 0.474, 0.098, 1}
-        };
-
-        cairo_pattern_t *pat = finite_draw_pattern_linear(nW, nY, (double)(width), (double)(height), new_points, 2);
-        finite_draw_stroke(popupShell, NULL, pat, 7);
-
-        cairo_pattern_destroy(pat);
-
-        cairo_text_extents_t ext = finite_draw_get_text_extents(popupShell, "Done");
-        double text_x = nW + (xW - ext.width) / 2  - ext.x_bearing;
-        double text_y = nY + (yH - ext.height) / 2 - ext.y_bearing;
+    if (shell->details != NULL) {
+        FiniteShell *popupShell = finite_shell_init("wayland-0");
+        finite_overlay_init(popupShell, 3, "pair_device_overlay");
+        double width = shell->details->width, height = shell->details->height; // this is the window size which may not always be the screen size
+        double w = (width * 0.78125), h = (height * 0.648);
         
-        finite_draw_set_draw_position(popupShell, (text_x) , text_y);
-        finite_draw_set_text(popupShell, "Next", &white);
-    }
+        
+        finite_overlay_set_size_and_position(popupShell, w, h, ZWLR_LAYER_SURFACE_V1_ANCHOR_TOP | ZWLR_LAYER_SURFACE_V1_ANCHOR_LEFT);
+        finite_overlay_set_margin(popupShell, (int)( (width - w) / 2 ) , 0, ((height - h) / 2), 0);
+        finite_shm_alloc(popupShell, false);
 
-    finite_draw_finish(popupShell, w, h, popupShell->stride, true);
-    
-    int state = wl_display_dispatch(popupShell->display);
-    
-    while (state != -1) {
-        if (devs != shell->_gamepads) {
-            FINITE_LOG("Shells: %d", shell->_gamepads);
+        FiniteColorGroup bg = { 0.192, 0.192, 0.192, 1};
+        FiniteColorGroup white = {1,1,1,1};
+        FiniteColorGroup bar_bg = {0.262,0.262,0.262,1};
+        FiniteColorGroup bar_btn_active = {1, 0.670, 0.49, 1};
+        FiniteColorGroup bar_btn_inactive = {0.349,0.349,0.349, 1};
+        FiniteColorGroup finite_gris0 = {0.317,0.317,0.317,1.0};// #515151
 
-            // finite_button_delete_all(popupShell);
-            devs = shell->_gamepads;
-            double bw = ((double)width * 0.109), bh = (height * 0.023);
-            double bx = ((w / 2) - (bw / 2)), by = (h * 0.85);
-            finite_draw_rounded_rect(popupShell, bx, by, bw, bh, (height * 0.009), &bar_bg, NULL, false);
+        finite_draw_rounded_rect(popupShell, 0, 0, w, h, (height * 0.02), &bg, NULL, false);    
+        
+        int size = (height * 0.033);
+        finite_draw_set_font(popupShell, "Kumbh Sans", false, true, size);
 
-            for (int i = 0; i < 4; i++) {
-                double mbw = ((double) width * 0.024), mbh = ((double) height *0.013);
-                double mbx = (bx + (mbw * i) + ((width * 0.0022) * (i + 1))), mby = (by + ((bh / 2) - (mbh / 2 )));
-                if (i < devs) {
-                    finite_draw_rounded_rect(popupShell, mbx, mby, mbw, mbh, (height * 0.005), &bar_btn_active, NULL, false);
-                } else {
-                    finite_draw_rounded_rect(popupShell, mbx, mby, mbw, mbh, (height * 0.005), &bar_btn_inactive, NULL, false);
+        cairo_text_extents_t ext = finite_draw_get_text_extents(popupShell, "Pair your controllers");
+        finite_draw_set_draw_position(popupShell, ((w / 2) - (ext.width / 2)), (h - (h - (ext.height * 2))));
+        finite_draw_set_text(popupShell, "Pair your controllers", &white);
+
+        cairo_surface_t *image = cairo_image_surface_create_from_png("/console/icons/controllerv2.png");
+        int iw = cairo_image_surface_get_width(image), ih = cairo_image_surface_get_height(image);
+
+        FINITE_LOG("Width: %f (%d)", w, width);
+        cairo_surface_destroy(image);
+        finite_draw_png(popupShell, "/console/icons/controllerv2.png", ((w / 2) - ((double) iw / 2)), ((h / 2) - (double)ih / 2), ( (double)width * 0.2119), ((double)height * 0.265), true);
+
+        // draw status bar
+        int devs = popupShell->_gamepads;
+        double bw = ((double)width * 0.109), bh = (height * 0.023);
+        double bx = ((w / 2) - (bw / 2)), by = (h * 0.85);
+        finite_draw_rounded_rect(popupShell, bx, by, bw, bh, (height * 0.009), &bar_bg, NULL, false);
+
+        for (int i = 0; i < 4; i++) {
+            double mbw = ((double) width * 0.024), mbh = ((double) height *0.013);
+            double mbx = (bx + (mbw * i) + ((width * 0.0022) * (i + 1))), mby = (by + ((bh / 2) - (mbh / 2 )));
+            if (i < devs) {
+                finite_draw_rounded_rect(popupShell, mbx, mby, mbw, mbh, (height * 0.005), &bar_btn_active, NULL, false);
+            } else {
+                finite_draw_rounded_rect(popupShell, mbx, mby, mbw, mbh, (height * 0.005), &bar_btn_inactive, NULL, false);
+
+            }
+        }
+
+        if (devs > 0 ) {
+            size = (height * 0.024); // ~26 on 1080p
+            finite_draw_set_font(popupShell, "Kumbh Sans", false, true, size);
+            double xW = (width * 0.176), yH = (height * 0.0629); // ~338x68
+            double nW = ((double)w - (xW * 1.15)), nY = ((double)h - (yH * 1.5));
+            double nRad = ((double)height * 0.03);
+
+            finite_draw_rounded_rect(popupShell, (nW), nY, xW, yH, nRad, &finite_gris0, NULL, true);
+
+            FiniteGradientPoint new_points[2] = {
+                {0, 1, 0.325, 0.325, 1},
+                {1, 1, 0.474, 0.098, 1}
+            };
+
+            cairo_pattern_t *pat = finite_draw_pattern_linear(nW, nY, (double)(width), (double)(height), new_points, 2);
+            finite_draw_stroke(popupShell, NULL, pat, 7);
+
+            cairo_pattern_destroy(pat);
+
+            cairo_text_extents_t ext = finite_draw_get_text_extents(popupShell, "Done");
+            double text_x = nW + (xW - ext.width) / 2  - ext.x_bearing;
+            double text_y = nY + (yH - ext.height) / 2 - ext.y_bearing;
+            
+            finite_draw_set_draw_position(popupShell, (text_x) , text_y);
+            finite_draw_set_text(popupShell, "Next", &white);
+        }
+
+        finite_draw_finish(popupShell, w, h, popupShell->stride, true);
+        
+        int state = wl_display_dispatch(popupShell->display);
+        
+        while (state != -1) {
+            if (devs != shell->_gamepads) {
+                FINITE_LOG("Shells: %d", shell->_gamepads);
+
+                // finite_button_delete_all(popupShell);
+                devs = shell->_gamepads;
+                double bw = ((double)width * 0.109), bh = (height * 0.023);
+                double bx = ((w / 2) - (bw / 2)), by = (h * 0.85);
+                finite_draw_rounded_rect(popupShell, bx, by, bw, bh, (height * 0.009), &bar_bg, NULL, false);
+
+                for (int i = 0; i < 4; i++) {
+                    double mbw = ((double) width * 0.024), mbh = ((double) height *0.013);
+                    double mbx = (bx + (mbw * i) + ((width * 0.0022) * (i + 1))), mby = (by + ((bh / 2) - (mbh / 2 )));
+                    if (i < devs) {
+                        finite_draw_rounded_rect(popupShell, mbx, mby, mbw, mbh, (height * 0.005), &bar_btn_active, NULL, false);
+                    } else {
+                        finite_draw_rounded_rect(popupShell, mbx, mby, mbw, mbh, (height * 0.005), &bar_btn_inactive, NULL, false);
+                    }
                 }
+
+                if (devs > 0 ) {
+                    size = (height * 0.024); // ~26 on 1080p
+                    finite_draw_set_font(popupShell, "Kumbh Sans", false, true, size);
+                    double xW = (width * 0.176), yH = (height * 0.0629); // ~338x68
+                    double nW = ((double)w - (xW * 1.15)), nY = ((double)h - (yH * 1.5));
+                    double nRad = ((double)height * 0.03);
+
+                    finite_draw_rounded_rect(popupShell, (nW), nY, xW, yH, nRad, &finite_gris0, NULL, true);
+
+                    FiniteGradientPoint new_points[2] = {
+                        {0, 1, 0.325, 0.325, 1},
+                        {1, 1, 0.474, 0.098, 1}
+                    };
+
+                    cairo_pattern_t *pat = finite_draw_pattern_linear(nW, nY, (double)(width), (double)(height), new_points, 2);
+                    finite_draw_stroke(popupShell, NULL, pat, 7);
+
+                    cairo_pattern_destroy(pat);
+
+                    cairo_text_extents_t ext = finite_draw_get_text_extents(popupShell, "Done");
+                    double text_x = nW + (xW - ext.width) / 2  - ext.x_bearing;
+                    double text_y = nY + (yH - ext.height) / 2 - ext.y_bearing;
+                    
+                    finite_draw_set_draw_position(popupShell, (text_x) , text_y);
+                    finite_draw_set_text(popupShell, "Next", &white);    
+                } else  {
+                    size = (height * 0.024); // ~26 on 1080p
+                    finite_draw_set_font(popupShell, "Kumbh Sans", false, true, size);
+                    double xW = (width * 0.176), yH = (height * 0.0629); // ~338x68
+                    double nW = ((double)w - (xW * 1.15)), nY = ((double)h - (yH * 1.5));
+                    double nRad = ((double)height * 0.03);
+
+                    finite_draw_rounded_rect(popupShell, (nW), nY, xW, yH, nRad, &finite_gris0, NULL, true);
+                    finite_draw_stroke(popupShell, &bar_btn_inactive, NULL, 7);
+
+                    cairo_text_extents_t ext = finite_draw_get_text_extents(popupShell, "Done");
+                    double text_x = nW + (xW - ext.width) / 2  - ext.x_bearing;
+                    double text_y = nY + (yH - ext.height) / 2 - ext.y_bearing;
+                    
+                    finite_draw_set_draw_position(popupShell, (text_x) , text_y);
+                    finite_draw_set_text(popupShell, "Next", &bar_btn_inactive);    
+                }
+
+                finite_draw_finish(popupShell, w, h, popupShell->stride, true);
             }
 
-            if (devs > 0 ) {
-                size = (height * 0.024); // ~26 on 1080p
-                finite_draw_set_font(popupShell, "Kumbh Sans", false, true, size);
-                double xW = (width * 0.176), yH = (height * 0.0629); // ~338x68
-                double nW = ((double)w - (xW * 1.15)), nY = ((double)h - (yH * 1.5));
-                double nRad = ((double)height * 0.03);
-
-                finite_draw_rounded_rect(popupShell, (nW), nY, xW, yH, nRad, &finite_gris0, NULL, true);
-
-                FiniteGradientPoint new_points[2] = {
-                    {0, 1, 0.325, 0.325, 1},
-                    {1, 1, 0.474, 0.098, 1}
-                };
-
-                cairo_pattern_t *pat = finite_draw_pattern_linear(nW, nY, (double)(width), (double)(height), new_points, 2);
-                finite_draw_stroke(popupShell, NULL, pat, 7);
-
-                cairo_pattern_destroy(pat);
-
-                cairo_text_extents_t ext = finite_draw_get_text_extents(popupShell, "Done");
-                double text_x = nW + (xW - ext.width) / 2  - ext.x_bearing;
-                double text_y = nY + (yH - ext.height) / 2 - ext.y_bearing;
-                
-                finite_draw_set_draw_position(popupShell, (text_x) , text_y);
-                finite_draw_set_text(popupShell, "Next", &white);    
-            } else  {
-                size = (height * 0.024); // ~26 on 1080p
-                finite_draw_set_font(popupShell, "Kumbh Sans", false, true, size);
-                double xW = (width * 0.176), yH = (height * 0.0629); // ~338x68
-                double nW = ((double)w - (xW * 1.15)), nY = ((double)h - (yH * 1.5));
-                double nRad = ((double)height * 0.03);
-
-                finite_draw_rounded_rect(popupShell, (nW), nY, xW, yH, nRad, &finite_gris0, NULL, true);
-                finite_draw_stroke(popupShell, &bar_btn_inactive, NULL, 7);
-
-                cairo_text_extents_t ext = finite_draw_get_text_extents(popupShell, "Done");
-                double text_x = nW + (xW - ext.width) / 2  - ext.x_bearing;
-                double text_y = nY + (yH - ext.height) / 2 - ext.y_bearing;
-                
-                finite_draw_set_draw_position(popupShell, (text_x) , text_y);
-                finite_draw_set_text(popupShell, "Next", &bar_btn_inactive);    
+            if (devs > 0 && finite_gamepad_key_pressed(0, shell, FINITE_BTN_B) ){ 
+                FINITE_LOG("Close requested");
+                // TODO: Animations
+                break;
             }
-
-            finite_draw_finish(popupShell, w, h, popupShell->stride, true);
         }
 
-        if (devs > 0 && finite_gamepad_key_pressed(0, shell, FINITE_BTN_B) ){ 
-            FINITE_LOG("Close requested");
-            // TODO: Animations
-            break;
-        }
+        FINITE_LOG("Done.");
+        finite_draw_cleanup(popupShell);
+
     }
-
-    FINITE_LOG("Done.");
-    finite_draw_cleanup(popupShell);
-
+    
     return data;
 }
 
@@ -777,7 +776,7 @@ bool finite_gamepad_key_down_debug(const char *file, const char *func, int line,
             return false;
         }
         
-        FINITE_LOG("Checking if btn %s is down", finite_gamepad_key_string_from_key(key));
+        // FINITE_LOG("Checking if btn %s is down", finite_gamepad_key_string_from_key(key));
         if (gamepad->canInput) {
             uint16_t evdev_key = finite_gamepad_key_to_evdev(key);
             if (evdev_key == UINT16_MAX) {
@@ -812,7 +811,7 @@ bool finite_gamepad_key_up_debug(const char *file, const char *func, int line, i
             return false;
         }
         
-        FINITE_LOG("Checking if btn %s is up", finite_gamepad_key_string_from_key(key));
+        // FINITE_LOG("Checking if btn %s is up", finite_gamepad_key_string_from_key(key));
         if (gamepad->canInput) {
             uint16_t evdev_key = finite_gamepad_key_to_evdev(key);
             if (evdev_key == UINT16_MAX) {
@@ -847,7 +846,7 @@ bool finite_gamepad_key_pressed_debug(const char *file, const char *func, int li
             return false;
         }
 
-        FINITE_LOG("Checking if btn %s was pressed", finite_gamepad_key_string_from_key(key));
+        // FINITE_LOG("Checking if btn %s was pressed", finite_gamepad_key_string_from_key(key));
         if (gamepad->canInput) {
             uint16_t evdev_key = finite_gamepad_key_to_evdev(key);
             if (evdev_key == UINT16_MAX) {
@@ -1078,8 +1077,8 @@ static void *finite_gamepad_poll_buttons_async(void *data) {
                                     current->btns[finite_gamepad_key_to_evdev(FINITE_BTN_UP)].isUp = false;
                                     current->btns[finite_gamepad_key_to_evdev(FINITE_BTN_DOWN)].isDown = false;
                                     current->btns[finite_gamepad_key_to_evdev(FINITE_BTN_DOWN)].isUp = true;
-                                    finite_button_handle_poll(FINITE_DIRECTION_UP, shell);
                                     current->dpad->yValue = ev.value;
+                                    finite_button_handle_poll(FINITE_DIRECTION_UP, shell);
                                 } else if (ev.value > 0) {
                                     FINITE_LOG("Key %s pressed", finite_gamepad_key_string_from_key(FINITE_BTN_DOWN));
                                     current->btns[finite_gamepad_key_to_evdev(FINITE_BTN_UP)].isDown = false;
