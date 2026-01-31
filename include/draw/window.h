@@ -10,8 +10,10 @@
 #include <wayland-client-protocol.h>
 #include <cairo/cairo.h>
 #include <pthread.h>
-#include "xdg-shell-client-protocol.h" // from wayland scanner
-#include "layer-shell-client-protocol.h" // from wayland scanner
+#include "protocol/text-input-client-protocol.h"
+#include "protocol/xdg-shell-client-protocol.h" // from wayland scanner
+#include "protocol/layer-shell-client-protocol.h" // from wayland scanner
+#include "protocol/virtual-keyboard-client-protocol.h" // from wayland scanner
 
 typedef struct FiniteShell FiniteShell;
 typedef struct FiniteGamepad FiniteGamepad;
@@ -118,6 +120,7 @@ struct FiniteShell{
     struct wl_registry *registry;
     struct wl_output *output;
     struct wl_shm *shm;
+    struct wl_seat *seat;
     struct wl_shm_pool *pool;
     struct wl_buffer *buffer;
     struct wl_compositor *isle;
@@ -127,6 +130,8 @@ struct FiniteShell{
     struct xdg_toplevel *window;
     struct zwlr_layer_shell_v1 *shell;
     struct zwlr_layer_surface_v1 *layer_surface;
+    struct zwp_virtual_keyboard_manager_v1 *virtual_manager;
+    struct zwp_text_input_manager_v3 *input_manager;
     FiniteWindowInfo *details;
     FiniteOverlayInfo *overlay_details;
     cairo_t *cr;

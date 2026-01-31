@@ -2,7 +2,7 @@ project(
     'libfinite',
     'c',
     default_options: 'default_library=static',
-    version: '0.7.0-dev'
+    version: '0.7.1-dev'
 )
 
 cc = meson.get_compiler('c')
@@ -17,40 +17,7 @@ evdev = dependency('libevdev', required: true)
 sndfile = dependency('sndfile', required: true)
 alsa = dependency('alsa', required: true)
 vulkan = dependency('vulkan', required: true)
-# use 1.6.0 for now...
 xkb = dependency('xkbcommon', version: '>=1.6.0', fallback: 'libxkbcommon', required: true)
-
-# build xdg
-xdg_shell = custom_target('xdg-shell',
-    input: 'xdg-shell.xml',
-    output: ['xdg-shell-client-protocol.h', 'xdg-shell-protocol.c'],
-    command: [
-      'wayland-scanner', 'client-header', '@INPUT@', '@OUTPUT0@',
-      '&&',
-      'wayland-scanner', 'private-code', '@INPUT@', '@OUTPUT1@'
-    ],
-    install: true,
-    install_dir: [
-      join_paths(get_option('includedir'), 'finite/protocols'),
-      get_option('datadir')
-    ]
-)
-
-# build layer-shell
-layer_shell = custom_target('layer-shell',
-    input: 'layer-shell.xml',
-    output: ['layer-shell-client-protocol.h', 'layer-shell-protocol.c'],
-    command: [
-      'wayland-scanner', 'client-header', '@INPUT@', '@OUTPUT0@',
-      '&&',
-      'wayland-scanner', 'private-code', '@INPUT@', '@OUTPUT1@'
-    ],
-    install: true,
-    install_dir: [
-      join_paths(get_option('includedir'), 'finite/protocols'),
-      get_option('datadir') 
-    ]
-)
 
 inc = include_directories('include')
 
@@ -68,8 +35,10 @@ deps = [
 ]
 
 src = [
-    xdg_shell[1],
-    layer_shell[1],
+    'protocol/xdg-shell-protocol.c',
+    'protocol/layer-shell-protocol.c',
+    'protocol/virtual-keyboard-protocol.c',
+
     'draw/window.c',
     'draw/wl_shm.c',
     'draw/listen.c',
@@ -95,7 +64,7 @@ src = [
 libfinite = library(
     'libfinite', 
     src, 
-    version : '0.7.0', 
+    version : '0.7.1', 
     soversion : '1', 
     dependencies: deps,
     install: true,
@@ -110,6 +79,12 @@ headers = [
     'include/render.h',
     'include/core.h',
     'include/log.h'
+]
+
+proto_headers = [
+  'include/protocol/xdg-shell-client-protocol.h',
+  'include/protocol/layer-shell-client-protocol.h',
+  'include/protocol/virtual-keyboard-client-protocol.h',
 ]
 
 draw_headers = [
@@ -132,6 +107,7 @@ input_headers = [
 ]
 
 install_headers(headers, subdir: 'finite')
+install_headers(proto_headers, subdir: 'finite/protocol')
 install_headers(draw_headers, subdir: 'finite/draw')
 install_headers(render_headers, subdir: 'finite/render')
 install_headers(input_headers, subdir: 'finite/input')
@@ -144,7 +120,7 @@ pkgconfig.generate(
     libfinite,
     name: 'libfinite',
     description: 'The Cubix Infinite Development Library',
-    version: '0.7.0',
+    version: '0.7.1',
     filebase: 'finite',
     subdirs: 'finite',
     requires: ['wayland-client', 'wayland-protocols', 'cairo', 'alsa', 'vulkan']
