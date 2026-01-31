@@ -1,6 +1,16 @@
 #include "../include/draw/window.h"
 #include "../include/log.h"
+#include "protocol/virtual-keyboard-client-protocol.h"
 #include <unistd.h>
+
+
+const struct wl_output_listener output_listener = {
+    .geometry = islands_output_handle,
+    .mode = islands_mode_handle,
+    .scale = islands_scale_handle,
+    .done = islands_done_handle
+};
+
 
 /*
     # islands_registry_handle()
@@ -24,13 +34,24 @@ void islands_registry_handle(void *data, struct wl_registry* registry, uint32_t 
     }
     if (strcmp(interface, wl_output_interface.name) == 0) {
         shell->output = wl_registry_bind(registry, id, &wl_output_interface, 2);
+        FINITE_LOG("Setting window size.");
+        // grab screen size and store earlier
+        wl_output_add_listener(shell->output, &output_listener, shell);
     }
     if (strcmp(interface, wl_shm_interface.name) == 0) {
         shell->shm = wl_registry_bind(registry, id, &wl_shm_interface, 1);
     }
+    if (strcmp(interface, wl_seat_interface.name) == 0) {
+        FINITE_LOG("Added seat to shell");
+        shell->seat = wl_registry_bind(registry, id, &wl_seat_interface, 1);
+    }
     if (strcmp(interface, zwlr_layer_shell_v1_interface.name) == 0) {
         FINITE_LOG("Added layer-shell to shell");
         shell->shell = wl_registry_bind(registry, id, &zwlr_layer_shell_v1_interface, 4);
+    }
+    if (strcmp(interface, zwp_virtual_keyboard_manager_v1_interface.name) == 0) {
+        FINITE_LOG("Added Virtual Keyboard to shell");
+        shell->virtual_manager = wl_registry_bind(registry, id, &zwp_virtual_keyboard_manager_v1_interface, 1);
     }
 }   
 
