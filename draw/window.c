@@ -7,13 +7,6 @@ const struct wl_registry_listener registry_listener = {
     .global_remove = islands_registry_handle_remove
 };
 
-const struct wl_output_listener output_listener = {
-    .geometry = islands_output_handle,
-    .mode = islands_mode_handle,
-    .scale = islands_scale_handle,
-    .done = islands_done_handle
-};
-
 const struct xdg_toplevel_listener toplevel_listener = {
     .configure = window_configure_handle,
     .close = window_close_handle,
@@ -133,12 +126,6 @@ void finite_window_init_debug(const char *file, const char *func, int line, Fini
     }
 
     FINITE_LOG("Initialization Done.");
-
-    xdg_toplevel_add_listener(shell->window, &toplevel_listener, shell);
-
-    FINITE_LOG("Setting window size.");
-    // grab screen size and store it
-    wl_output_add_listener(shell->output, &output_listener, shell);
 
     wl_display_roundtrip(shell->display);
     if (!shell->details) {
