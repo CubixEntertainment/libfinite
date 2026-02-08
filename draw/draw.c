@@ -1,9 +1,39 @@
 #include "../include/draw/cairo.h"
 #include "../include/log.h"
 #include <unistd.h>
+#include <ctype.h>
 
 # define M_PI		3.14159265358979323846	/* pi */
 # define M_PI_2		1.57079632679489661923	/* pi/2 */
+
+const char hexLookupTable[16] = {
+    '0',
+    '1',
+    '2',
+    '3',
+    '4',
+    '5',
+    '6',
+    '7',
+    '8',
+    '9',
+    'A',
+    'B',
+    'C',
+    'D',
+    'E',
+    'F'
+};
+
+static int find_index_of(char needle, const char *haystack, int size) {
+    for (int i = 0; i < size; i++) {
+        if (haystack[i] == toupper(needle)) {
+            return i;
+        }
+    }
+
+    return -1;
+}
 
 /*
     # finite_draw_rounded_rect
@@ -57,7 +87,6 @@ void finite_draw_rounded_rect_debug(const char *file, const char *func, int line
         }
     }
 }
-
 
 // TODO: finite_draw_glow_gradient
 void finite_draw_glow_debug(const char *file, const char *func, int line, FiniteShell *shell, double x, double y, double width, double height, double radius, int layers, FiniteColorGroup *color, bool withPreserve) {
@@ -399,7 +428,6 @@ void finite_draw_create_snapshot_debug(const char *file, const char *func, int l
     shell->snapshot = snap;
 }
 
-
 // ?! you must call finite_draw_finish after loading a snapshot!!
 void finite_draw_load_snapshot_debug(const char *file, const char *func, int line, FiniteShell *shell) {
     if (!shell || !shell->snapshot) {
@@ -459,6 +487,40 @@ void finite_draw_png_debug(const char *file, const char *func, int line, FiniteS
             cairo_fill(cr);
         }
     }
+}
+
+FiniteColorGroup finite_draw_hex_to_color_group_debug(const char *file, const char *func, int line, char hex[7]) {
+    FiniteColorGroup color = {0};
+    // this function does not adjust alpha so it's set to 1.0
+    color.a = 1.0;
+    
+    int r1 = find_index_of(hex[1], hexLookupTable, 16);
+    int r2 = find_index_of(hex[2], hexLookupTable, 16);
+
+    if (r1 < 0 || r2 < 0) {
+        finite_log_internal(LOG_LEVEL_ERROR, file, line, func, "Invalid hex data");
+        return color;
+    }
+
+    int g1 = find_index_of(hex[3], hexLookupTable, 16);
+    int g2 = find_index_of(hex[4], hexLookupTable, 16);
+    if (g1 < 0 || g2 < 0) {
+        finite_log_internal(LOG_LEVEL_ERROR, file, line, func, "Invalid hex data"); 
+        return color;
+    }
+
+    int b1 = find_index_of(hex[5], hexLookupTable, 16);
+    int b2 = find_index_of(hex[6], hexLookupTable, 16);
+    if (b1 < 0 || b2 < 0) {
+        finite_log_internal(LOG_LEVEL_ERROR, file, line, func, "Invalid hex data");
+        return color;
+    }
+
+    color.r = ((r1 * 16) + (r2))/255.0;
+    color.g = ((g1 * 16) + (g2))/255.0;
+    color.b = ((b1 * 16) + (b2))/255.0;
+
+    return color;
 }
 
 bool finite_draw_finish_debug(const char *file, const char *func, int line, FiniteShell *shell, int width, int height, int stride, bool withAlpha) {

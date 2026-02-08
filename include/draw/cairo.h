@@ -82,4 +82,7 @@ void finite_draw_create_snapshot_debug(const char *file, const char *func, int l
 #define finite_draw_load_snapshot(shell) finite_draw_load_snapshot_debug(__FILE__, __func__, __LINE__, shell)
 void finite_draw_load_snapshot_debug(const char *file, const char *func, int line, FiniteShell *shell);
 
+#define finite_draw_hex_to_color_group(hex) finite_draw_hex_to_color_group_debug(__FILE__, __func__, __LINE__, hex)
+FiniteColorGroup finite_draw_hex_to_color_group_debug(const char *file, const char *func, int line, char hex[7]);
+
 #endif

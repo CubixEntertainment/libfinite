@@ -1,4 +1,4 @@
-#include "layer-shell-client-protocol.h" // from wayland scanner
+#include <finite/protocol/layer-shell-client-protocol.h> // from wayland scanner
 #include <finite/draw.h>
 #include <finite/log.h>
 
