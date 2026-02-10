@@ -10,6 +10,7 @@ The Infinite C Library
 - [x] Window Rendering (with Cairo)
 - [x] Window Rendering Example
 - [x] Keyboard Input
+- [x] Textbox Input 
 - [x] Controller Input
 - [x] Vulkan Rendering
 - [x] Vulkan Examples
