@@ -148,6 +148,9 @@ typedef struct {
 #define finite_input_keyboard_init(device) finite_input_keyboard_init_debug(__FILE__, __func__, __LINE__, device)
 FiniteKeyboard *finite_input_keyboard_init_debug(const char *file, const char *func, int line, struct wl_display *device);
 
+#define finite_input_keyboard_rescan(keyboard) finite_input_keyboard_rescan_debug(file, func, line, keyboard)
+FiniteKeyboard *finite_input_keyboard_rescan_debug(const char *file, const char *func, int line, FiniteKeyboard *keyboard);
+
 #define finite_key_down(key, board) finite_key_down_debug(__FILE__, __func__, __LINE__, key, board)
 bool finite_key_down_debug(const char *file, const char *func, int line, FiniteKey key, FiniteKeyboard *board);
 

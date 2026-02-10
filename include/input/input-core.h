@@ -9,6 +9,7 @@
 #include <xkbcommon/xkbcommon.h>
 
 typedef FiniteGamepad FiniteGamepad;
+typedef struct FiniteTextbox FiniteTextbox;
 
 typedef struct {
     struct wl_display *display;
@@ -31,6 +32,9 @@ typedef struct {
     struct xkb_context *xkb_ctx;
     struct xkb_keymap *xkb_keymap;
     struct xkb_state  *xkb_state;
+
+    FiniteTextbox *active_textbox;
+    bool isShift; // for textboxes (lazy solution)
 
     FiniteKeyState keys[256];
 } FiniteKeyboard;

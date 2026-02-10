@@ -131,7 +131,6 @@ struct FiniteShell{
     struct zwlr_layer_shell_v1 *shell;
     struct zwlr_layer_surface_v1 *layer_surface;
     struct zwp_virtual_keyboard_manager_v1 *virtual_manager;
-    struct zwp_text_input_manager_v3 *input_manager;
     FiniteWindowInfo *details;
     FiniteOverlayInfo *overlay_details;
     cairo_t *cr;

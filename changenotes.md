@@ -1,5 +1,44 @@
 # Changes
 
+## Version 0.7.2
+
+## FiniteInput
+
+- Added the `finite_input_textbox` API
+- `finite_input_keyboard_init` no longer exits if no keyboard is available.
+- Added `finite_input_keyboard_rescan` to allow devs to rescan the wl_seat
+
+## FiniteShell
+
+- Removed `zwp_text_input_manager_v3`
+
+## Version 0.7.1
+
+## FiniteShell
+
+- Added a `wl_seat`(shell.seat) and `zwp_virtual_keyboard_manager_v1`(shell.virtual_manager) struct to FiniteShell. This types are automatically defined by the compositor if they're supported
+
+## FiniteInput
+
+- Added the new `FiniteTextbox` for input handling
+- Added `finite_key_is_alpha`
+- Downgraded `finite_gamepad_poll_buttons_async`'s log level from `LOG_LEVEL_INFO` to `LOG_LEVEL_DEBUG`
+- Fixed an issue in `finite_gamepad_poll_buttons_async` where releasing the Down button or Up button the dpad caused the library to report that up was pressed
+- Added `FINITE_KEY_QOUTE` as a secondary reference to `FINITE_KEY_APOSTROPHE` for clarity
+
+## FiniteLog
+
+- Fatal errors now close the File descriptor if its not `stdout` or `stderr`
+
+## FiniteDraw
+
+- Added the `finite_hex_to_color_group` function to support hexadecimals values for colors
+- Fixed an OOB issue with some finite-buttons
+
+## FiniteAudio
+
+- Fixed a small type conversion issue in `finite_audio_get_audio_duration`
+
 ## Version 0.7.0
 
 ### FiniteInput

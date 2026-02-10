@@ -2,6 +2,7 @@
 #include "include/draw/window.h"
 #include "include/log.h"
 #include "include/input/keyboard.h"
+#include "input/input-core.h"
 
 // create a registry_listener struct for future use
 const struct wl_registry_listener key_registry_listener = {
@@ -143,10 +144,24 @@ FiniteKeyboard *finite_input_keyboard_init_debug(const char *file, const char *f
 
     keyboard->keyboard = wl_seat_get_keyboard(keyboard->input->seat);
     if (!keyboard->keyboard) {
-        finite_log_internal(LOG_LEVEL_ERROR, file, line, func,  "Unable to find a wl_seat.");
-        free(input);
-        free(keyboard);
+        finite_log_internal(LOG_LEVEL_WARN, file, line, func,  "No physical keyboard available.");
+        return keyboard;
+    }
+
+    wl_keyboard_add_listener(keyboard->keyboard, &keys_listener, keyboard);
+    return keyboard;
+}
+
+FiniteKeyboard *finite_input_keyboard_rescan_debug(const char *file, const char *func, int line, FiniteKeyboard *keyboard) {
+    if (!keyboard) {
+        finite_log_internal(LOG_LEVEL_ERROR, file, line, func,  "Unable to rescan on NULL FiniteKeyboard.");
         return NULL;
+    }
+    
+    keyboard->keyboard = wl_seat_get_keyboard(keyboard->input->seat);
+    if (!keyboard->keyboard) {
+        finite_log_internal(LOG_LEVEL_WARN, file, line, func,  "No physical keyboard available.");
+        return keyboard;
     }
 
     wl_keyboard_add_listener(keyboard->keyboard, &keys_listener, keyboard);
@@ -294,9 +309,6 @@ void finite_input_poll_keys_debug(const char *file, const char *func, int line, 
     if (finite_key_pressed_debug(file, func, line, FINITE_KEY_ENTER, board)) {
         finite_button_handle_poll(FINITE_DIRECTION_DONE, shell);
     }
-
-    
-
 }
 
 bool finite_key_is_number_debug(const char *file, const char *func, int line, FiniteKey key) {
