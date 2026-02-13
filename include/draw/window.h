@@ -10,7 +10,6 @@
 #include <wayland-client-protocol.h>
 #include <cairo/cairo.h>
 #include <pthread.h>
-#include "protocol/text-input-client-protocol.h"
 #include "protocol/xdg-shell-client-protocol.h" // from wayland scanner
 #include "protocol/layer-shell-client-protocol.h" // from wayland scanner
 #include "protocol/virtual-keyboard-client-protocol.h" // from wayland scanner
