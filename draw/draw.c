@@ -445,7 +445,7 @@ void finite_draw_load_snapshot_debug(const char *file, const char *func, int lin
     cairo_surface_mark_dirty(shell->cairo_surface);
 }
 
-void finite_draw_png_debug(const char *file, const char *func, int line, FiniteShell *shell, const char *path, double x, double y, double width, double height, bool fillOnFail) {
+void finite_draw_png_debug(const char *file, const char *func, int line, FiniteShell *shell, const char *path, double x, double y, double width, double height,  FiniteColorGroup *fillOnFail) {
     if (!shell) {
         finite_log_internal(LOG_LEVEL_ERROR, file, line, func, "Unable to draw png on NULL shell");
         return;
@@ -483,7 +483,7 @@ void finite_draw_png_debug(const char *file, const char *func, int line, FiniteS
         if (!fillOnFail) {
             finite_log_internal(LOG_LEVEL_DEBUG, file, line, func, "Not filling box on failure");
         } else {
-            cairo_set_source_rgb(cr, 0, 0, 1);
+            cairo_set_source_rgba(cr, fillOnFail->r, fillOnFail->g, fillOnFail->b, fillOnFail->a);
             cairo_fill(cr);
         }
     }

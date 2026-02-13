@@ -71,8 +71,7 @@ void finite_draw_set_offset_debug(const char *file, const char *func, int line, 
 void finite_draw_reset_offset_debug(const char *file, const char *func, int line, FiniteShell *shell, double x, double y);
 
 #define finite_draw_png(shell, path, x, y, width, height, fillOnFail) finite_draw_png_debug(__FILE__, __func__, __LINE__, shell, path, x, y, width, height, fillOnFail)
-void finite_draw_png_debug(const char *file, const char *func, int line, FiniteShell *shell, const char *path, double x, double y, double width, double height, bool fillOnFail);
-
+void finite_draw_png_debug(const char *file, const char *func, int line, FiniteShell *shell, const char *path, double x, double y, double width, double height,  FiniteColorGroup *fillOnFail);
 #define finite_draw_cleanup(shell) finite_draw_cleanup_debug(__FILE__, __func__, __LINE__, shell)
 void finite_draw_cleanup_debug(const char *file, const char *func, int line, FiniteShell *shell);
 
