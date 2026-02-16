@@ -346,11 +346,7 @@ cairo_pattern_t *finite_draw_pattern_linear_debug(const char *file, const char *
     cairo_pattern_t *pat = cairo_pattern_create_linear(startX, startY, endX, endY);
 
     for (int i = 0; i < n; i++) {
-        if (points[i].a) {
-            cairo_pattern_add_color_stop_rgba(pat, points[i].stop, points[i].r, points[i].g, points[i].b, points[i].a);
-        } else {
-            cairo_pattern_add_color_stop_rgb (pat, points[i].stop, points[i].r, points[i].g, points[i].b);
-        }
+        cairo_pattern_add_color_stop_rgba(pat, points[i].stop, points[i].r, points[i].g, points[i].b, points[i].a);
     }
 
     return pat;
