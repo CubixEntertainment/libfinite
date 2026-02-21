@@ -2,7 +2,7 @@ project(
     'libfinite',
     'c',
     default_options: 'default_library=static',
-    version: '0.7.2-dev'
+    version: '0.7.3-dev'
 )
 
 cc = meson.get_compiler('c')
@@ -66,7 +66,7 @@ src = [
 libfinite = library(
     'libfinite', 
     src, 
-    version : '0.7.2',
+    version : '0.7.3',
     soversion : '1', 
     dependencies: deps,
     install: true,
@@ -87,7 +87,6 @@ proto_headers = [
   'include/protocol/xdg-shell-client-protocol.h',
   'include/protocol/layer-shell-client-protocol.h',
   'include/protocol/virtual-keyboard-client-protocol.h',
-  'include/protocol/text-input-client-protocol.h'
 ]
 
 draw_headers = [
@@ -124,7 +123,7 @@ pkgconfig.generate(
     libfinite,
     name: 'libfinite',
     description: 'The Cubix Infinite Development Library',
-    version: '0.7.2',
+    version: '0.7.3',
     filebase: 'finite',
     subdirs: 'finite',
     requires: ['wayland-client', 'wayland-protocols', 'cairo', 'alsa', 'vulkan']
