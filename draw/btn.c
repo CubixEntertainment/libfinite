@@ -46,9 +46,9 @@ FiniteBtn *finite_button_create_debug(const char *file, const char *func, int li
     btn->link = shell;
 
     // if this is button 0 call the focus callback
-    // if (shell->activeButton == 0 && shell->activeButton == btn->id) {
-    //     btn->on_focus_callback(btn, btn->id, btn->data);
-    // }
+    if (shell->activeButton == 0 && shell->activeButton == btn->id) {
+        btn->on_focus_callback(btn, btn->id, btn->data);
+    }
 
     return btn;
 }

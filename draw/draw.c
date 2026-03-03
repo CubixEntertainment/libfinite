@@ -1,5 +1,7 @@
 #include "../include/draw/cairo.h"
 #include "../include/log.h"
+#include "cairo.h"
+#include <string.h>
 #include <unistd.h>
 #include <ctype.h>
 
@@ -69,6 +71,11 @@ void finite_draw_rounded_rect_debug(const char *file, const char *func, int line
 
     if (pat) {
         cairo_set_source(cr, pat);
+        if (withPreserve) {
+            cairo_fill_preserve(cr);
+        } else {
+            cairo_fill(cr);
+        }
     } else {
         if (color) {
             if (color->a) {
@@ -239,6 +246,110 @@ void finite_draw_set_text_debug(const char *file, const char *func, int line, Fi
     }
     cairo_show_text(cr, text);
 }
+
+/*
+    # finite_draw_set_wrapped_text
+
+    Draw text to the screen. 
+    
+    @note `finite_draw_set_font()` should be called before drawing text for the first time.
+*/
+void finite_draw_set_wrapped_text_debug(const char *file, const char *func, int line, FiniteShell *shell, char *text, double boxW, double boxH, FiniteColorGroup *color) {
+    if (!shell) {
+        FINITE_LOG_ERROR("Can not draw text with NULL Shell.");
+        return;
+    }
+
+    if (!shell->cr) {
+        shell->cr = cairo_create(shell->cairo_surface);
+    }
+
+    cairo_t *cr = shell->cr;
+    
+    char str[256];
+    char word[256];
+    int lines = 0, words = 0, letter = 0;
+            
+    cairo_text_extents_t ext;
+
+    double x,y;
+    cairo_get_current_point(cr, &x, &y);
+    
+    cairo_set_source_rgb(cr, color->r, color->g, color->b);
+    if (color->a) {
+        cairo_set_source_rgba(cr, color->r, color->g, color->b, color->a);
+    }
+
+    FINITE_LOG("Text: %s (%d)", text, strlen(text));
+
+    memset(str, 0, 256);
+    memset(word, 0, 256);
+
+    int len = strlen(text);
+    for (int i = 0; i < len; i++) {
+        word[letter] = text[i];
+        letter++;
+
+        if (text[i] == ' ') {
+            // word[i + 1] = '\0';
+            char buffer[256];
+            memset(buffer, 0, 256);
+            strncpy(buffer, str, strlen(str));
+            strncat(buffer, word, strlen(word));
+
+            buffer[strlen(buffer)] = '\0';
+            cairo_text_extents(cr, buffer, &ext);
+            // if (ext.width == 0) {
+            //     FINITE_LOG_FATAL("Unable to get extents for str %s(%ld)", buffer, strlen(buffer));
+            //     for (int j = 0; j < strlen(buffer); j++) {
+            //         FINITE_LOG_FATAL("0x%02x ", buffer[j]);
+            //     }
+            // }
+
+            if (ext.width > boxW) {
+                FINITE_LOG("Line: %s", str);
+                if (lines == 0) {
+                    cairo_show_text(cr, str);
+                } else {
+                    cairo_move_to(cr, x, (y + ((ext.height * 1.1) * lines)));
+                    cairo_show_text(cr, str);
+                }
+
+                memset(str, 0, 256);
+                strncpy(str, word, strlen(word) + 1);
+                memset(word, 0, 256);
+                letter = 0;
+                lines++;
+            } else {
+                if (words == 0) {
+                    strncpy(str, word, strlen(word) + 1);
+                } else {
+                    strncat(str, word, strlen(word) + 1);
+                }
+                words++;
+                memset(word, 0, 256);
+                letter = 0;
+            }
+        }
+    }
+
+    // cleanup remainder
+
+    if (words == 0) {
+        strncpy(str, word, strlen(word) + 1);
+    } else {
+        strncat(str, word, strlen(word) + 1);
+    }
+    FINITE_LOG("Text: %s (%d)", str, strlen(str));
+
+    if (lines == 0) {
+        cairo_show_text(cr, str);
+    } else {
+        cairo_move_to(cr, x, (y + ((ext.height * 1.1) * lines) ));
+        cairo_show_text(cr, str);
+    }
+}
+
 
 /*
     # finite_draw_set_draw_position
@@ -441,7 +552,7 @@ void finite_draw_load_snapshot_debug(const char *file, const char *func, int lin
     cairo_surface_mark_dirty(shell->cairo_surface);
 }
 
-void finite_draw_png_debug(const char *file, const char *func, int line, FiniteShell *shell, const char *path, double x, double y, double width, double height,  FiniteColorGroup *fillOnFail) {
+void finite_draw_png_debug(const char *file, const char *func, int line, FiniteShell *shell, const char *path, double x, double y, double width, double height, cairo_surface_t **cache,  FiniteColorGroup *fillOnFail) {
     if (!shell) {
         finite_log_internal(LOG_LEVEL_ERROR, file, line, func, "Unable to draw png on NULL shell");
         return;
@@ -469,7 +580,60 @@ void finite_draw_png_debug(const char *file, const char *func, int line, FiniteS
 
         cairo_set_source_surface(cr, image, 0, 0);
         cairo_paint(cr);
+        // store cairo state to the provided buffer
+        if (cache && *cache == NULL) {
+            *cache = cairo_surface_reference(image);
+        }
+        
         cairo_surface_destroy(image);
+
+        cairo_restore(cr);
+        
+    } else {
+        finite_log_internal(LOG_LEVEL_WARN, file, line, func, "Image not created");
+
+        if (!fillOnFail) {
+            finite_log_internal(LOG_LEVEL_DEBUG, file, line, func, "Not filling box on failure");
+        } else {
+            cairo_set_source_rgba(cr, fillOnFail->r, fillOnFail->g, fillOnFail->b, fillOnFail->a);
+            cairo_fill(cr);
+        }
+    }
+}
+
+void finite_draw_cached_png_debug(const char *file, const char *func, int line, FiniteShell *shell, cairo_surface_t *cache, double x, double y, double width, double height,  FiniteColorGroup *fillOnFail) {
+    if (!shell) {
+        finite_log_internal(LOG_LEVEL_ERROR, file, line, func, "Unable to draw cached png on NULL shell");
+        return;
+    }
+
+    if (!cache) {
+        finite_log_internal(LOG_LEVEL_ERROR, file, line, func, "Unable to draw cached png with cache data");
+        return;
+    }
+
+    if (!shell->cr) {
+        shell->cr = cairo_create(shell->cairo_surface);
+    }
+
+    cairo_t *cr = shell->cr;
+
+    cairo_surface_t *image = cache;
+
+    if (cairo_surface_status(image) == CAIRO_STATUS_SUCCESS) {
+
+        int w = cairo_image_surface_get_width(image), h = cairo_image_surface_get_height(image);
+        cairo_rectangle(cr, x, y, width, height);
+        cairo_save(cr);
+        cairo_clip(cr);
+        cairo_new_path(cr);
+        cairo_translate(cr, x, y);
+
+        cairo_scale(cr, width/w, height/h);
+        finite_log_internal(LOG_LEVEL_DEBUG, file, line, func, "Width: %f, height: %f Ratio: (%f : %f)", width, height, width/w, height/h);
+
+        cairo_set_source_surface(cr, image, 0, 0);
+        cairo_paint(cr);
 
         cairo_restore(cr);
         
@@ -515,6 +679,48 @@ FiniteColorGroup finite_draw_hex_to_color_group_debug(const char *file, const ch
     color.r = ((r1 * 16) + (r2))/255.0;
     color.g = ((g1 * 16) + (g2))/255.0;
     color.b = ((b1 * 16) + (b2))/255.0;
+
+    return color;
+}
+
+FiniteColorGroup finite_draw_hex_to_color_group_alpha_debug(const char *file, const char *func, int line, char hex[9]) {
+    FiniteColorGroup color = {0};
+    // this function does not adjust alpha so it's set to 1.
+    
+    int r1 = find_index_of(hex[1], hexLookupTable, 16);
+    int r2 = find_index_of(hex[2], hexLookupTable, 16);
+
+    if (r1 < 0 || r2 < 0) {
+        finite_log_internal(LOG_LEVEL_ERROR, file, line, func, "Invalid hex data");
+        return color;
+    }
+
+    int g1 = find_index_of(hex[3], hexLookupTable, 16);
+    int g2 = find_index_of(hex[4], hexLookupTable, 16);
+    if (g1 < 0 || g2 < 0) {
+        finite_log_internal(LOG_LEVEL_ERROR, file, line, func, "Invalid hex data"); 
+        return color;
+    }
+
+    int b1 = find_index_of(hex[5], hexLookupTable, 16);
+    int b2 = find_index_of(hex[6], hexLookupTable, 16);
+    if (b1 < 0 || b2 < 0) {
+        finite_log_internal(LOG_LEVEL_ERROR, file, line, func, "Invalid hex data");
+        return color;
+    }
+
+    int a1 = find_index_of(hex[7], hexLookupTable, 16);
+    int a2 = find_index_of(hex[8], hexLookupTable, 16);
+    if (a1 < 0 || a2 < 0) {
+        finite_log_internal(LOG_LEVEL_ERROR, file, line, func, "Invalid hex data");
+        return color;
+    }
+
+
+    color.r = ((r1 * 16) + (r2))/255.0;
+    color.g = ((g1 * 16) + (g2))/255.0;
+    color.b = ((b1 * 16) + (b2))/255.0;
+    color.a = ((a1 * 16) + (a2))/255.0;
 
     return color;
 }
@@ -605,7 +811,10 @@ void finite_draw_cleanup_debug(const char *file, const char *func, int line, Fin
     if (shell->display) {
         wl_display_disconnect(shell->display);
         finite_log_internal(LOG_LEVEL_DEBUG, file, line, func, "display disconnected closed.");
+    }
 
+    if (shell->client_fd > 0) {
+        close(shell->client_fd);
     }
     
     free(shell->details);

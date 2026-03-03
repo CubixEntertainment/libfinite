@@ -34,6 +34,9 @@ void finite_draw_set_font_debug(const char *file, const char *func, int line, Fi
 #define finite_draw_set_text(shell, text, color) finite_draw_set_text_debug(__FILE__, __func__, __LINE__, shell, text, color)
 void finite_draw_set_text_debug(const char *file, const char *func, int line, FiniteShell *shell, char *text, FiniteColorGroup *color);
 
+#define finite_draw_set_wrapped_text(shell, text, boxW, boxH, color) finite_draw_set_wrapped_text_debug(__FILE__, __func__, __LINE__, shell, text, boxW, boxH, color)
+void finite_draw_set_wrapped_text_debug(const char *file, const char *func, int line, FiniteShell *shell, char *text, double boxW, double boxH, FiniteColorGroup *color);
+
 #define finite_draw_set_draw_position(shell, x, y) finite_draw_set_draw_position_debug(__FILE__, __func__, __LINE__, shell, x, y)
 void finite_draw_set_draw_position_debug(const char *file, const char *func, int line, FiniteShell *shell, double x, double y);
 
@@ -70,8 +73,12 @@ void finite_draw_set_offset_debug(const char *file, const char *func, int line, 
 #define finite_draw_reset_offset(shell, x, y) finite_draw_reset_offset(__FILE__, __func__, __LINE__, shell, x, y)
 void finite_draw_reset_offset_debug(const char *file, const char *func, int line, FiniteShell *shell, double x, double y);
 
-#define finite_draw_png(shell, path, x, y, width, height, fillOnFail) finite_draw_png_debug(__FILE__, __func__, __LINE__, shell, path, x, y, width, height, fillOnFail)
-void finite_draw_png_debug(const char *file, const char *func, int line, FiniteShell *shell, const char *path, double x, double y, double width, double height,  FiniteColorGroup *fillOnFail);
+#define finite_draw_png(shell, path, x, y, width, height, cache, fillOnFail) finite_draw_png_debug(__FILE__, __func__, __LINE__, shell, path, x, y, width, height, cache, fillOnFail)
+void finite_draw_png_debug(const char *file, const char *func, int line, FiniteShell *shell, const char *path, double x, double y, double width, double height, cairo_surface_t **cache,  FiniteColorGroup *fillOnFail);
+
+#define finite_draw_cached_png(shell, cache, x, y, width, height, fillOnFail) finite_draw_cached_png_debug(__FILE__, __func__, __LINE__, shell, cache, x, y, width, height, fillOnFail)
+void finite_draw_cached_png_debug(const char *file, const char *func, int line, FiniteShell *shell, cairo_surface_t *cache, double x, double y, double width, double height,  FiniteColorGroup *fillOnFail);
+
 #define finite_draw_cleanup(shell) finite_draw_cleanup_debug(__FILE__, __func__, __LINE__, shell)
 void finite_draw_cleanup_debug(const char *file, const char *func, int line, FiniteShell *shell);
 
@@ -83,5 +90,8 @@ void finite_draw_load_snapshot_debug(const char *file, const char *func, int lin
 
 #define finite_draw_hex_to_color_group(hex) finite_draw_hex_to_color_group_debug(__FILE__, __func__, __LINE__, hex)
 FiniteColorGroup finite_draw_hex_to_color_group_debug(const char *file, const char *func, int line, char hex[7]);
+
+#define finite_draw_hex_to_color_group_alpha(hex) finite_draw_hex_to_color_group_alpha_debug(__FILE__, __func__, __LINE__, hex)
+FiniteColorGroup finite_draw_hex_to_color_group_alpha_debug(const char *file, const char *func, int line, char hex[9]);
 
 #endif
