@@ -102,7 +102,7 @@ FinitePlaybackDevice *dev;
 
 void *playMusic(void *data) {
     // audio demo for funny
-    char *jingle = "/home/ship/Documents/jingle3.wav";
+    char *jingle = "/console/sound/jingle3.wav";
     dev = finite_audio_device_init();
 
     finite_audio_get_audio_params(jingle, dev);
@@ -129,7 +129,7 @@ void *playMusic(void *data) {
     // reset dev params
     snd_pcm_hw_free(dev->device);
     dev = finite_audio_device_init();
-    char *audio = "/home/ship/Downloads/Announcement - rangerbts.mp3";
+    char *audio = "/console/sound/cube.mp3";
 
     finite_audio_get_audio_params(audio, dev);
     // print out the audio duration
