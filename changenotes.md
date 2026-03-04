@@ -2,6 +2,9 @@
 
 ## Version 0.8.0
 
+## FiniteRender
+- Removed validation layer requirements from `finite_render_init`
+
 ## FiniteDraw
 
 - `finite_button_create` will now always return the focus event for the first button

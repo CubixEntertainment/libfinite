@@ -25,7 +25,7 @@ FiniteRender *finite_render_init_debug(const char *file, const char *func, int l
         VK_EXT_DEBUG_UTILS_EXTENSION_NAME,
         VK_KHR_WAYLAND_SURFACE_EXTENSION_NAME
     };
-    char* required_layers[] = {"VK_LAYER_KHRONOS_validation"};
+    // char* required_layers[] = {"VK_LAYER_KHRONOS_validation"};
 
 
     if (extensions != NULL) {
@@ -47,9 +47,9 @@ FiniteRender *finite_render_init_debug(const char *file, const char *func, int l
         render->required_layers = layers;
     } else {
         create_info.enabledLayerCount = 1;
-        create_info.ppEnabledLayerNames =(const char **) required_layers;
-        render->_layers = 1;
-        render->required_layers = required_layers;
+        // create_info.ppEnabledLayerNames =(const char **) required_layers;
+        render->_layers = 0;
+        // render->required_layers = required_layers;
     }
 
 
