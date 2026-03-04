@@ -46,10 +46,8 @@ FiniteRender *finite_render_init_debug(const char *file, const char *func, int l
         render->_layers = _layers;
         render->required_layers = layers;
     } else {
-        create_info.enabledLayerCount = 1;
-        // create_info.ppEnabledLayerNames =(const char **) required_layers;
+        create_info.enabledLayerCount = 0;
         render->_layers = 0;
-        // render->required_layers = required_layers;
     }
 
 
