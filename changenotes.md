@@ -1,5 +1,16 @@
 # Changes
 
+## Version 0.8.0
+
+## FiniteDraw
+
+- `finite_button_create` will now always return the focus event for the first button
+- Added `finite_draw_cached_png` to improve performance for drawing images. `finite_draw_png` also can now return a cached surface through it's cache param.
+- Added `finite_draw_set_wrapped_text`
+- Added `finite_draw_hex_to_color_group_alpha` to allow alpha images.
+- Fixed an issue where `finite_draw_rouned_rect` didn't fill gradients.
+- Fixed an issue in `finite_draw_linear_gradient` that threw out alpha values when they were full transparent.
+
 ## Version 0.7.2
 
 ## FiniteInput
