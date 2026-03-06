@@ -1,14 +1,11 @@
 #ifndef __IKEYBOARD_H__
 #define __IKEYBOARD_H__
-
 #include <xkbcommon/xkbcommon.h>
 #include <strings.h>
 #include <linux/input-event-codes.h>
 #include "input-core.h"
-
 // FiniteShell should be defined by window.h
 typedef struct FiniteShell FiniteShell;
-
 // this is what AI should be used for
 typedef enum {
     // Letters
@@ -38,7 +35,6 @@ typedef enum {
     FINITE_KEY_X,
     FINITE_KEY_Y,
     FINITE_KEY_Z,
-
     // Numbers
     FINITE_KEY_0,
     FINITE_KEY_1,
@@ -50,7 +46,6 @@ typedef enum {
     FINITE_KEY_7,
     FINITE_KEY_8,
     FINITE_KEY_9,
-
     // Modifiers
     FINITE_KEY_LEFT_SHIFT,
     FINITE_KEY_RIGHT_SHIFT,
@@ -60,7 +55,6 @@ typedef enum {
     FINITE_KEY_RIGHT_ALT,
     FINITE_KEY_LEFT_META,
     FINITE_KEY_RIGHT_META,
-
     // Function Keys
     FINITE_KEY_F1,
     FINITE_KEY_F2,
@@ -74,13 +68,11 @@ typedef enum {
     FINITE_KEY_F10,
     FINITE_KEY_F11,
     FINITE_KEY_F12,
-
     // Arrows
     FINITE_KEY_UP,
     FINITE_KEY_DOWN,
     FINITE_KEY_LEFT,
     FINITE_KEY_RIGHT,
-
     // Other Keys
     FINITE_KEY_SPACE,
     FINITE_KEY_ENTER,
@@ -88,7 +80,6 @@ typedef enum {
     FINITE_KEY_TAB,
     FINITE_KEY_BACKSPACE,
     FINITE_KEY_CAPS_LOCK,
-
     // Symbols and Punctuation
     FINITE_KEY_MINUS,
     FINITE_KEY_EQUALS,
@@ -102,7 +93,6 @@ typedef enum {
     FINITE_KEY_PERIOD,
     FINITE_KEY_SLASH,
     FINITE_KEY_QOUTE,
-
     // Meta
     FINITE_KEY_PRINT_SCREEN,
     FINITE_KEY_SCROLL_LOCK,
@@ -113,7 +103,6 @@ typedef enum {
     FINITE_KEY_END,
     FINITE_KEY_PAGE_UP,
     FINITE_KEY_PAGE_DOWN,
-
     // NumPad
     FINITE_KEY_NUM_LOCK,
     FINITE_KEY_KP_DIVIDE,
@@ -132,55 +121,39 @@ typedef enum {
     FINITE_KEY_KP_8,
     FINITE_KEY_KP_9,
     FINITE_KEY_KP_PERIOD,
-
     // Sentinel
     FINITE_KEY_INVALID,
     FINITE_KEY_COUNT
 } FiniteKey;
-
-
 typedef struct {
     const char *name;
     FiniteKey key;
     uint16_t evdev_code;
 } FiniteKeyMapping;
-
 #define finite_input_keyboard_init(device) finite_input_keyboard_init_debug(__FILE__, __func__, __LINE__, device)
 FiniteKeyboard *finite_input_keyboard_init_debug(const char *file, const char *func, int line, struct wl_display *device);
-
-#define finite_input_keyboard_rescan(keyboard) finite_input_keyboard_rescan_debug(file, func, line, keyboard)
+#define finite_input_keyboard_rescan(keyboard) finite_input_keyboard_rescan_debug(__FILE__, __func__, __LINE__, keyboard)
 FiniteKeyboard *finite_input_keyboard_rescan_debug(const char *file, const char *func, int line, FiniteKeyboard *keyboard);
-
 #define finite_key_down(key, board) finite_key_down_debug(__FILE__, __func__, __LINE__, key, board)
 bool finite_key_down_debug(const char *file, const char *func, int line, FiniteKey key, FiniteKeyboard *board);
-
 #define finite_key_up(key, board) finite_key_up_debug(__FILE__, __func__, __LINE__, key, board)
 bool finite_key_up_debug(const char *file, const char *func, int line, FiniteKey key, FiniteKeyboard *board);
-
 #define finite_key_valid(key) finite_key_valid_debug(__FILE__, __func__, __LINE__, key)
 bool finite_key_valid_debug(const char *file, const char *func, int line, FiniteKey key);
-
 #define finite_key_pressed(key, board) finite_key_pressed_debug(__FILE__, __func__, __LINE__, key, board)
 bool finite_key_pressed_debug(const char *file, const char *func, int line, FiniteKey key, FiniteKeyboard *board);
-
 // conversion
 #define finite_key_string_from_key(key) finite_key_string_from_key_debug(__FILE__, __func__, __LINE__, key)
 const char *finite_key_string_from_key_debug(const char *file, const char *func, int line, FiniteKey key);
-
 #define finite_key_from_string(name) finite_key_from_string_debug(__FILE__, __func__, __LINE__, name)
 FiniteKey finite_key_from_string_debug(const char *file, const char *func, int line, const char *name);
-
 // lifecycle
 #define finite_keyboard_destroy(board) finite_keyboard_destroy_debug(__FILE__, __func__, __LINE__, board)
 void finite_keyboard_destroy_debug(const char *file, const char *func, int line, FiniteKeyboard *board);
-
 #define finite_input_poll_keys(board, shell) finite_input_poll_keys_debug(__FILE__, __func__, __LINE__, board, shell)
 void finite_input_poll_keys_debug(const char *file, const char *func, int line, FiniteKeyboard *board, FiniteShell *shell);
-
 #define finite_key_is_number(key) finite_key_is_number_debug(__FILE__, __func__, __LINE__, key)
 bool finite_key_is_number_debug(const char *file, const char *func, int line, FiniteKey key);
-
 #define finite_key_is_alpha(key) finite_key_is_alpha_debug(__FILE__, __func__, __LINE__, key)
 bool finite_key_is_alpha_debug(const char *file, const char *func, int line, FiniteKey key);
-
 #endif
