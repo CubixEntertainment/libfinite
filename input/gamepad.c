@@ -500,7 +500,7 @@ static void *finite_draw_controller_popup(void *data) {
 
         FINITE_LOG("Width: %f (%d)", w, width);
         cairo_surface_destroy(image);
-        finite_draw_png(popupShell, "/console/icons/controllerv2.png", ((w / 2) - ((double) iw / 2)), ((h / 2) - (double)ih / 2), ( (double)width * 0.2119), ((double)height * 0.265), true);
+        finite_draw_png(popupShell, "/console/icons/controllerv2.png", ((w / 2) - ((double) iw / 2)), ((h / 2) - (double)ih / 2), ( (double)width * 0.2119), ((double)height * 0.265), NULL, &white);
 
         // draw status bar
         int devs = popupShell->_gamepads;
