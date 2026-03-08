@@ -70,7 +70,7 @@ void draw_controller() {
                 lines++;
             }
 
-            finite_draw_png(myShell, fullPath, x, y, image_width, image_height, true);
+            finite_draw_png(myShell, fullPath, x, y, image_width, image_height, NULL, &white);
         }
 
         // handle dpad here
@@ -97,7 +97,7 @@ void draw_controller() {
         x = ((width * 0.2) - (image_width / 2));
         y = (((height * 0.25) + ((image_height * 1.25) * lines)) - (image_height/ 2));
         
-        finite_draw_png(myShell, fullPath, x, y, image_width, image_height, true);
+        finite_draw_png(myShell, fullPath, x, y, image_width, image_height, NULL, &white);
         lines++;
 
         // handle joystick here
@@ -122,7 +122,7 @@ void draw_controller() {
         x = ((width * 0.2) - (image_width / 2));
         y = (((height * 0.25) + ((image_height * 1.25) * lines)) - (image_height/ 2));
         
-        finite_draw_png(myShell, fullPath, x, y, image_width, image_height, true);
+        finite_draw_png(myShell, fullPath, x, y, image_width, image_height, NULL, &white);
 
         // LStick vertical
 
@@ -140,7 +140,7 @@ void draw_controller() {
         }
 
         x = ((width * 0.2) + image_width - (image_width / 2));
-        finite_draw_png(myShell, fullPath, x, y, image_width, image_height, true);
+        finite_draw_png(myShell, fullPath, x, y, image_width, image_height, NULL, &white);
         lines++;
 
 
@@ -164,7 +164,7 @@ void draw_controller() {
         x = ((width * 0.2) - (image_width / 2));
         y = (((height * 0.25) + ((image_height * 1.25) * lines)) - (image_height/ 2));
         
-        finite_draw_png(myShell, fullPath, x, y, image_width, image_height, true);
+        finite_draw_png(myShell, fullPath, x, y, image_width, image_height, NULL, &white);
 
         // RStick vertical
 
@@ -181,7 +181,7 @@ void draw_controller() {
         }
 
         x = ((width * 0.2) + image_width - (image_width / 2));
-        finite_draw_png(myShell, fullPath, x, y, image_width, image_height, true);
+        finite_draw_png(myShell, fullPath, x, y, image_width, image_height, NULL, &white);
 
         bool success = finite_draw_finish(myShell, width, height, myShell->stride, true);
         if (!success) {
@@ -196,7 +196,7 @@ void draw_controller() {
         FINITE_LOG_INFO("Path: %s", "/console/icons/input/no_controller.png");
         double image_width = (width * 0.067), image_height = (height * 0.118);
         int x = ((width * 0.5) - (image_width / 2)), y = ((height * 0.5) - (image_height / 2));
-        finite_draw_png(myShell, "/console/icons/input/no_controller.png", x, y, image_width, image_height, true);
+        finite_draw_png(myShell, "/console/icons/input/no_controller.png", x, y, image_width, image_height, NULL, &white);
 
 
         bool success = finite_draw_finish(myShell, width, height, myShell->stride, true);
