@@ -145,6 +145,7 @@ struct FiniteShell{
     FiniteGamepad **gamepads;
     int _gamepads;
     int primaryGamepadId;
+    int client_fd;
     pthread_mutex_t mutex;
     bool canInput;
     bool canHomeMenu;
