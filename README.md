@@ -11,7 +11,7 @@ The Infinite C Library
 - [x] Window Rendering Example
 - [x] Keyboard Input
 - [x] Textbox Input 
-- [x] Controller Input
+- [ ] Controller Input (being reworked)
 - [x] Vulkan Rendering
 - [x] Vulkan Examples
 - [x] Vulkan Rendering (with basic 3D rendering)
