@@ -3,6 +3,7 @@
     Written by Gabriel Thompson <gabriel.thomp@cubixdev.org>
 */
 
+#include "input/gamepad.h"
 #include <finite/draw.h>
 #include <finite/input.h>
 #include <finite/render.h>
@@ -24,6 +25,11 @@ struct Vertex {
     vec2 textureCoord;
 };
 
+FiniteShell *myShell = NULL;
+FiniteRender *render = NULL;
+FiniteRenderImage *image = NULL;
+
+bool exitOut = false;
 
 /*
     Vulkan expects the data in your structure to be aligned in memory in a specific way, for example:
@@ -96,7 +102,7 @@ const uint16_t indexData[] = {
 int _verts = 24;
 int _indexes = 36;
 
-bool canSpin = false;
+bool canSpin = true;
 
 FinitePlaybackDevice *dev;
 
@@ -196,24 +202,17 @@ void updateUniformBuffer(FiniteRender *render, uint32_t current) {
     memcpy(render->uniformData[render->_currentFrame], &ubo, sizeof(UniformBufferObject));    
 }
 
-int main() {
+int initialize() {
     finite_log_init(stdout, LOG_LEVEL_DEBUG, true);
     FINITE_LOG("Starting...");
 
     // Create a window to draw the triangle
-    FiniteShell *myShell = finite_shell_init("wayland-0");
+    myShell = finite_shell_init("wayland-0");
     finite_window_init(myShell);
-
-    // ! In order for your game to be Infinite compliant you can not resize the window. Here I resize it to make execution easier
-    FiniteWindowInfo *det = myShell->details;
-    int32_t true_width = det->width;
-    int32_t true_height = det->height;
-
-    finite_window_size_set(myShell, ((true_width * 20) / 100), ((true_height *25) / 100), ((true_width * 60) / 100), ((true_height *50) / 100));
 
     // initialize the renderer
     // ? Passing NULL does NOT set zero extensions. It just tells libfinite to use the default ones
-    FiniteRender *render = finite_render_init(myShell, NULL, NULL, 0, 0);
+    render = finite_render_init(myShell, NULL, NULL, 0, 0);
     render->withDepth = true; // enable the depth related features
 
     finite_render_create_physical_device(render);
@@ -317,7 +316,7 @@ int main() {
 
     // load shaders
     uint32_t vertSize;
-    char *vertCode = finite_render_get_shader_code("vert.spv", &vertSize);
+    char *vertCode = finite_render_get_shader_code("/console/storage/cube-demo/vert.spv", &vertSize);
     bool success = finite_render_get_shader_module(render, vertCode, vertSize);
 
     if (!success) {
@@ -326,7 +325,7 @@ int main() {
     }
 
     uint32_t fragSize;
-    char *fragCode = finite_render_get_shader_code("frag.spv", &fragSize);
+    char *fragCode = finite_render_get_shader_code("/console/storage/cube-demo/frag.spv", &fragSize);
     success = finite_render_get_shader_module(render, fragCode, fragSize);
 
     if (!success) {
@@ -606,7 +605,7 @@ int main() {
 
     FiniteRenderTextureInfo texture_info;
     // populate texture_info
-    finite_render_create_texture("texture.png", &texture_info, true);
+    finite_render_create_texture("/console/storage/cube-demo/texture.png", &texture_info, true);
     // create a staging buffer
     FiniteRenderReturnBuffer repoint;
 
@@ -653,7 +652,7 @@ int main() {
 
     texture_mem_alloc_info.flags = VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT;
 
-    FiniteRenderImage *image = finite_render_create_image(render, &image_info, &texture_mem_alloc_info);
+    image = finite_render_create_image(render, &image_info, &texture_mem_alloc_info);
 
     FiniteRenderImageBarrierInfo wall_info = {
         .old = VK_IMAGE_LAYOUT_UNDEFINED,
@@ -848,14 +847,39 @@ int main() {
         finite_render_create_fence(render, VK_FENCE_CREATE_SIGNALED_BIT);
     }
 
+    return 0;
+}
+
+void *inputWatcher(void *data) {
+    bool canSpy = true;
+
+    while(canSpy) {
+        if (finite_gamepad_key_pressed(0, myShell, FINITE_BTN_HOME)) {
+            FINITE_LOG("Exit requested");
+            exitOut = true;
+            break;
+        }
+    }
+
+    return data;
+}
+
+int main() {
+    initialize();
+    
     // * use pending state!!!
 
     int state = wl_display_dispatch_pending(myShell->display);
     FINITE_LOG("Success! Dispatch state: %d", state);
 
+    finite_gamepad_init(myShell);
+
     // multithread here
-    pthread_t id;
-    pthread_create(&id, NULL, playMusic, &dev);
+    // pthread_t id;
+    // pthread_create(&id, NULL, playMusic, &dev);
+
+    pthread_t input_spy;
+    pthread_create(&input_spy, NULL, inputWatcher, NULL); // polling controller events doesn't trigger dispatch sadly
 
     // keyboard demo for additional funny
     // FiniteKeyboard *kbd = finite_input_keyboard_init(myShell->display);
@@ -867,11 +891,11 @@ int main() {
     // }
 
     // create wayland frame loop
-    while (wl_display_dispatch_pending(myShell->display) != -1) {
+    while (wl_display_dispatch_pending(myShell->display) != -1 && exitOut == false) {
         // poll for input
         // finite_input_poll_keys(kbd, myShell);
 
-        // // handle input
+        // handle input
         // if (finite_key_pressed(xKey, kbd)) {
         //     printf("Attempting to pause\n");
         //     finite_audio_pause(dev);
