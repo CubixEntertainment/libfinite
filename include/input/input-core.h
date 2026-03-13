@@ -1,6 +1,7 @@
 #ifndef __INPUT_CORE_H__
 #define __INPUT_CORE_H__
 
+#include <linux/limits.h>
 #include <stdbool.h>
 #include <stdio.h>
 #include "gamepad.h"
@@ -38,29 +39,6 @@ typedef struct {
 
     FiniteKeyState keys[256];
 } FiniteKeyboard;
-
-typedef struct {
-    uint16_t id;
-    bool isHeld;
-    bool isDown;
-    bool isUp;
-} FiniteGamepadKeyState;
-
-struct FiniteGamepad {
-    int fd;
-    int order; // the number the controller
-    char *path; // the device node of the controller
-
-    bool canInput; // whether input is disabled on this device
-
-    FiniteShell *shell;
-    FiniteJoystick *lAxis;
-    FiniteJoystick *rAxis;
-    FiniteDpad *dpad;
-    FiniteTrigger *lt;
-    FiniteTrigger *rt;
-    FiniteGamepadKeyState btns[1024];
-};
 
 void islands_key_registry_handle(void *data, struct wl_registry* registry, uint32_t id, const char* interface, uint32_t version);
 void islands_key_registry_handle_remove(void *data, struct wl_registry* registry, uint32_t id);

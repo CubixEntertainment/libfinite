@@ -1,5 +1,7 @@
 #ifndef __GAMEPAD_H__
 #define __GAMEPAD_H__
+#include <linux/limits.h>
+#define MAX_GAMEPADS 4
 
 #include <stdbool.h>
 #include <stdint.h>
@@ -48,7 +50,7 @@ typedef enum {
 } FiniteJoystickType;
 
 typedef struct {
-    char *name;
+    char name[16];
     uint16_t xAxis;
     double xValue; // value between -1 and 1
     int xMin;
@@ -80,6 +82,40 @@ typedef struct {
     FiniteGamepadKey key;
     uint16_t evdev_code;
 } FiniteGamepadKeyMapping;
+typedef struct {
+    uint16_t id;
+    bool isHeld;
+    bool isDown;
+    bool isUp;
+} FiniteGamepadKeyState;
+
+struct FiniteGamepad {
+    int fd;
+    int order; // the number the controller
+    char path[PATH_MAX]; // the device node of the controller
+
+    bool canInput; // whether input is disabled on this device
+
+    FiniteJoystick lAxis;
+    FiniteJoystick rAxis;
+    FiniteDpad dpad;
+    FiniteTrigger lt;
+    FiniteTrigger rt;
+    FiniteGamepadKeyState btns[1024];
+};
+
+enum FiniteIPCResponseMsg {
+    SERVER_OK, // success
+    SERVER_ALREADY_GRANTED_FOCUS,
+    SERVER_REQUEST_DECLINED_FOCUS,
+    SERVER_REQUEST_DECLINED_POLL,
+};
+
+typedef struct __attribute__((packed)) {
+    int _gamepad;
+    FiniteGamepad gamepads[MAX_GAMEPADS];
+    uint16_t msg;
+} FiniteIPCResponse;
 
 extern const FiniteGamepadKeyMapping finite_gamepad_key_lookup[];
 
