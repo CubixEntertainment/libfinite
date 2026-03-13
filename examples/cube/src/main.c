@@ -144,7 +144,7 @@ void *playMusic(void *data) {
     // use params to init audio
     finite_audio_init_audio(dev, audio, false);
     FINITE_LOG("Preparing for playback2");
-    canSpin = true;
+    // canSpin = true;
     finite_audio_play(dev);
 
     // clean up when finished
@@ -209,6 +209,13 @@ int initialize() {
     // Create a window to draw the triangle
     myShell = finite_shell_init("wayland-0");
     finite_window_init(myShell);
+
+    // ! In order for your game to be Infinite compliant you can not resize the window. Here I resize it to make execution easier
+    // FiniteWindowInfo *det = myShell->details;
+    // int32_t true_width = det->width;
+    // int32_t true_height = det->height;
+
+    // finite_window_size_set(myShell, ((true_width * 20) / 100), ((true_height *25) / 100), ((true_width * 60) / 100), ((true_height *50) / 100));
 
     // initialize the renderer
     // ? Passing NULL does NOT set zero extensions. It just tells libfinite to use the default ones
