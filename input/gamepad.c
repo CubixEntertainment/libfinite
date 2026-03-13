@@ -19,6 +19,8 @@
 #include <stdlib.h>
 #include <string.h>
 #include <sys/ioctl.h>
+#include <sys/socket.h>
+#include <sys/un.h>
 #include <sys/types.h>
 #include <time.h>
 #include <unistd.h>
@@ -69,395 +71,60 @@ const FiniteGamepadKeyMapping finite_gamepad_key_lookup[] = {
     {"ButtonHome", FINITE_BTN_HOME, BTN_MODE},
 };
 
-typedef struct {
-    char path[PATH_MAX];
-    char *name; // eventXX\n
-} FiniteDevice;
-
-typedef struct {
-    int _devices;
-    FiniteDevice **devices;
-} FiniteDevices;
-
-static void *finite_gamepad_poll_buttons_async(void *data);
-static void *finite_hotplug_devices_async(void *data);
-static void *finite_draw_controller_popup(void *data);
-
-static void finite_free_devices(FiniteDevices *dev) {
-    for (int i = 0; i < dev->_devices; i++) {
-        free(dev->devices[i]->name);
-        free(dev->devices[i]);
+static char *response_tostring(uint16_t msg) {
+    switch(msg) {
+        case SERVER_OK:
+            return "Success";
+        case SERVER_ALREADY_GRANTED_FOCUS:
+            return "Focus already granted";
+        case SERVER_REQUEST_DECLINED_FOCUS:
+            return "Focus request declined";
+        case SERVER_REQUEST_DECLINED_POLL:
+            return "Poll request declined";
+        default:
+            return "Code unknown";
     }
-    free(dev->devices);
-    free(dev);
 }
 
-static void finite_free_gamepad(FiniteGamepad *gamepad) {
-    free(gamepad->lAxis);
-    free(gamepad->rAxis);
-    free(gamepad->dpad);
-    free(gamepad->lt);
-    free(gamepad->rt);
-    close(gamepad->fd);
-    free(gamepad);
-}
-
-static FiniteDevices *finite_enumerate_devices(const char *file, const char *func, int line) {
-    DIR *dir = opendir("/dev/input");
-    if (!dir) {
-        finite_log_internal(LOG_LEVEL_FATAL, file, line, func,"Unable to open device folder");
-        return NULL;
-    }
-    struct dirent *ent;
-
-    FiniteDevice **devnodes = NULL; // array of all connected devices
-    int _devices = 0;
-
-    while ((ent = readdir(dir)) != NULL) {
-        if (strncmp(ent->d_name, "event", 5) != 0) {
-            continue;
-        }
-
-        char path[PATH_MAX];
-        snprintf(path, sizeof(path), "/dev/input/%s", ent->d_name);
-
-        int device = open(path, O_RDONLY);
-        if (device < 0) {
-            finite_log_internal(LOG_LEVEL_ERROR, file, line, func,"Unable to get device");
-            perror("open");
-            continue;
-        }
-
-        unsigned long evbit[NBITS(KEY_MAX)];
-        memset(evbit, 0, sizeof(evbit));
-
-        ioctl(device, EVIOCGBIT(EV_KEY, KEY_MAX), evbit);
-        
-        // according to the spec only gamepads are allowed to return BTN_GAMEPAD so this is safe
-        if (TEST_BIT(BTN_GAMEPAD, evbit)) {
-            FiniteDevice *cur = calloc(1, sizeof(FiniteDevice));
-            if (!cur) {
-                finite_log_internal(LOG_LEVEL_ERROR, file, line, func,"Unable to allocate memory for new device");
-                continue;
-            }
-            cur->name = strdup(ent->d_name);
-            strcpy(cur->path, path);
-            FINITE_LOG("Device %s is usable.", ent->d_name);
-
-            FiniteDevice **tmp = realloc(devnodes, (sizeof(FiniteDevice *)) * (_devices + 1));
-            FINITE_LOG("FiniteDevice for %s was made.", ent->d_name);
-            if (!tmp) {
-                finite_log_internal(LOG_LEVEL_ERROR, file, line, func,"Unable to allocate memory for new device array");
-                continue;
-            } else {
-                devnodes = tmp;
-            }
-
-            devnodes[_devices] = cur;
-            _devices += 1;
-        }
-
-        close(device);
-
-
-
+static void send_signal(int fd, char *msg) {
+    struct sockaddr_un addr = {0};
+    addr.sun_family = AF_UNIX;
+    char *path = getenv("FINITE_GIPC_MAIN_DIR");
+    if (!path) {
+        FINITE_LOG_WARN("Unable to open the FINITE_GIPC_MAIN_DIR socket.");
+        close(fd);
+        return;
     }
 
-    closedir(dir);
-
-    if (_devices > 0) {
-        FiniteDevices *devs = calloc(1, sizeof(FiniteDevices));
-        if (!devs) {
-            finite_log_internal(LOG_LEVEL_ERROR, file, line, func,"Unable to allocate memory new device list");
-            return NULL;
-        }
-
-        devs->_devices = _devices;
-        devs->devices = devnodes;
-        return devs;
+    strcpy(addr.sun_path, path);
+    
+    if (connect(fd, (struct sockaddr *) &addr, sizeof(struct sockaddr_un)) == 0) {
+        write(fd, msg, strlen(msg));
     } else {
-        finite_log_internal(LOG_LEVEL_WARN, file, line, func,"No controllers available");
-        return NULL;
+        perror("connect");
     }
 }
+
 
 bool finite_gamepad_init_debug(const char *file, const char *func, int line, FiniteShell *shell) {
-    FiniteDevices *devices = finite_enumerate_devices(file, func, line);
-    if (!devices) {
-        finite_log_internal(LOG_LEVEL_ERROR, file, line, func, "No usable devices available.");
-        shell->_gamepads = 0;
-        shell->gamepads = NULL;
-        shell->gamepadAvailable = false;
-
-        // ensure we can still look for new events
-        pthread_t hotplug;
-        pthread_t poll;
-        pthread_t popup;
-
-
-        pthread_create(&hotplug, NULL, finite_hotplug_devices_async, shell);
-        pthread_create(&poll, NULL, finite_gamepad_poll_buttons_async, shell);
-
-        // ask for the device
-        pthread_create(&popup, NULL, finite_draw_controller_popup, shell);
-        pthread_detach(popup);
-
-        return true; // we're okay with having no gamepads
-    }
-
-    FiniteGamepad **gamepads = NULL;
-    int _gamepads = 0;
-
-    for (int ioi = 0; ioi < devices->_devices; ioi++) {
-        bool exists = false;
-        FiniteDevice *devnode = devices->devices[ioi]; 
-        if (!devnode) {
-            finite_log_internal(LOG_LEVEL_ERROR, file, line, func, "Unable to read allocated memory from device list");
-            continue;
-        }
-        if (_gamepads > 0 && gamepads != NULL) {
-            for (int i = 0; i < _gamepads; i++) {
-                if ( strcmp(gamepads[i]->path, devnode->path) == 0) {
-                    // we already have this device, move on
-                    exists = true;
-                    break;
-                }
-            }
-        }
-
-        if (exists) {
-            continue;
-        }
-
-        gamepads = realloc(gamepads, (sizeof(FiniteGamepad *) * (_gamepads + 1)));
-        if (!gamepads) {
-            finite_log_internal(LOG_LEVEL_ERROR, file, line, func, "Unable to allocate memory for new gamepad array");
-            return false;
-        }
-
-        FiniteGamepad *current = calloc(1, sizeof(FiniteGamepad));
-        if (!current) {
-            finite_log_internal(LOG_LEVEL_ERROR, file, line, func, "Unable to allocate memory for new gamepad");
-            return false;
-        }
-
-        int fd = open(devnode->path, O_RDONLY | O_NONBLOCK);
-        if  (!fd) {
-            perror("open");
-            finite_log_internal(LOG_LEVEL_ERROR, file, line, func,"Found gamepad %s but unable to open it.", devnode->name);
-        } else {
-            finite_log_internal(LOG_LEVEL_DEBUG, file, line, func,"Found gamepad %s.", devnode->name);
-
-        }
-
-        current->fd = fd;
-        current->path = strdup(devnode->path);
-        current->order = shell->_gamepads; // first controller should be 0 (cuz its item 0 in the array)
-        current->canInput = true; // by default all gamepads can send input
-        current->lAxis = calloc(1, sizeof(FiniteJoystick));
-        current->rAxis = calloc(1, sizeof(FiniteJoystick));
-        current->lAxis->xAxis = ABS_X;
-        current->lAxis->yAxis = ABS_Y;
-        current->rAxis->xAxis = ABS_RX;
-        current->rAxis->yAxis = ABS_RY;
-
-        struct input_absinfo labsx;
-        struct input_absinfo labsy;
-        struct input_absinfo rabsx;
-        struct input_absinfo rabsy;
-
-        if (ioctl(fd, EVIOCGABS(current->lAxis->xAxis), &labsx) == 0) { 
-            current->lAxis->xMax = labsx.maximum;
-            current->lAxis->xMin = labsx.minimum;
-            current->lAxis->xFlat = labsx.flat; 
-        }
-        if (ioctl(fd, EVIOCGABS(current->lAxis->yAxis), &labsy) == 0) {
-            current->lAxis->yMax = labsy.maximum;
-            current->lAxis->yMin = labsy.minimum;
-            current->lAxis->yFlat = labsy.flat;
-        }
-        if (ioctl(fd, EVIOCGABS(current->rAxis->xAxis), &rabsx) == 0) {
-            current->rAxis->xMax = rabsx.maximum;
-            current->rAxis->xMin = rabsx.minimum;
-            current->rAxis->xFlat = rabsx.flat;
-        }
-        if (ioctl(fd, EVIOCGABS(current->rAxis->yAxis), &rabsy) == 0) {
-            current->rAxis->yMax = rabsy.maximum;
-            current->rAxis->yMin = rabsy.minimum;
-            current->rAxis->yFlat = rabsy.flat;
-        }
-
-        current->dpad = calloc(1, sizeof(FiniteDpad));
-        current->dpad->xAxis = ABS_HAT0X;
-        current->dpad->yAxis = ABS_HAT0Y;
-
-        current->lt = calloc(1, sizeof(FiniteTrigger));
-        current->lt->axis = ABS_HAT2Y;
-        current->lt->value = 0;
-        current->rt = calloc(1, sizeof(FiniteTrigger));
-        current->rt->axis = ABS_HAT2X;
-        current->rt->value = 0;
-
-        current->shell = shell;
-
-
-        gamepads[_gamepads] = current;
-        shell->gamepads = gamepads;
-        if (shell->_gamepads == 0) {
-            shell->primaryGamepadId = 0;
-        }
-        _gamepads += 1;
-        shell->_gamepads = _gamepads;
-    }
-
-    finite_free_devices(devices);
-
-    // whether or not we have gamepads doesn't matter right now, attach the threads
-    if (_gamepads > 0) {
-        shell->gamepadAvailable = true;
+    int fd = socket(AF_UNIX, SOCK_SEQPACKET, 0);
+    send_signal(fd, "CLIENT_REQUEST_FOCUS");
+    FiniteIPCResponse response;
+    ssize_t n = recv(fd, &response, sizeof(FiniteIPCResponse), 0);
+    if (n == 0) {
+        FINITE_LOG("Buffer is 0. %s", response.msg);
+        close(fd);
+        exit(0);
+    } else if (n < 0) {
+        perror("recv");
     } else {
-        shell->gamepadAvailable = false;
-    } 
-
-    shell->canInput = true;
-
-    pthread_t hotplug;
-    pthread_t poll;
-
-    pthread_create(&hotplug, NULL, finite_hotplug_devices_async, shell);
-    pthread_create(&poll, NULL, finite_gamepad_poll_buttons_async, shell);
-
-    return true;
-}
-
-static bool finite_gamepad_reinit(FiniteShell *shell) {
-    FiniteDevices *devices = finite_enumerate_devices(__FILE__,__func__, __LINE__);
-    if (!devices) {
-        FINITE_LOG_ERROR("No usable devices available.");
-        shell->_gamepads = 0;
-        shell->gamepads = NULL;
-        shell->gamepadAvailable = false;
-        return true; // we're okay with having no gamepads
+        FINITE_LOG("Sizeof buffer: %ld", sizeof(response));
+        FINITE_LOG("Gamepads found: %d(%s)", response._gamepad, response_tostring(response.msg));
+        shell->client_fd = fd;
+        memcpy(shell->gamepads, response.gamepads, sizeof(response.gamepads));
     }
 
-    FiniteGamepad **gamepads = NULL;
-    int _gamepads = 0;
 
-    for (int ioi = 0; ioi < devices->_devices; ioi++) {
-        bool exists = false;
-        FiniteDevice *devnode = devices->devices[ioi]; 
-        if (!devnode) {
-            FINITE_LOG_ERROR("Unable to read allocated memory from device list");
-            continue;
-        }
-        if (_gamepads > 0 && gamepads != NULL) {
-            for (int i = 0; i < _gamepads; i++) {
-                if ( strcmp(gamepads[i]->path, devnode->path) == 0) {
-                    // we already have this device, move on
-                    exists = true;
-                    break;
-                }
-            }
-        }
-
-        if (exists) {
-            continue;
-        }
-
-        gamepads = realloc(gamepads, (sizeof(FiniteGamepad *) * (_gamepads + 1)));
-        if (!gamepads) {
-            FINITE_LOG_ERROR("Unable to allocate memory for new gamepad array");
-            return false;
-        }
-
-        FiniteGamepad *current = calloc(1, sizeof(FiniteGamepad));
-        if (!current) {
-            FINITE_LOG_ERROR("Unable to allocate memory for new gamepad");
-            return false;
-        }
-
-        int fd = open(devnode->path, O_RDONLY | O_NONBLOCK);
-        if  (!fd) {
-            perror("open");
-            FINITE_LOG_ERROR("Found gamepad %s but unable to open it.", devnode->name);
-        } else {
-            FINITE_LOG("Found gamepad %s.", devnode->name);
-        }
-
-        current->fd = fd;
-        current->path = strdup(devnode->path);
-        current->order = shell->_gamepads; // first controller should be 0 (cuz its item 0 in the array)
-        current->canInput = true; // by default all gamepads can send input
-        current->lAxis = calloc(1, sizeof(FiniteJoystick));
-        current->rAxis = calloc(1, sizeof(FiniteJoystick));
-        current->lAxis->xAxis = ABS_X;
-        current->lAxis->yAxis = ABS_Y;
-        current->rAxis->xAxis = ABS_RX;
-        current->rAxis->yAxis = ABS_RY;
-
-        struct input_absinfo labsx;
-        struct input_absinfo labsy;
-        struct input_absinfo rabsx;
-        struct input_absinfo rabsy;
-
-        if (ioctl(fd, EVIOCGABS(current->lAxis->xAxis), &labsx) == 0) { 
-            current->lAxis->xMax = labsx.maximum;
-            current->lAxis->xMin = labsx.minimum;
-            current->lAxis->xFlat = labsx.flat; 
-        }
-        if (ioctl(fd, EVIOCGABS(current->lAxis->yAxis), &labsy) == 0) {
-            current->lAxis->yMax = labsy.maximum;
-            current->lAxis->yMin = labsy.minimum;
-            current->lAxis->yFlat = labsy.flat;
-        }
-        if (ioctl(fd, EVIOCGABS(current->rAxis->xAxis), &rabsx) == 0) {
-            current->rAxis->xMax = rabsx.maximum;
-            current->rAxis->xMin = rabsx.minimum;
-            current->rAxis->xFlat = rabsx.flat;
-        }
-        if (ioctl(fd, EVIOCGABS(current->rAxis->yAxis), &rabsy) == 0) {
-            current->rAxis->yMax = rabsy.maximum;
-            current->rAxis->yMin = rabsy.minimum;
-            current->rAxis->yFlat = rabsy.flat;
-        }
-
-        current->dpad = calloc(1, sizeof(FiniteDpad));
-        current->dpad->xAxis = ABS_HAT0X;
-        current->dpad->yAxis = ABS_HAT0Y;
-
-        current->lt = calloc(1, sizeof(FiniteTrigger));
-        current->lt->axis = ABS_HAT2Y;
-        current->lt->value = 0;
-        current->rt = calloc(1, sizeof(FiniteTrigger));
-        current->rt->axis = ABS_HAT2X;
-        current->rt->value = 0;
-
-        current->shell = shell;
-
-
-        gamepads[_gamepads] = current;
-        shell->gamepads = gamepads;
-        if (shell->_gamepads == 0) {
-            shell->primaryGamepadId = 0;
-        }
-        _gamepads += 1;
-        shell->_gamepads = _gamepads;
-
-
-
-
-    }
-
-    finite_free_devices(devices);
-
-    // whether or not we have gamepads doesn't matter right now, attach the threads
-    if (_gamepads > 0) {
-        shell->gamepadAvailable = true;
-    } else {
-        shell->gamepadAvailable = false;
-    } 
-
-    shell->canInput = true;
     return true;
 }
 
@@ -631,83 +298,6 @@ static void *finite_draw_controller_popup(void *data) {
     return data;
 }
 
-static bool finite_rescan_devices(FiniteShell *shell) {
-    if (!shell) {
-        FINITE_LOG_ERROR("Unable to rescan NULL shell");
-        return false;
-    } 
-
-    shell->canInput = false; // discard all input events
-    if (shell->_gamepads > 0){ 
-        for (int i = 0; i <shell->_gamepads; i++) {
-            finite_free_gamepad(shell->gamepads[i]);
-        }
-        shell->gamepads = NULL;
-        shell->_gamepads = 0;
-    }
-
-    // TODO: allow the popup to handle this
-    pthread_t thread;
-    pthread_create(&thread, NULL, finite_draw_controller_popup, shell);
-    pthread_detach(thread);
-    // reinit
-    bool success = finite_gamepad_reinit(shell);
-    if (success) {
-        FINITE_LOG("Found %d gamepads", shell->_gamepads);
-        shell->canInput = true;
-        updateRequired = true;
-        return true;
-    } else {
-        FINITE_LOG_FATAL("Unable to rescan devices");
-        return false;
-    }
-
-}
-
-static void *finite_hotplug_devices_async(void *data) {
-    FiniteShell *shell = (FiniteShell *) data;
-    if (!shell) {
-        FINITE_LOG_FATAL("Unable to scan for gamepads with null shell.");
-    }
-
-    int fd = inotify_init();
-    
-    inotify_add_watch(fd, "/dev/input", IN_CREATE | IN_DELETE | IN_ATTRIB); 
-
-    char buf[4096];
-    ssize_t len;
-    while (true) {
-        if (canScan) {
-            len = read(fd, buf, sizeof(buf));
-            if (len <= 0) {
-                usleep(1000);
-                continue;
-            }
-
-            for (char *p = buf; p < buf + len; ) {
-                struct inotify_event *ev = (struct inotify_event *) p;
-                if (ev->len && strncmp(ev->name, "event", 5) == 0) {
-                    if (ev->mask & IN_CREATE) {
-                        FINITE_LOG("Device added  (Gamepads %d)", shell->_gamepads);
-                        finite_rescan_devices(shell);
-                        break;
-                    }
-
-                    if (ev->mask & IN_DELETE) {
-                        FINITE_LOG("Device removed (Gamepads %d)", shell->_gamepads);
-                        finite_rescan_devices(shell);
-                        break;
-                    }
-                }
-
-                p += sizeof(struct inotify_event) + ev->len;
-            }
-        }
-    }
-
-    return data;
-}
-
 static uint16_t finite_gamepad_key_to_evdev(FiniteGamepadKey key) {
     size_t count = sizeof(finite_gamepad_key_lookup) / sizeof(finite_gamepad_key_lookup[0]);
     for (size_t i = 0; i < count; i++) {
@@ -718,15 +308,15 @@ static uint16_t finite_gamepad_key_to_evdev(FiniteGamepadKey key) {
     return UINT16_MAX; // Not found
 }
 
-static const char *finite_gamepad_evdev_to_string(uint16_t code) {
-    size_t count = sizeof(finite_gamepad_key_lookup) / sizeof(finite_gamepad_key_lookup[0]);
-    for (size_t i = 0; i < count; i++) {
-        if (finite_gamepad_key_lookup[i].evdev_code == code) {
-            return finite_gamepad_key_lookup[i].name;
-        }
-    }
-    return ""; // Not found
-}
+// static const char *finite_gamepad_evdev_to_string(uint16_t code) {
+//     size_t count = sizeof(finite_gamepad_key_lookup) / sizeof(finite_gamepad_key_lookup[0]);
+//     for (size_t i = 0; i < count; i++) {
+//         if (finite_gamepad_key_lookup[i].evdev_code == code) {
+//             return finite_gamepad_key_lookup[i].name;
+//         }
+//     }
+//     return ""; // Not found
+// }
 
 static FiniteGamepadKey finite_gamepad_evdev_to_key(uint16_t code) {
     size_t count = sizeof(finite_gamepad_key_lookup) / sizeof(finite_gamepad_key_lookup[0]);
@@ -770,21 +360,17 @@ bool finite_gamepad_key_down_debug(const char *file, const char *func, int line,
     }
 
     if (shell->canInput && id < shell->_gamepads) {
-        FiniteGamepad *gamepad = shell->gamepads[id];
-        if (!gamepad) {
-            finite_log_internal(LOG_LEVEL_ERROR, file, line, func, "Gamepad %d is unavailable", id);
-            return false;
-        }
+        FiniteGamepad gamepad = shell->gamepads[id];
         
         // FINITE_LOG("Checking if btn %s is down", finite_gamepad_key_string_from_key(key));
-        if (gamepad->canInput) {
+        if (gamepad.canInput) {
             uint16_t evdev_key = finite_gamepad_key_to_evdev(key);
             if (evdev_key == UINT16_MAX) {
                 finite_log_internal(LOG_LEVEL_ERROR, file, line, func,  "Unable to get input state from invalid key");
                 return false;
             }
         
-            return gamepad->btns[evdev_key].isDown;
+            return gamepad.btns[evdev_key].isDown;
 
 
         } else {
@@ -805,21 +391,17 @@ bool finite_gamepad_key_up_debug(const char *file, const char *func, int line, i
     }
 
     if (shell->canInput && id < shell->_gamepads) {
-        FiniteGamepad *gamepad = shell->gamepads[id];
-        if (!gamepad) {
-            finite_log_internal(LOG_LEVEL_WARN, file, line, func, "Gamepad %d is unavailable", id);
-            return false;
-        }
+        FiniteGamepad gamepad = shell->gamepads[id];
         
         // FINITE_LOG("Checking if btn %s is up", finite_gamepad_key_string_from_key(key));
-        if (gamepad->canInput) {
+        if (gamepad.canInput) {
             uint16_t evdev_key = finite_gamepad_key_to_evdev(key);
             if (evdev_key == UINT16_MAX) {
                 finite_log_internal(LOG_LEVEL_ERROR, file, line, func,  "Unable to get input state from invalid key");
                 return false;
             }
         
-            return gamepad->btns[evdev_key].isUp;
+            return gamepad.btns[evdev_key].isUp;
 
 
         } else {
@@ -840,26 +422,22 @@ bool finite_gamepad_key_pressed_debug(const char *file, const char *func, int li
 
 
     if (shell->canInput && id < shell->_gamepads) {
-        FiniteGamepad *gamepad = shell->gamepads[id];
-        if (!gamepad) {
-            finite_log_internal(LOG_LEVEL_WARN, file, line, func, "Gamepad %d is unavailable", id);
-            return false;
-        }
+        FiniteGamepad gamepad = shell->gamepads[id];
 
         // FINITE_LOG("Checking if btn %s was pressed", finite_gamepad_key_string_from_key(key));
-        if (gamepad->canInput) {
+        if (gamepad.canInput) {
             uint16_t evdev_key = finite_gamepad_key_to_evdev(key);
             if (evdev_key == UINT16_MAX) {
                 finite_log_internal(LOG_LEVEL_ERROR, file, line, func,  "Unable to get input state from invalid key");
                 return false;
             }
 
-            if (gamepad->btns[evdev_key].isDown && !gamepad->btns[evdev_key].isHeld) {
-                gamepad->btns[evdev_key].isHeld = true;
+            if (gamepad.btns[evdev_key].isDown && !gamepad.btns[evdev_key].isHeld) {
+                gamepad.btns[evdev_key].isHeld = true;
             }
 
-            if (gamepad->btns[evdev_key].isUp && gamepad->btns[evdev_key].isHeld) {
-                gamepad->btns[evdev_key].isHeld = false;
+            if (gamepad.btns[evdev_key].isUp && gamepad.btns[evdev_key].isHeld) {
+                gamepad.btns[evdev_key].isHeld = false;
                 return true;
             } else {
                 return false;
@@ -883,21 +461,16 @@ double finite_gamepad_joystick_get_value_debug(const char *file, const char *fun
 
 
     if (shell->canInput && id < shell->_gamepads) {
-        FiniteGamepad *gamepad = shell->gamepads[id];
-
-        if (!gamepad) {
-            finite_log_internal(LOG_LEVEL_WARN, file, line, func, "Gamepad %d is unavailable", id);
-            return (double) 0;
-        }
+        FiniteGamepad gamepad = shell->gamepads[id];
 
         if (type == FINITE_JOYSTICK_LEFT_X) {
-            return gamepad->lAxis->xValue;
+            return gamepad.lAxis.xValue;
         } else if (type == FINITE_JOYSTICK_LEFT_Y) {
-            return gamepad->lAxis->yValue;
+            return gamepad.lAxis.yValue;
         } else if (type == FINITE_JOYSTICK_RIGHT_X) {
-            return gamepad->rAxis->xValue;
+            return gamepad.rAxis.xValue;
         } else if (type == FINITE_JOYSTICK_RIGHT_Y) {
-            return gamepad->rAxis->yValue;
+            return gamepad.rAxis.yValue;
         } else {
             return (double) 0;
         }
@@ -956,241 +529,284 @@ static void *finite_gamepad_no_way_home(void *data) {
     return data;
 }
 
-static void *finite_gamepad_poll_buttons_async(void *data) {
-    FiniteShell *shell = (FiniteShell *) data;
+void finite_gamepad_poll_buttons_debug(const char *file, const char *func, int line, FiniteShell *shell, int id) {
     if (!shell) {
         FINITE_LOG_FATAL("Unable to poll gamepads with null shell.");
     }
 
+    if (!shell->canInput) {
+        return;
+    }
+
     FINITE_LOG("Polling started...");
 
-    FiniteGamepad **gamepads = NULL;
-    int _gamepads = 0;
-    if (shell->_gamepads > 0) {
-        _gamepads = shell->_gamepads;
-        FINITE_LOG("Attempting to copy data into gamepads");
-        FiniteGamepad **tmp = malloc(sizeof(FiniteGamepad *) * _gamepads);
-        if (!tmp) {
-            FINITE_LOG_FATAL("Unable to malloc required memory for polling");
-        } else {
-            gamepads = tmp;
-        }
-        FINITE_LOG("Attempting to copy gamepad data for polling.");
-        memcpy(gamepads, shell->gamepads, sizeof(FiniteGamepad *) * _gamepads); // only memcpy when its safe to do so
-        FINITE_LOG("Copied succesfully");
+    send_signal(shell->client_fd, "CLIENT_REQUEST_POLL");
+    FiniteIPCResponse response;
+    ssize_t n = recv(shell->client_fd, &response, sizeof(FiniteIPCResponse), 0);
+    if (n == 0) {
+        FINITE_LOG("Buffer is 0. %s", response.msg);
+        close(shell->client_fd);
+        return;
+    } else if (n < 0) {
+        perror("recv");
+        return;
     }
 
-    while (true) {
-        if (shell->canInput) {
-            if (updateRequired) {
-                free(gamepads);
-                gamepads = NULL;
-                _gamepads = 0;
-                if (shell->_gamepads > 0) {
-                    _gamepads = shell->_gamepads;
-                    FINITE_LOG("Attempting to recopy data into gamepads");
-                    FiniteGamepad **tmp = malloc(sizeof(FiniteGamepad *) * _gamepads);
-                    if (!tmp) {
-                        FINITE_LOG_FATAL("Unable to malloc required memory for polling");
-                    } else {
-                        gamepads = tmp;
-                    }
-                    FINITE_LOG("Attempting to recopy gamepad data for polling.");
-                    memcpy(gamepads, shell->gamepads, sizeof(FiniteGamepad *) * _gamepads); // only memcpy when its safe to do so
-                    FINITE_LOG("Copied succesfully");
-                    updateRequired = false;
-                } else {
-                    updateRequired = false;
-                }
+    FINITE_LOG("Sizeof buffer: %ld", sizeof(response));
+    FINITE_LOG("Gamepads found: %d(%s)", response._gamepad, response_tostring(response.msg));
 
-            }
-
-            if (_gamepads > 0) {
-                for (int g = 0; g < _gamepads ; g++) {
-                    FiniteGamepad *current = gamepads[g];
-                    struct input_event ev;
-
-                    if (current->fd <= 0) {
-                        FINITE_LOG_WARN("Gamepad %d has an invalid file descriptor and cannot be read from.");
-
-                        break; 
-                    }
-
-                    ssize_t d = read(current->fd, &ev,  sizeof(struct input_event));
-
-                    if (d > 0 ) {
-                        
-                        FINITE_LOG("ev: type=%d, code=%d (%s), value=%d", ev.type, ev.code, finite_gamepad_evdev_to_string(ev.code),  ev.value);
-                        if (ev.type == EV_KEY) {
-                            FINITE_LOG("Key %s pressed", finite_gamepad_evdev_to_string(ev.code));
-                            current->btns[ev.code].isDown = (ev.value == 1) ? true : false;
-                            current->btns[ev.code].isUp = (ev.value == 0) ? true : false;
-
-                            if (finite_gamepad_key_pressed(g, shell, FINITE_BTN_HOME) ) {
-                                FINITE_LOG("Home Button pressed");
-                                if (shell->canHomeMenu) {
-                                    FINITE_LOG("Home menu requested.");
-                                    // TODO: close anim
-                                } else {
-                                    pthread_t noWayHome;
-                                    pthread_create(&noWayHome, NULL, finite_gamepad_no_way_home, shell);
-                                    pthread_detach(noWayHome);
-                                }
-                            }
-
-                            if (finite_gamepad_key_pressed(g, shell, FINITE_BTN_A) ) {
-                                finite_button_handle_poll(FINITE_DIRECTION_DONE, shell);
-                            }
-
-
-                        } else if (ev.type == EV_ABS) {
-                            if (ev.code == current->dpad->xAxis) {
-                                if (ev.value < 0) {
-                                    FINITE_LOG("Key %s pressed", finite_gamepad_key_string_from_key(FINITE_BTN_LEFT));
-                                    current->btns[finite_gamepad_key_to_evdev(FINITE_BTN_LEFT)].isDown = true;
-                                    current->btns[finite_gamepad_key_to_evdev(FINITE_BTN_LEFT)].isUp = false;
-                                    current->btns[finite_gamepad_key_to_evdev(FINITE_BTN_RIGHT)].isDown = false;
-                                    current->btns[finite_gamepad_key_to_evdev(FINITE_BTN_RIGHT)].isUp = true;
-                                    current->dpad->xValue = ev.value;
-                                    finite_button_handle_poll(FINITE_DIRECTION_LEFT, shell);
-
-                                } else if (ev.value > 0) {
-                                    FINITE_LOG("Key %s pressed", finite_gamepad_key_string_from_key(FINITE_BTN_RIGHT));
-                                    current->btns[finite_gamepad_key_to_evdev(FINITE_BTN_LEFT)].isDown = false;
-                                    current->btns[finite_gamepad_key_to_evdev(FINITE_BTN_LEFT)].isUp = true;
-                                    current->btns[finite_gamepad_key_to_evdev(FINITE_BTN_RIGHT)].isDown = true;
-                                    current->btns[finite_gamepad_key_to_evdev(FINITE_BTN_RIGHT)].isUp = false;
-                                    current->dpad->xValue = ev.value;
-                                    finite_button_handle_poll(FINITE_DIRECTION_RIGHT, shell);
-
-                                } else {
-                                    current->btns[finite_gamepad_key_to_evdev(FINITE_BTN_LEFT)].isDown = false;
-                                    current->btns[finite_gamepad_key_to_evdev(FINITE_BTN_LEFT)].isUp = true;
-                                    current->btns[finite_gamepad_key_to_evdev(FINITE_BTN_RIGHT)].isDown = false;
-                                    current->btns[finite_gamepad_key_to_evdev(FINITE_BTN_RIGHT)].isUp = true;
-                                    current->dpad->xValue = ev.value;
-                                }
-                            } else if (ev.code == current->dpad->yAxis) {
-                                if (ev.value < 0) {
-                                    FINITE_LOG("Key %s pressed", finite_gamepad_key_string_from_key(FINITE_BTN_UP));
-                                    current->btns[finite_gamepad_key_to_evdev(FINITE_BTN_UP)].isDown = true;
-                                    current->btns[finite_gamepad_key_to_evdev(FINITE_BTN_UP)].isUp = false;
-                                    current->btns[finite_gamepad_key_to_evdev(FINITE_BTN_DOWN)].isDown = false;
-                                    current->btns[finite_gamepad_key_to_evdev(FINITE_BTN_DOWN)].isUp = true;
-                                    current->dpad->yValue = ev.value;
-                                    finite_button_handle_poll(FINITE_DIRECTION_UP, shell);
-                                } else if (ev.value > 0) {
-                                    FINITE_LOG("Key %s pressed", finite_gamepad_key_string_from_key(FINITE_BTN_DOWN));
-                                    current->btns[finite_gamepad_key_to_evdev(FINITE_BTN_UP)].isDown = false;
-                                    current->btns[finite_gamepad_key_to_evdev(FINITE_BTN_UP)].isUp = true;
-                                    current->btns[finite_gamepad_key_to_evdev(FINITE_BTN_DOWN)].isDown = true;
-                                    current->btns[finite_gamepad_key_to_evdev(FINITE_BTN_DOWN)].isUp = false;
-                                    current->dpad->yValue = ev.value;
-                                    finite_button_handle_poll(FINITE_DIRECTION_DOWN, shell);
-
-                                } else {
-                                    current->btns[finite_gamepad_key_to_evdev(FINITE_BTN_UP)].isDown = false;
-                                    current->btns[finite_gamepad_key_to_evdev(FINITE_BTN_UP)].isUp = true;
-                                    current->btns[finite_gamepad_key_to_evdev(FINITE_BTN_DOWN)].isDown = false;
-                                    current->btns[finite_gamepad_key_to_evdev(FINITE_BTN_DOWN)].isUp = true;
-                                    current->dpad->yValue = ev.value;
-
-                                }
-                            } else if (ev.code == current->lt->axis) {
-                                    FINITE_LOG("Key %s event", finite_gamepad_key_string_from_key(FINITE_BTN_LEFT_TRIGGER));
-
-                                if (ev.value > 0) {
-                                    FINITE_LOG("Key %s pressed", finite_gamepad_key_string_from_key(FINITE_BTN_LEFT_TRIGGER));
-                                    current->btns[finite_gamepad_key_to_evdev(FINITE_BTN_LEFT_TRIGGER)].isDown = true;
-                                    current->btns[finite_gamepad_key_to_evdev(FINITE_BTN_LEFT_TRIGGER)].isUp = false;
-                                    current->lt->value = ev.value;
-                                } else {
-                                    current->btns[finite_gamepad_key_to_evdev(FINITE_BTN_LEFT_TRIGGER)].isDown = false;
-                                    current->btns[finite_gamepad_key_to_evdev(FINITE_BTN_LEFT_TRIGGER)].isUp = true;
-                                    current->lt->value = ev.value;
-
-                                }
-                            } else if (ev.code == current->rt->axis) {
-                                if (ev.value > 0) {
-                                    current->btns[finite_gamepad_key_to_evdev(FINITE_BTN_RIGHT_TRIGGER)].isDown = true;
-                                    current->btns[finite_gamepad_key_to_evdev(FINITE_BTN_RIGHT_TRIGGER)].isUp = false;
-                                    current->rt->value = ev.value;
-
-                                } else {
-                                    current->btns[finite_gamepad_key_to_evdev(FINITE_BTN_RIGHT_TRIGGER)].isDown = false;
-                                    current->btns[finite_gamepad_key_to_evdev(FINITE_BTN_RIGHT_TRIGGER)].isUp = true;
-                                    current->rt->value = ev.value;
-                                }
-                            } else if (ev.code == current->lAxis->xAxis) {
-                                // do math here
-                                double norm;
-
-                                int center = (current->lAxis->xMax + current->lAxis->xMin) / 2;
-                                if (current->lAxis->xFlat > 0 && abs(ev.value - center) < current->lAxis->xFlat) {
-                                    norm = 0.0;
-                                } else {
-                                    norm = (2.0 * (ev.value - current->lAxis->xMin) / (current->lAxis->xMax - current->lAxis->xMin)) - 1.0;
-                                }
-                                current->lAxis->xValue = norm;
-                            } else if (ev.code == current->lAxis->yAxis) {
-                                // do math here
-                                double norm;
-
-                                int center = (current->lAxis->yMax + current->lAxis->yMin) / 2;
-                                if (current->lAxis->yFlat > 0 && abs(ev.value - center) < current->lAxis->yFlat) {
-                                    norm = 0.0;
-                                } else {
-                                    norm = (2.0 * (ev.value - current->lAxis->yMin) / (current->lAxis->yMax - current->lAxis->yMin)) - 1.0;
-                                }
-
-                                current->lAxis->yValue = norm;
-                            } else if (ev.code == current->rAxis->xAxis) {
-                                // do math here
-                                double norm;
-
-                                int center = (current->rAxis->xMax + current->rAxis->xMin) / 2;
-                                if (current->rAxis->xFlat > 0 && abs(ev.value - center) < current->rAxis->xFlat) {
-                                    norm = 0.0;
-                                } else {
-                                    norm = (2.0 * (ev.value - current->rAxis->xMin) / (current->rAxis->xMax - current->rAxis->xMin)) - 1.0;
-                                }
-
-                                current->rAxis->xValue = norm;
-                            } else if (ev.code == current->rAxis->yAxis) {
-                                // do math here
-                                double norm;
-
-                                int center = (current->rAxis->yMax + current->rAxis->yMin) / 2;
-                                if (current->rAxis->yFlat > 0 && abs(ev.value - center) < current->rAxis->yFlat) {
-                                    norm = 0.0;
-                                } else {
-                                    norm = (2.0 * (ev.value - current->rAxis->yMin) / (current->rAxis->yMax - current->rAxis->yMin)) - 1.0;
-                                }
-
-                                current->rAxis->yValue = norm;
-                            }
-                        }
-                    } else {
-                        if ((d < 0 && errno != EAGAIN && errno != EWOULDBLOCK)) {
-                            // force a rescan
-                            if (errno == ENODEV || errno == ENOENT || errno == EBADF) {
-                                // device removed
-                                break;
-                            } else {
-                                perror("read");
-                                break;
-                            }
-                        }
-
-                        continue;
-                    }
-                }
-            }
-        }
-        usleep(1000);
+    // before we copy, replicate the state of the previous gamepad array
+    for (int i = 0; i < MAX_GAMEPADS; i++) {
+        response.gamepads[i].canInput = shell->gamepads[i].canInput;
     }
+    // when replicating canInput if this is the first 
 
-    return shell;
+    // we now just need to update the shell array to have the new devices
+    memcpy(shell->gamepads, response.gamepads, sizeof(response.gamepads));
 
+    if (finite_gamepad_key_pressed(0, shell, FINITE_BTN_HOME)) {
+        pthread_t noWayHome;
+        pthread_create(&noWayHome, NULL, finite_gamepad_no_way_home, shell);
+        pthread_detach(noWayHome);
+    }
 }
+
+// static void *finite_gamepad_poll_buttons_async(void *data) {
+//     FiniteShell *shell = (FiniteShell *) data;
+//     if (!shell) {
+//         FINITE_LOG_FATAL("Unable to poll gamepads with null shell.");
+//     }
+
+//     FINITE_LOG("Polling started...");
+
+//     FiniteGamepad **gamepads = NULL;
+//     int _gamepads = 0;
+//     if (shell->_gamepads > 0) {
+//         _gamepads = shell->_gamepads;
+//         FINITE_LOG("Attempting to copy data into gamepads");
+//         FiniteGamepad **tmp = malloc(sizeof(FiniteGamepad *) * _gamepads);
+//         if (!tmp) {
+//             FINITE_LOG_FATAL("Unable to malloc required memory for polling");
+//         } else {
+//             gamepads = tmp;
+//         }
+//         FINITE_LOG("Attempting to copy gamepad data for polling.");
+//         memcpy(gamepads, shell->gamepads, sizeof(FiniteGamepad *) * _gamepads); // only memcpy when its safe to do so
+//         FINITE_LOG("Copied succesfully");
+//     }
+
+//     while (true) {
+//         if (shell->canInput) {
+//             if (updateRequired) {
+//                 free(gamepads);
+//                 gamepads = NULL;
+//                 _gamepads = 0;
+//                 if (shell->_gamepads > 0) {
+//                     _gamepads = shell->_gamepads;
+//                     FINITE_LOG("Attempting to recopy data into gamepads");
+//                     FiniteGamepad **tmp = malloc(sizeof(FiniteGamepad *) * _gamepads);
+//                     if (!tmp) {
+//                         FINITE_LOG_FATAL("Unable to malloc required memory for polling");
+//                     } else {
+//                         gamepads = tmp;
+//                     }
+//                     FINITE_LOG("Attempting to recopy gamepad data for polling.");
+//                     memcpy(gamepads, shell->gamepads, sizeof(FiniteGamepad *) * _gamepads); // only memcpy when its safe to do so
+//                     FINITE_LOG("Copied succesfully");
+//                     updateRequired = false;
+//                 } else {
+//                     updateRequired = false;
+//                 }
+
+//             }
+
+//             if (_gamepads > 0) {
+//                 for (int g = 0; g < _gamepads ; g++) {
+//                     FiniteGamepad *current = gamepads[g];
+//                     struct input_event ev;
+
+//                     if (current->fd <= 0) {
+//                         FINITE_LOG_WARN("Gamepad %d has an invalid file descriptor and cannot be read from.");
+
+//                         break; 
+//                     }
+
+//                     ssize_t d = read(current->fd, &ev,  sizeof(struct input_event));
+
+//                     if (d > 0 ) {
+                        
+//                         FINITE_LOG("ev: type=%d, code=%d (%s), value=%d", ev.type, ev.code, finite_gamepad_evdev_to_string(ev.code),  ev.value);
+//                         if (ev.type == EV_KEY) {
+//                             FINITE_LOG("Key %s pressed", finite_gamepad_evdev_to_string(ev.code));
+//                             current->btns[ev.code].isDown = (ev.value == 1) ? true : false;
+//                             current->btns[ev.code].isUp = (ev.value == 0) ? true : false;
+
+//                             if (finite_gamepad_key_pressed(g, shell, FINITE_BTN_HOME) ) {
+//                                 FINITE_LOG("Home Button pressed");
+
+//                                 if (shell->canHomeMenu) {
+//                                     FINITE_LOG("Home menu requested.");
+//                                     // TODO: close anim
+//                                 } else {
+//                                     pthread_t noWayHome;
+//                                     pthread_create(&noWayHome, NULL, finite_gamepad_no_way_home, shell);
+//                                     pthread_detach(noWayHome);
+//                                 }
+//                             }
+
+//                             if (finite_gamepad_key_pressed(g, shell, FINITE_BTN_A) ) {
+//                                 finite_button_handle_poll(FINITE_DIRECTION_DONE, shell);
+//                             }
+
+
+//                         } else if (ev.type == EV_ABS) {
+//                             if (ev.code == current->dpad->xAxis) {
+//                                 if (ev.value < 0) {
+//                                     FINITE_LOG("Key %s pressed", finite_gamepad_key_string_from_key(FINITE_BTN_LEFT));
+//                                     current->btns[finite_gamepad_key_to_evdev(FINITE_BTN_LEFT)].isDown = true;
+//                                     current->btns[finite_gamepad_key_to_evdev(FINITE_BTN_LEFT)].isUp = false;
+//                                     current->btns[finite_gamepad_key_to_evdev(FINITE_BTN_RIGHT)].isDown = false;
+//                                     current->btns[finite_gamepad_key_to_evdev(FINITE_BTN_RIGHT)].isUp = true;
+//                                     current->dpad->xValue = ev.value;
+//                                     finite_button_handle_poll(FINITE_DIRECTION_LEFT, shell);
+
+//                                 } else if (ev.value > 0) {
+//                                     FINITE_LOG("Key %s pressed", finite_gamepad_key_string_from_key(FINITE_BTN_RIGHT));
+//                                     current->btns[finite_gamepad_key_to_evdev(FINITE_BTN_LEFT)].isDown = false;
+//                                     current->btns[finite_gamepad_key_to_evdev(FINITE_BTN_LEFT)].isUp = true;
+//                                     current->btns[finite_gamepad_key_to_evdev(FINITE_BTN_RIGHT)].isDown = true;
+//                                     current->btns[finite_gamepad_key_to_evdev(FINITE_BTN_RIGHT)].isUp = false;
+//                                     current->dpad->xValue = ev.value;
+//                                     finite_button_handle_poll(FINITE_DIRECTION_RIGHT, shell);
+
+//                                 } else {
+//                                     current->btns[finite_gamepad_key_to_evdev(FINITE_BTN_LEFT)].isDown = false;
+//                                     current->btns[finite_gamepad_key_to_evdev(FINITE_BTN_LEFT)].isUp = true;
+//                                     current->btns[finite_gamepad_key_to_evdev(FINITE_BTN_RIGHT)].isDown = false;
+//                                     current->btns[finite_gamepad_key_to_evdev(FINITE_BTN_RIGHT)].isUp = true;
+//                                     current->dpad->xValue = ev.value;
+//                                 }
+//                             } else if (ev.code == current->dpad->yAxis) {
+//                                 if (ev.value < 0) {
+//                                     FINITE_LOG("Key %s pressed", finite_gamepad_key_string_from_key(FINITE_BTN_UP));
+//                                     current->btns[finite_gamepad_key_to_evdev(FINITE_BTN_UP)].isDown = true;
+//                                     current->btns[finite_gamepad_key_to_evdev(FINITE_BTN_UP)].isUp = false;
+//                                     current->btns[finite_gamepad_key_to_evdev(FINITE_BTN_DOWN)].isDown = false;
+//                                     current->btns[finite_gamepad_key_to_evdev(FINITE_BTN_DOWN)].isUp = true;
+//                                     current->dpad->yValue = ev.value;
+//                                     finite_button_handle_poll(FINITE_DIRECTION_UP, shell);
+//                                 } else if (ev.value > 0) {
+//                                     FINITE_LOG("Key %s pressed", finite_gamepad_key_string_from_key(FINITE_BTN_DOWN));
+//                                     current->btns[finite_gamepad_key_to_evdev(FINITE_BTN_UP)].isDown = false;
+//                                     current->btns[finite_gamepad_key_to_evdev(FINITE_BTN_UP)].isUp = true;
+//                                     current->btns[finite_gamepad_key_to_evdev(FINITE_BTN_DOWN)].isDown = true;
+//                                     current->btns[finite_gamepad_key_to_evdev(FINITE_BTN_DOWN)].isUp = false;
+//                                     current->dpad->yValue = ev.value;
+//                                     finite_button_handle_poll(FINITE_DIRECTION_DOWN, shell);
+
+//                                 } else {
+//                                     current->btns[finite_gamepad_key_to_evdev(FINITE_BTN_UP)].isDown = false;
+//                                     current->btns[finite_gamepad_key_to_evdev(FINITE_BTN_UP)].isUp = true;
+//                                     current->btns[finite_gamepad_key_to_evdev(FINITE_BTN_DOWN)].isDown = false;
+//                                     current->btns[finite_gamepad_key_to_evdev(FINITE_BTN_DOWN)].isUp = true;
+//                                     current->dpad->yValue = ev.value;
+
+//                                 }
+//                             } else if (ev.code == current->lt->axis) {
+//                                     FINITE_LOG("Key %s event", finite_gamepad_key_string_from_key(FINITE_BTN_LEFT_TRIGGER));
+
+//                                 if (ev.value > 0) {
+//                                     FINITE_LOG("Key %s pressed", finite_gamepad_key_string_from_key(FINITE_BTN_LEFT_TRIGGER));
+//                                     current->btns[finite_gamepad_key_to_evdev(FINITE_BTN_LEFT_TRIGGER)].isDown = true;
+//                                     current->btns[finite_gamepad_key_to_evdev(FINITE_BTN_LEFT_TRIGGER)].isUp = false;
+//                                     current->lt->value = ev.value;
+//                                 } else {
+//                                     current->btns[finite_gamepad_key_to_evdev(FINITE_BTN_LEFT_TRIGGER)].isDown = false;
+//                                     current->btns[finite_gamepad_key_to_evdev(FINITE_BTN_LEFT_TRIGGER)].isUp = true;
+//                                     current->lt->value = ev.value;
+
+//                                 }
+//                             } else if (ev.code == current->rt->axis) {
+//                                 if (ev.value > 0) {
+//                                     current->btns[finite_gamepad_key_to_evdev(FINITE_BTN_RIGHT_TRIGGER)].isDown = true;
+//                                     current->btns[finite_gamepad_key_to_evdev(FINITE_BTN_RIGHT_TRIGGER)].isUp = false;
+//                                     current->rt->value = ev.value;
+
+//                                 } else {
+//                                     current->btns[finite_gamepad_key_to_evdev(FINITE_BTN_RIGHT_TRIGGER)].isDown = false;
+//                                     current->btns[finite_gamepad_key_to_evdev(FINITE_BTN_RIGHT_TRIGGER)].isUp = true;
+//                                     current->rt->value = ev.value;
+//                                 }
+//                             } else if (ev.code == current->lAxis->xAxis) {
+//                                 // do math here
+//                                 double norm;
+
+//                                 int center = (current->lAxis->xMax + current->lAxis->xMin) / 2;
+//                                 if (current->lAxis->xFlat > 0 && abs(ev.value - center) < current->lAxis->xFlat) {
+//                                     norm = 0.0;
+//                                 } else {
+//                                     norm = (2.0 * (ev.value - current->lAxis->xMin) / (current->lAxis->xMax - current->lAxis->xMin)) - 1.0;
+//                                 }
+//                                 current->lAxis->xValue = norm;
+//                             } else if (ev.code == current->lAxis->yAxis) {
+//                                 // do math here
+//                                 double norm;
+
+//                                 int center = (current->lAxis->yMax + current->lAxis->yMin) / 2;
+//                                 if (current->lAxis->yFlat > 0 && abs(ev.value - center) < current->lAxis->yFlat) {
+//                                     norm = 0.0;
+//                                 } else {
+//                                     norm = (2.0 * (ev.value - current->lAxis->yMin) / (current->lAxis->yMax - current->lAxis->yMin)) - 1.0;
+//                                 }
+
+//                                 current->lAxis->yValue = norm;
+//                             } else if (ev.code == current->rAxis->xAxis) {
+//                                 // do math here
+//                                 double norm;
+
+//                                 int center = (current->rAxis->xMax + current->rAxis->xMin) / 2;
+//                                 if (current->rAxis->xFlat > 0 && abs(ev.value - center) < current->rAxis->xFlat) {
+//                                     norm = 0.0;
+//                                 } else {
+//                                     norm = (2.0 * (ev.value - current->rAxis->xMin) / (current->rAxis->xMax - current->rAxis->xMin)) - 1.0;
+//                                 }
+
+//                                 current->rAxis->xValue = norm;
+//                             } else if (ev.code == current->rAxis->yAxis) {
+//                                 // do math here
+//                                 double norm;
+
+//                                 int center = (current->rAxis->yMax + current->rAxis->yMin) / 2;
+//                                 if (current->rAxis->yFlat > 0 && abs(ev.value - center) < current->rAxis->yFlat) {
+//                                     norm = 0.0;
+//                                 } else {
+//                                     norm = (2.0 * (ev.value - current->rAxis->yMin) / (current->rAxis->yMax - current->rAxis->yMin)) - 1.0;
+//                                 }
+
+//                                 current->rAxis->yValue = norm;
+//                             }
+//                         }
+//                     } else {
+//                         if ((d < 0 && errno != EAGAIN && errno != EWOULDBLOCK)) {
+//                             // force a rescan
+//                             if (errno == ENODEV || errno == ENOENT || errno == EBADF) {
+//                                 // device removed
+//                                 break;
+//                             } else {
+//                                 perror("read");
+//                                 break;
+//                             }
+//                         }
+
+//                         continue;
+//                     }
+//                 }
+//             }
+//         }
+//         usleep(1000);
+//     }
+
+//     return shell;
+
+// }
 
