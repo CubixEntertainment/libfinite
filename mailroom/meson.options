@@ -1,0 +1,1 @@
+option('with-finite', type : 'feature', value : 'enabled', description : 'Use libfinite to print messages.')
