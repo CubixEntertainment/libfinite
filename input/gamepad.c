@@ -18,7 +18,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-#include <sys/ioctl.h>
+#include "../libfinite/libfinite/include/communication.h" //replaces ioctl has the same stuff
 #include <sys/socket.h>
 #include <sys/un.h>
 #include <sys/types.h>
