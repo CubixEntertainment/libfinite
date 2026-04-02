@@ -59,7 +59,10 @@ src = [
     'render/image.c',
 
     'core/file.c',
-    'core/log.c'
+    'core/log.c',
+    'core/json.c',
+
+    'user/user.c'
     
 ]
 
@@ -80,7 +83,10 @@ headers = [
     'include/audio/audio.h',
     'include/render.h',
     'include/core.h',
-    'include/log.h'
+    'include/log.h',
+    'include/utils/jsmn.h',
+    'include/user.h',
+    'include/json.h'
 ]
 
 proto_headers = [
@@ -109,11 +115,16 @@ input_headers = [
   'include/input/textbox.h',
 ]
 
+net_headers = [
+  'include/user/user.h'
+]
+
 install_headers(headers, subdir: 'finite')
 install_headers(proto_headers, subdir: 'finite/protocol')
 install_headers(draw_headers, subdir: 'finite/draw')
 install_headers(render_headers, subdir: 'finite/render')
 install_headers(input_headers, subdir: 'finite/input')
+install_headers(net_headers, subdir: 'finite/user')
 
 
 
