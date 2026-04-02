@@ -104,7 +104,7 @@ struct FiniteGamepad {
     FiniteGamepadKeyState btns[1024];
 };
 
-enum FiniteIPCResponseMsg {
+enum FiniteGIPCResponseMsg {
     SERVER_OK, // success
     SERVER_ALREADY_GRANTED_FOCUS,
     SERVER_REQUEST_DECLINED_FOCUS,
@@ -115,7 +115,7 @@ typedef struct __attribute__((packed)) {
     int _gamepad;
     FiniteGamepad gamepads[MAX_GAMEPADS];
     uint16_t msg;
-} FiniteIPCResponse;
+} FiniteGIPCResponse;
 
 extern const FiniteGamepadKeyMapping finite_gamepad_key_lookup[];
 

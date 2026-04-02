@@ -109,8 +109,8 @@ static void send_signal(int fd, char *msg) {
 bool finite_gamepad_init_debug(const char *file, const char *func, int line, FiniteShell *shell) {
     int fd = socket(AF_UNIX, SOCK_SEQPACKET, 0);
     send_signal(fd, "CLIENT_REQUEST_FOCUS");
-    FiniteIPCResponse response;
-    ssize_t n = recv(fd, &response, sizeof(FiniteIPCResponse), 0);
+    FiniteGIPCResponse response;
+    ssize_t n = recv(fd, &response, sizeof(FiniteGIPCResponse), 0);
     if (n == 0) {
         FINITE_LOG("Buffer is 0. %s", response.msg);
         close(fd);
@@ -541,8 +541,8 @@ void finite_gamepad_poll_buttons_debug(const char *file, const char *func, int l
     FINITE_LOG("Polling started...");
 
     send_signal(shell->client_fd, "CLIENT_REQUEST_POLL");
-    FiniteIPCResponse response;
-    ssize_t n = recv(shell->client_fd, &response, sizeof(FiniteIPCResponse), 0);
+    FiniteGIPCResponse response;
+    ssize_t n = recv(shell->client_fd, &response, sizeof(FiniteGIPCResponse), 0);
     if (n == 0) {
         FINITE_LOG("Buffer is 0. %s", response.msg);
         close(shell->client_fd);

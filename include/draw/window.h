@@ -142,7 +142,7 @@ struct FiniteShell{
     int activeButton;
 
     // an array of gamepads currently available to the shell
-    FiniteGamepad **gamepads;
+    FiniteGamepad *gamepads;
     int _gamepads;
     int primaryGamepadId;
     int client_fd;
