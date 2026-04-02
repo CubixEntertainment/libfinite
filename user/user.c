@@ -158,8 +158,6 @@ FiniteAuthRequest *finite_user_request_auth_debug(const char *file, const char *
         id = "26";
     }
 
-
-
     FiniteIPCRequest request = {
         .cmd = "AUTH",
         .adr = "https://api.cubixdev.org", // when we send the AUTH command, adr is ignored
