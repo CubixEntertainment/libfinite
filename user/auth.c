@@ -1,5 +1,6 @@
 #include "cairo.h"
 #include <finite/draw/cairo.h>
+#include <string.h>
 #define JSMN_HEADER
 
 #include <stdbool.h>
@@ -55,10 +56,10 @@ static FiniteShell *draw_auth_ui(FiniteWindowInfo *info, char *code) {
 
         FiniteGradientPoint background[2] =  {
             {
-                0, white.r, white.g, white.b, 0.8
+                0, white.r, white.g, white.b, 0.2
             },
             {
-                1, 0, 0, 0, 0.8
+                1, 0, 0, 0, 0.2
             }
         };
 
@@ -152,7 +153,7 @@ char *finite_auth_state_tostring(enum FiniteAuthState state) {
     * Developers are also responsible for re-rendering the screen once this returns.
 */
 
-FiniteAuthRequest *finite_user_request_auth_debug(const char *file, const char *func, int line, FiniteShell *shell, char id[4], char token[64], void (*callback)(char *code)) {
+FiniteAuthRequest *finite_user_request_auth_debug(const char *file, const char *func, int line, FiniteShell *shell, char id[36], char token[64], void (*callback)(char *code)) {
     int fd = socket(AF_UNIX, SOCK_SEQPACKET, 0);
     if (id == NULL) {
         id = "26";
@@ -162,12 +163,15 @@ FiniteAuthRequest *finite_user_request_auth_debug(const char *file, const char *
         .cmd = "AUTH",
         .adr = "https://api.cubixdev.org", // when we send the AUTH command, adr is ignored
         .data = "", // auth ignores this 
-        .device_id = "05b47eea-0149-4daf-8b3a-efe7532cdecb", // retreived from the device in prod
-        .token = "", // retrived from the device in prod
-        .user_id = "26", // auth treats user_id as game_id as of right now
+        .device_id = "", // retreived from the device in prod
+        .token = "", 
         .write_mode = 0,
         .data_type = 0,
     };
+
+    // retrived from the device in prod. Passing them to mailroom allows it to build a valid request but it's ignored by mailman
+    strncpy(request.user_id, id, 36);
+    strncpy(request.token, token, 64);
 
     send_signal(fd, request);
     // the first message is hello message which we can safely ignore as long as error is false

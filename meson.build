@@ -62,7 +62,7 @@ src = [
     'core/log.c',
     'core/json.c',
 
-    'user/user.c'
+    'user/auth.c'
     
 ]
 
