@@ -1,13 +1,12 @@
-#include "cairo.h"
-#include <finite/draw/cairo.h>
-#include <string.h>
 #define JSMN_HEADER
 
+#include <string.h>
 #include <stdbool.h>
 #include <stdlib.h>
 #include <unistd.h>
 
 #include "user.h"
+#include "draw.h"
 #include "log.h"
 #include "json.h"
 
