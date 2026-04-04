@@ -122,6 +122,9 @@ extern const FiniteGamepadKeyMapping finite_gamepad_key_lookup[];
 #define finite_gamepad_init(shell) finite_gamepad_init_debug(__FILE__, __func__, __LINE__, shell)
 bool finite_gamepad_init_debug(const char *file, const char *func, int line, FiniteShell *shell);
 
+#define finite_gamepad_poll_buttons(shell) finite_gamepad_poll_buttons_debug(__FILE__, __func__, __LINE__, shell)
+void *finite_gamepad_poll_buttons_debug(const char *file, const char *func, int line, FiniteShell *shell);
+
 #define finite_gamepad_key_valid(key) finite_gamepad_key_valid_debug(__FILE__, __func__, __LINE__, key)
 bool finite_gamepad_key_valid_debug(const char *file, const char *func, int line, FiniteGamepadKey key);
 

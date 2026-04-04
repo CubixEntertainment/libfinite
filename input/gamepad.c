@@ -26,9 +26,6 @@
 #include <unistd.h>
 #include <wayland-client-protocol.h>
 #include <xkbcommon/xkbcommon.h>
-#include "draw/cairo.h"
-#include "include/draw/cairo.h"
-#include "include/draw/window.h"
 #include "include/input.h"
 #include "include/draw.h"
 #include "include/log.h"
@@ -98,11 +95,15 @@ static void send_signal(int fd, char *msg) {
 
     strcpy(addr.sun_path, path);
     
-    if (connect(fd, (struct sockaddr *) &addr, sizeof(struct sockaddr_un)) == 0) {
-        write(fd, msg, strlen(msg));
-    } else {
-        perror("connect");
+    if (connect(fd, (struct sockaddr *) &addr, sizeof(struct sockaddr_un)) != 0) {
+        if (errno != EISCONN) {
+            perror("connect");
+            return;
+        }
     }
+
+    write(fd, msg, strlen(msg));
+
 }
 
 
@@ -117,14 +118,26 @@ bool finite_gamepad_init_debug(const char *file, const char *func, int line, Fin
         exit(0);
     } else if (n < 0) {
         perror("recv");
+        close(fd);
     } else {
-        FINITE_LOG("Sizeof buffer: %ld", sizeof(response));
-        FINITE_LOG("Gamepads found: %d(%s)", response._gamepad, response_tostring(response.msg));
+        FINITE_LOG("Client Sizeof buffer: %ld", sizeof(response));
+        FINITE_LOG("Client Gamepads found: %d (%s)", response._gamepad, response_tostring(response.msg));
         shell->client_fd = fd;
-        memcpy(shell->gamepads, response.gamepads, sizeof(response.gamepads));
+        shell->_gamepads = response._gamepad;
+        shell->gamepads = calloc(1, sizeof(FiniteGamepad) * MAX_GAMEPADS);
+        memcpy(shell->gamepads, response.gamepads, sizeof(FiniteGamepad) * response._gamepad);
+
+        // ensure all gamepads are enabled by default
+        for (int i = 0; i < response._gamepad; i++) {
+            shell->gamepads[i].canInput = true;
+        }
+
+        shell->canInput = true; // even if zero we should be able to search for devices
+
+        if (response._gamepad > 0) {
+            shell->gamepadAvailable = true;
+        }
     }
-
-
     return true;
 }
 
@@ -378,7 +391,7 @@ bool finite_gamepad_key_down_debug(const char *file, const char *func, int line,
         }
 
     } else {
-        finite_log_internal(LOG_LEVEL_ERROR, file, line, func, "Gamepad %d is unavailable", id);
+        finite_log_internal(LOG_LEVEL_ERROR, file, line, func, "Gamepad %d is unavailable (%d)(%d)", id, shell->canInput, shell->_gamepads);
         return false;
     }
 
@@ -409,7 +422,7 @@ bool finite_gamepad_key_up_debug(const char *file, const char *func, int line, i
         }
 
     } else {
-        finite_log_internal(LOG_LEVEL_WARN, file, line, func, "Gamepad %d is unavailable", id);
+        finite_log_internal(LOG_LEVEL_WARN, file, line, func, "Gamepad %d is unavailable (%d)(%d)", id, shell->canInput, shell->_gamepads);
         return false;
     }
 }
@@ -444,11 +457,11 @@ bool finite_gamepad_key_pressed_debug(const char *file, const char *func, int li
             }
         
         } else {
-            finite_log_internal(LOG_LEVEL_WARN, file, line, func, "Gamepad %d is unavailable", id);
+            finite_log_internal(LOG_LEVEL_WARN, file, line, func, "Gamepad %d is unavailable (%d)(%d)", id, shell->canInput, shell->_gamepads);
             return false;
         }
     } else {
-        finite_log_internal(LOG_LEVEL_WARN, file, line, func, "Gamepad %d is unavailable", id);
+        finite_log_internal(LOG_LEVEL_WARN, file, line, func, "Gamepad %d unavailable | canInput=%d | _gamepads=%d | id<_gamepads=%d", id, shell->canInput, shell->_gamepads, id < shell->_gamepads);
         return false;
     }
 }
@@ -475,7 +488,7 @@ double finite_gamepad_joystick_get_value_debug(const char *file, const char *fun
             return (double) 0;
         }
     } else {
-        finite_log_internal(LOG_LEVEL_WARN, file, line, func, "Gamepad %d is unavailable", id);
+        finite_log_internal(LOG_LEVEL_WARN, file, line, func, "Gamepad %d unavailable | canInput=%d | _gamepads=%d | id<_gamepads=%d", id, shell->canInput, shell->_gamepads, id < shell->_gamepads);
         return (double) 0;
 
     }
@@ -529,46 +542,56 @@ static void *finite_gamepad_no_way_home(void *data) {
     return data;
 }
 
-void finite_gamepad_poll_buttons_debug(const char *file, const char *func, int line, FiniteShell *shell, int id) {
+void *finite_gamepad_poll_buttons_debug(const char *file, const char *func, int line, FiniteShell *shell) {
     if (!shell) {
         FINITE_LOG_FATAL("Unable to poll gamepads with null shell.");
     }
 
     if (!shell->canInput) {
-        return;
+        return NULL;
     }
 
     FINITE_LOG("Polling started...");
 
     send_signal(shell->client_fd, "CLIENT_REQUEST_POLL");
-    FiniteGIPCResponse response;
+    FiniteGIPCResponse response = {0};
     ssize_t n = recv(shell->client_fd, &response, sizeof(FiniteGIPCResponse), 0);
     if (n == 0) {
         FINITE_LOG("Buffer is 0. %s", response.msg);
         close(shell->client_fd);
-        return;
+        return NULL;
     } else if (n < 0) {
         perror("recv");
-        return;
+        return NULL;
     }
 
     FINITE_LOG("Sizeof buffer: %ld", sizeof(response));
     FINITE_LOG("Gamepads found: %d(%s)", response._gamepad, response_tostring(response.msg));
 
     // before we copy, replicate the state of the previous gamepad array
-    for (int i = 0; i < MAX_GAMEPADS; i++) {
+    for (int i = 0; i < response._gamepad; i++) {
         response.gamepads[i].canInput = shell->gamepads[i].canInput;
     }
     // when replicating canInput if this is the first 
 
     // we now just need to update the shell array to have the new devices
-    memcpy(shell->gamepads, response.gamepads, sizeof(response.gamepads));
+    memcpy(shell->gamepads, response.gamepads, sizeof(FiniteGamepad) * response._gamepad);
+    shell->_gamepads = response._gamepad;
 
-    if (finite_gamepad_key_pressed(0, shell, FINITE_BTN_HOME)) {
-        pthread_t noWayHome;
-        pthread_create(&noWayHome, NULL, finite_gamepad_no_way_home, shell);
-        pthread_detach(noWayHome);
+    if (response._gamepad > 0) {
+        shell->gamepadAvailable = true;
+        FINITE_LOG("Path: %s", shell->gamepads[0].path);
+        FINITE_LOG("Path: %s", response.gamepads[0].path);
+        if (finite_gamepad_key_pressed(0, shell, FINITE_BTN_HOME)) {
+            pthread_t noWayHome;
+            pthread_create(&noWayHome, NULL, finite_gamepad_no_way_home, shell);
+            pthread_detach(noWayHome);
+        }   
+    } else {
+        shell->gamepadAvailable = false;
     }
+
+    return shell;
 }
 
 // static void *finite_gamepad_poll_buttons_async(void *data) {
