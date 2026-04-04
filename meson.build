@@ -62,7 +62,8 @@ src = [
     'core/log.c',
     'core/json.c',
 
-    'user/auth.c'
+    'user/auth.c',
+    'user/user.c'
     
 ]
 
@@ -84,7 +85,7 @@ headers = [
     'include/render.h',
     'include/core.h',
     'include/log.h',
-    'include/utils/jsmn.h',
+    'include/jsmn.h',
     'include/user.h',
     'include/json.h'
 ]
@@ -116,7 +117,8 @@ input_headers = [
 ]
 
 net_headers = [
-  'include/user/user.h'
+  'include/user/user.h',
+  'include/user/req.h'
 ]
 
 install_headers(headers, subdir: 'finite')
