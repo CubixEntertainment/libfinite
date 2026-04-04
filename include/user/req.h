@@ -49,4 +49,4 @@ typedef struct {
 } FiniteAuthCode;
 
 #define finite_user_request_auth(shell, id, token, callback) finite_user_request_auth_debug(__FILE__, __func__, __LINE__, shell, id, token, callback)
-FiniteAuthRequest *finite_user_request_auth_debug(const char *file, const char *func, int line, FiniteShell *shell, char id[4], char token[64], void (*callback)(char *code));
+FiniteAuthRequest *finite_user_request_auth_debug(const char *file, const char *func, int line, FiniteShell *shell, char id[36], char token[64], void (*callback)(char *code));
