@@ -3,6 +3,18 @@
 #include <stdlib.h>
 #include <string.h>
 
+static int skip_tokens(jsmntok_t *tokens, int i) {
+    int count = 1;
+
+    if (tokens[i].type == JSMN_OBJECT || tokens[i].type == JSMN_ARRAY) {
+        for (int j = 0; j < tokens[i].size; j++) {
+            count += skip_tokens(tokens, i + count);
+        }
+    }
+
+    return count;
+}
+
 // parses arrays
 FiniteJSONValue *finite_json_parse_debug(const char *file, const char *func, int line, char *data) {
     jsmn_parser p;
@@ -29,7 +41,7 @@ FiniteJSONValue *finite_json_parse_debug(const char *file, const char *func, int
         // if iskey then create a new FiniteJSONValue and add it to the array. Otherwise get the latest item (_keys) and add the value to it. If its an object do a recursive search
         if (isKey) {
             FiniteJSONValue *item = calloc(1, sizeof(FiniteJSONValue));
-            item->key = malloc(len);
+            item->key =  malloc(len + 1);
             strncpy(item->key, item_token, len);
             item->key[len] = '\0';
             FiniteJSONValue **tmp = realloc(values->members, sizeof(FiniteJSONValue *) * (_keys + 1));
@@ -43,10 +55,26 @@ FiniteJSONValue *finite_json_parse_debug(const char *file, const char *func, int
             if (tokens[i].type == JSMN_OBJECT) {
                 FiniteJSONValue *children =  finite_json_parse(item_token);
                 FiniteJSONValue *item = values->members[_keys];
-                item->members[_keys] = children;
+
+                item->members = malloc(sizeof(FiniteJSONValue*) * children->_members);
+                item->_members = children->_members;
+                
+                for (int j = 0; j < children->_members; j++) {
+                    item->members[j] = children->members[j];
+                }
+
+                item->value =  malloc(len + 1);
+                strncpy(item->value, item_token, len);
+                item->type = JSMN_OBJECT;
+                _keys++;
+                isKey = true; 
+                // skip used values
+                i += skip_tokens(tokens, i);
+
+                free(children);
             } else {
                 FiniteJSONValue *item = values->members[_keys];
-                item->value = malloc(len);
+                item->value =  malloc(len + 1);
                 strncpy(item->value, item_token, len);
                 item->type = tokens[i].type;
                 _keys++;
@@ -69,9 +97,9 @@ char *finite_json_get_value_debug(const char *file, const char *func, int line, 
     return item->value;
 }
 
-
 char *finite_json_get_value_from_key_debug(const char *file, const char *func, int line, FiniteJSONValue *item, char *key) {
-    if (!key) {
+    if (!key || !item) {
+        FINITE_LOG("No key or item was defined");
        return NULL;
     }
 
@@ -82,7 +110,7 @@ char *finite_json_get_value_from_key_debug(const char *file, const char *func, i
     }
 
     for (int i = 0; i < item->_members; i++) {
-        finite_log_internal(LOG_LEVEL_INFO, file, line, func, "Key %s value: %s", item->members[i]->key, item->members[i]->value);
+        finite_log_internal(LOG_LEVEL_DEBUG, file, line, func, "Key %s value: %s", item->members[i]->key, item->members[i]->value);
         if (strcmp(item->members[i]->key, key) == 0) {
             finite_log_internal(LOG_LEVEL_DEBUG, file, line, func, "Key (found): %s", item->members[i]->key);
             return item->members[i]->value;
@@ -90,6 +118,28 @@ char *finite_json_get_value_from_key_debug(const char *file, const char *func, i
     }
 
     return NULL;
+}
+
+int finite_json_get_index_from_key_debug(const char *file, const char *func, int line, FiniteJSONValue *item, char *key) {
+    if (!key) {
+       return -1;
+    }
+
+
+    if (strcmp(item->key, key) == 0) {
+        finite_log_internal(LOG_LEVEL_DEBUG, file, line, func, "Key (inherited): %s", item->key);
+        return -1;
+    }
+
+    for (int i = 0; i < item->_members; i++) {
+        finite_log_internal(LOG_LEVEL_DEBUG, file, line, func, "Key %s value: %s", item->members[i]->key, item->members[i]->value);
+        if (strcmp(item->members[i]->key, key) == 0) {
+            finite_log_internal(LOG_LEVEL_DEBUG, file, line, func, "Key (found): %s", item->members[i]->key);
+            return i;
+        }
+    }
+
+    return -1;
 }
 
 void finite_json_cleanup_debug(const char *file, const char *func, int line, FiniteJSONValue *item) {

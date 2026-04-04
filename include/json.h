@@ -2,7 +2,7 @@
 #define __JSON_H__
 
 // jsmn
-#include "utils/jsmn.h"
+#include "jsmn.h"
 
 typedef struct FiniteJSONValue FiniteJSONValue;
 
@@ -25,5 +25,8 @@ char *finite_json_get_value_debug(const char *file, const char *func, int line, 
 
 #define finite_json_cleanup(item) finite_json_cleanup_debug(__FILE__, __func__, __LINE__, item)
 void finite_json_cleanup_debug(const char *file, const char *func, int line, FiniteJSONValue *item);
+
+#define finite_json_get_index_from_key(item, key) finite_json_get_index_from_key_debug(__FILE__, __func__, __LINE__, item, key)
+int finite_json_get_index_from_key_debug(const char *file, const char *func, int line, FiniteJSONValue *item, char *key);
 
 #endif
