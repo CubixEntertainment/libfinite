@@ -1,1 +1,2 @@
 option('with-finite', type : 'feature', value : 'enabled', description : 'Use libfinite to print messages.')
+option('with-networking', type: 'feature', value: 'enabled', description: 'Use libcurl to handle networking request')

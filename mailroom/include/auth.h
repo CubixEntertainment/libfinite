@@ -1,7 +1,7 @@
 #include <finite/user.h>
+// #include <finite/jsmn.h>
 #include <curl/curl.h>
 #include <libwebsockets.h>
-#include <finite/jsmn.h>
 
 typedef struct {
     pid_t owner; // pid of the device that has input focus (only one client at a time)
@@ -65,3 +65,6 @@ struct per_session_data {
     char buffer[FILENAME_MAX]; 
     FiniteConnection cs;
 };
+
+int initializAPISocket();
+void *handle_api();

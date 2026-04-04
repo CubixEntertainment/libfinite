@@ -1,4 +1,5 @@
-#include <stdlib.h>
+#pragma once
+
 #include <curl/curl.h>
 
 typedef struct Request Request;
@@ -8,19 +9,3 @@ typedef struct {
     int server_fd;
     int client_fd;
 } FiniteIPCServer;
-
-struct MemoryStruct{
-  char *memory;
-  size_t size;
-};
-
-struct Request{
-    char* jsonObj;
-    CURLcode resCode;
-    struct MemoryStruct res;
-};
-
-static size_t mem_cb(char *data, size_t size, size_t nsize, void *clientp);
-
-// #define finite_user_request_auth(request) finite_user_request_auth_debug(__FILE__, __func__, __LINE__, request)
-// int finite_user_request_auth_debug(const char *file, const char *func, int line, Request request);

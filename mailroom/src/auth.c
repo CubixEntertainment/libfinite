@@ -1,5 +1,8 @@
 #include "../include/log.h"
 #include "../include/auth.h"
+#include <finite/jsmn.h>
+#define JSMN_HEADER
+
 
 static FiniteNIPCServer server = {0};
 
@@ -199,7 +202,6 @@ int WS_HANDLE(struct lws *wsi, enum lws_callback_reasons reason, void *data, voi
                 unsigned char *send_buffer;
                 for (int i = 0; i < opts._gen_opts; i++) {
                     if (opts.gen_opts[i]->code == CURLOPT_POSTFIELDS) {
-                        FINITE_LOG("found: %s", opts.gen_opts[i]->param);
                         send_buffer = (unsigned char *) opts.gen_opts[i]->param;
                         len = strlen(opts.gen_opts[i]->param);
                     }
@@ -263,13 +265,6 @@ void *WS_INIT(FiniteRequest options) {
     };
 
     FINITE_LOG("items: %d", cs.req._gen_opts);
-
-
-    for (int i = 0; i < cs.req._gen_opts; i++) {
-        if (cs.req.gen_opts[i]->code == CURLOPT_POSTFIELDS) {
-            FINITE_LOG("found: %s", cs.req.gen_opts[i]->param);
-        }
-    }
 
     info.port = CONTEXT_PORT_NO_LISTEN;
     info.options = LWS_SERVER_OPTION_DO_SSL_GLOBAL_INIT;
