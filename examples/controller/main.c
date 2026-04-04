@@ -6,15 +6,20 @@
 #include "draw/cairo.h"
 #include "draw/window.h"
 #include "input/gamepad.h"
+#include "input/keyboard.h"
+#include <dirent.h>
 #include <finite/draw.h>
 #include <finite/log.h>
 #include <finite/input.h>
 #include <linux/limits.h>
+#include <pthread.h>
 #include <string.h>
+#include <unistd.h>
 
 FiniteShell *myShell;
 int32_t width;
 int32_t height;
+bool isRunning = true;
 
 int _showKeys = 11;
 FiniteGamepadKey showKeys[] = {
@@ -207,8 +212,15 @@ void draw_controller() {
     }
 }
 
+void *handle_input(void *data) {
+    while (isRunning) {
+        finite_gamepad_poll_buttons(myShell);
+    }
+    return NULL;
+}
+
 int main() {
-    finite_log_init(stdout, LOG_LEVEL_DEBUG, false);
+    finite_log_init(stdout, LOG_LEVEL_DEBUG, true);
     myShell = finite_shell_init("wayland-0");
     
     if (!myShell) {
@@ -247,10 +259,16 @@ int main() {
         FINITE_LOG_ERROR("Can't poll controller data");
     }
 
+    // pthread_t input_handle;
+    // pthread_create(&input_handle, NULL, handle_input, NULL);
+
     // now just keep the window alive
     while (wl_display_dispatch(myShell->display) != -1) {
         draw_controller();
+        finite_gamepad_poll_buttons(myShell);
     }
+
+    isRunning = false;
     finite_draw_cleanup(myShell);    
     wl_display_disconnect(myShell->display);
 }
