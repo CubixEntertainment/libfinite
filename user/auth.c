@@ -295,5 +295,7 @@ FiniteAuthRequest *finite_user_request_auth_debug(const char *file, const char *
     code_data->verify_code = finite_json_get_value_from_key(json, "verify_code");
     code_data->user_id = finite_json_get_value_from_key(json, "user_id");
 
+    // TODO: set user online here
+
     return code_data;
 }

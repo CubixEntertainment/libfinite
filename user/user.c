@@ -24,6 +24,21 @@ static void send_signal(int fd, FiniteIPCRequest req) {
     }
 }
 
+char *finite_user_status_to_string(enum FiniteUserStatus status) {
+    switch (status) {
+        case USER_STATUS_ONLINE:
+            return "Online";
+        case USER_STATUS_DND:
+            return "Do Not Disturb";
+        case USER_STATUS_IDLE:
+            return "Idle";
+        case USER_STATUS_OFFLINE:
+            return "Offline";
+        default:
+            return "Unknown";
+    }
+}
+
 FiniteUser *finite_user_get_by_id_debug(const char *file, const char *func, int line, char *user_id, char* token, char *dev) {
     int fd = socket(AF_UNIX, SOCK_SEQPACKET, 0);
 
@@ -75,15 +90,15 @@ FiniteUser *finite_user_get_by_id_debug(const char *file, const char *func, int 
     char *is_mod = finite_json_get_value_from_key(json, "is_moderator");
     int last_online = atoi(finite_json_get_value_from_key(json, "last_online"));
 
-    // TODO: If any values are empty strings set them to NULL
-
-
     strncpy(usr->user, name, sizeof(usr->user) - 1);
     usr->user[sizeof(usr->user)-1] = '\0';
     strncpy(usr->user_id, id, sizeof(usr->user_id) - 1);
     usr->user_id[sizeof(usr->user_id)-1] = '\0';
-    strncpy(usr->display, display, sizeof(usr->display) - 1);
-    usr->display[sizeof(usr->display)-1] = '\0';
+
+    if (display) {
+        strncpy(usr->display, display, sizeof(usr->display) - 1);
+        usr->display[sizeof(usr->display)-1] = '\0';
+    }
 
     if (bio) {
         usr->bio = malloc(strlen(bio) + 1);
@@ -108,3 +123,102 @@ FiniteUser *finite_user_get_by_id_debug(const char *file, const char *func, int 
 
     return usr;
 }
+
+FiniteUser *finite_user_get_by_index_id_debug(const char *file, const char *func, int line, int id, char* token, char *dev)  {
+    int fd = socket(AF_UNIX, SOCK_SEQPACKET, 0);
+
+    FiniteIPCRequest req = {
+        .write_mode = 1, // use USERDATA write mode to get data formatted correctly
+        .data_type = 0,
+        .cmd = "POST",
+        .adr = "https://api.cubixdev.org/user"
+    };
+
+    return NULL;
+
+    // TODO
+}
+
+enum FiniteUserStatus finite_user_get_status_debug(const char *file, const char *func, int line, char *user_id, char* token, char *dev) {
+    int fd = socket(AF_UNIX, SOCK_SEQPACKET, 0);
+
+    FiniteIPCRequest req = {
+        .write_mode = 1, // use USERDATA write mode to get data formatted correctly
+        .data_type = 0,
+        .cmd = "POST",
+        .adr = "https://api.cubixdev.org/user/get_online"
+    };
+
+    strncpy(req.token, token, 1024);
+    strncpy(req.user_id, user_id, 36);
+    strncpy(req.device_id, dev, 36);
+    snprintf(req.data, 4096, "{\n\"user_id\":\"%s\",\n\"token\":\"%s\",\n\"device_id\":\"%s\"}", user_id, token, dev);
+
+    send_signal(fd, req);
+
+    FiniteIPCResponse response;
+    ssize_t n = recv(fd, &response, sizeof(FiniteIPCResponse), 0);
+    if (n == 0) {
+        finite_log_internal(LOG_LEVEL_DEBUG, file, line, func, "Buffer is 0. (Request closed?).");
+        close(fd);
+        return USER_STATUS_UNKNOWN;
+    } else if (n < 0) {
+        finite_log_internal(LOG_LEVEL_ERROR, file, line, func, "Something went wrong.");
+        perror("recv");
+        close(fd);
+        return USER_STATUS_UNKNOWN;
+    } else {
+        FINITE_LOG("Data %s", response.data);
+    }
+
+    FiniteJSONValue *json = finite_json_parse(response.data);
+    char *status = finite_json_get_value_from_key(json, "online?");
+
+    // TODO: isOnline shouldnt be a boolean
+    if (strcmp(status, "true") == 0) {
+        return USER_STATUS_ONLINE;
+    } else {
+        return USER_STATUS_OFFLINE;
+    }
+}
+
+bool finite_user_set_status_debug(const char *file, const char *func, int line, char *user_id, char *token, char *dev, enum FiniteUserStatus status) {
+    int fd = socket(AF_UNIX, SOCK_SEQPACKET, 0);
+
+    FiniteIPCRequest req = {
+        .write_mode = 1, // use USERDATA write mode to get data formatted correctly
+        .data_type = 0,
+        .cmd = "POST",
+        .adr = "https://api.cubixdev.org/user/get_online"
+    };
+
+    strncpy(req.token, token, 1024);
+    strncpy(req.user_id, user_id, 36);
+    strncpy(req.device_id, dev, 36);
+    char *strStatus = finite_user_status_to_string(status);
+    snprintf(req.data, 4096, "{\n\"user_id\":\"%s\",\n\"token\":\"%s\",\n\"device_id\":\"%s\"\n\"str\":\"%s\"\n}", user_id, token, dev, strStatus);
+
+    send_signal(fd, req);
+
+    FiniteIPCResponse response;
+    ssize_t n = recv(fd, &response, sizeof(FiniteIPCResponse), 0);
+    if (n == 0) {
+        finite_log_internal(LOG_LEVEL_DEBUG, file, line, func, "Buffer is 0. (Request closed?).");
+        close(fd);
+        return false;
+    } else if (n < 0) {
+        finite_log_internal(LOG_LEVEL_ERROR, file, line, func, "Something went wrong.");
+        perror("recv");
+        close(fd);
+        return false;
+    } else {
+        FINITE_LOG("Data %s", response.data);
+        if (response.status == 200) {
+            return true;
+        } else {
+            FINITE_LOG_ERROR("Something went wrong: %s", response.msg);
+            return false;
+        }
+    }
+}
+
