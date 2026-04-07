@@ -725,6 +725,34 @@ FiniteColorGroup finite_draw_hex_to_color_group_alpha_debug(const char *file, co
     return color;
 }
 
+void finite_draw_set_pattern_dithering_debug(const char *file, const char *func, int line, cairo_pattern_t * pattern, FiniteDitherMode mode) {
+    if (!pattern) {
+        finite_log_internal(LOG_LEVEL_ERROR, file, line, func, "Unable to dithering mode on NULL pattern");
+        return;
+    }
+
+    cairo_dither_t dither;
+    switch (mode) {
+        case FINITE_DITHER_MODE_NONE:
+            dither = CAIRO_DITHER_NONE;
+            break;
+        case FINITE_DITHER_MODE_BALANCED:
+            dither = CAIRO_DITHER_GOOD;
+            break;
+        case FINITE_DITHER_MODE_FASTEST:
+            dither = CAIRO_DITHER_FAST;
+            break;
+        case FINITE_DITHER_MODE_QAULITY:
+            dither = CAIRO_DITHER_BEST;
+            break;
+        default:
+            dither = CAIRO_DITHER_DEFAULT;
+            break;
+    }
+    
+    cairo_pattern_set_dither(pattern, dither);
+}
+
 bool finite_draw_finish_debug(const char *file, const char *func, int line, FiniteShell *shell, int width, int height, int stride, bool withAlpha) {
     FINITE_LOG("Checks: %d %d %d %d", width, height, stride, withAlpha);
     cairo_destroy(shell->cr); 
