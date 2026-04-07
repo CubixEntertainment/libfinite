@@ -3,11 +3,13 @@
     Written by Gabriel Thompson <gabriel.thomp@cubixdev.org>
 */
 
+#include "draw/cairo.h"
 #include <finite/draw.h>
 #include <finite/log.h>
 
 int main() {
     finite_log_init(stdout, LOG_LEVEL_DEBUG, false);
+
     FINITE_LOG("Starting.");
     // create a new shell
     FiniteShell *myShell = finite_shell_init("wayland-0");
@@ -54,6 +56,10 @@ int main() {
         .b = 73.0/255.0
     };
 
+    // for convenience, you can also use the finite_draw_hex_to_color_group function to avoid the extra math. 
+    // Just note this can only be called from inside a function.
+    FiniteColorGroup white = finite_draw_hex_to_color_group("#ffffff");
+
     // !! VERY IMPORTANT
     // finite_draw_rect supports both solid colors and gradients but you CANNOT have both values set. One of the last two params MUST be NULL.
     // in this example we use a solid color so the gradient value is NULL
@@ -61,11 +67,8 @@ int main() {
 
     // now lets create some text
     finite_draw_set_font(myShell, "KunbhSans", false, false, 24);
-    FiniteColorGroup white = {
-        .r = 0,
-        .g = 0,
-        .b = 0
-    }; 
+
+    
     finite_draw_set_draw_position(myShell, 30, 20);
     finite_draw_set_text(myShell, "Hello there!", &white);
 
@@ -78,7 +81,10 @@ int main() {
     }
 
     // now just keep the window alive
-    while (wl_display_dispatch(myShell->display) != -1) {}
+    while (wl_display_dispatch(myShell->display) != -1) {
+        // run code here
+    }
+
     finite_draw_cleanup(myShell);    
     wl_display_disconnect(myShell->display);
 }
