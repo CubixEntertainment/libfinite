@@ -11,6 +11,7 @@ conf = configuration_data()
 finite = dependency('finite', version: ['>=0.7.3'], required: true) # libfinite
 curl = dependency('libcurl', required: get_option('with-networking'))
 udev = dependency('libudev')
+ev = dependency('libevdev')
 lws = dependency('libwebsockets')
 
 if get_option('with-finite').enabled() and finite.found()
@@ -34,6 +35,7 @@ deps = [
     finite,
     udev,
     lws,
+    ev,
     curl
 ]
 

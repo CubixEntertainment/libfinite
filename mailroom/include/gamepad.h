@@ -1,3 +1,4 @@
+#pragma once
 #include <finite/input.h>
 
 typedef struct {
