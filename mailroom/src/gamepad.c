@@ -1,12 +1,15 @@
 #include "../include/log.h"
 #include "../include/core.h"
 #include "../include/gamepad.h"
+#include <asm-generic/errno-base.h>
 #include <fcntl.h>
 #include <errno.h>
 #include <finite/input/gamepad.h>
 #include <linux/input-event-codes.h>
+#include <pthread.h>
 #include <stdlib.h>
 #include <string.h>
+#include <sys/select.h>
 #include <sys/socket.h>
 #include <sys/stat.h>
 #include <sys/un.h>
@@ -18,6 +21,7 @@
 
 
 static FiniteIPCServer server = {0};
+static pthread_mutex_t MonitorMutex;
 
 /*
     The gamepad socket has one in/out channel (FINITE_GIPC_MAIN)
@@ -151,6 +155,156 @@ static const char *finite_gamepad_evdev_to_string(uint16_t code) {
     return ""; // Not found
 }
 
+
+void *get_updates() {
+    struct udev *ud = udev_new();
+    if (!ud) {
+        FINITE_LOG_ERROR("Unable to create udev");
+        return NULL;
+    }
+
+    struct udev_monitor *mon = udev_monitor_new_from_netlink(ud, "udev");
+    udev_monitor_filter_add_match_subsystem_devtype(mon, "input", NULL);
+    udev_monitor_enable_receiving(mon);
+
+    int fd = udev_monitor_get_fd(mon);
+
+    while (true) {
+        fd_set fds;
+        FD_ZERO(&fds);
+        FD_SET(fd, &fds);
+
+        select(fd + 1, &fds, NULL, NULL, NULL);
+
+        if (FD_ISSET(fd, &fds)) {
+            struct udev_device *dev = udev_monitor_receive_device(mon);
+            const char *action = udev_device_get_action(dev);
+            const char *devnode = udev_device_get_devnode(dev);
+
+
+            if (server.info->_gamepads < MAX_GAMEPADS && strcmp(action, "add") == 0) {
+                FINITE_LOG_INFO("Gamepad %d connected", server.info->_gamepads);
+                const char *is_joystick = udev_device_get_property_value(dev, "ID_INPUT_JOYSTICK");
+                if (devnode && strncmp(devnode, "/dev/input/event", 16) == 0 && is_joystick && atoi(is_joystick) == 1) {
+                    FiniteGamepad *current = calloc(1, sizeof(FiniteGamepad));
+                    if (!current) {
+                        FINITE_LOG_ERROR("Unable to allocate memory for new gamepad");
+                        return NULL;
+                    }
+
+                    int sd = open(devnode, O_RDONLY | O_NONBLOCK);
+                    if  (sd < 0) {
+                        perror("open");
+                        FINITE_LOG_ERROR("Found gamepad %s but unable to open it.", devnode);
+                        return NULL;
+                    }
+
+                    int i = server.info->_gamepads;
+
+                    current->fd = sd;
+                    strncpy(current->path, devnode, PATH_MAX);
+                    current->order = i;
+                    current->canInput = true;
+                    FiniteTrigger lt = {0};
+                    FiniteTrigger rt = {0};
+
+                    struct libevdev *evdev = libevdev_new();
+                    int rc = libevdev_set_fd(evdev, sd);
+                    if (rc < 0) {
+                        FINITE_LOG_ERROR("Unable to use libevdev (%s)",strerror(-rc));
+                        return NULL;
+                    }
+
+                    if (libevdev_has_event_code(evdev, EV_ABS, ABS_X) && libevdev_has_event_code(evdev, EV_ABS, ABS_Y) ) {
+                        FiniteJoystick lx = {0};
+                        
+                        const struct input_absinfo *labsx = libevdev_get_abs_info(evdev, ABS_X);
+                        const struct input_absinfo *labsy = libevdev_get_abs_info(evdev, ABS_Y);
+                        
+                        lx.xAxis = ABS_X;
+                        lx.yAxis = ABS_Y;
+                        lx.xMax = labsx->maximum;
+                        lx.xMin = labsx->minimum;
+                        lx.xFlat = labsx->flat;
+                        lx.xValue = 0.0;
+                        lx.yMax = labsy->maximum;
+                        lx.yMin = labsy->minimum;
+                        lx.yFlat = labsy->flat;
+                        lx.yValue = 0.0;
+                        strncpy(lx.name, "Left Joystick", 16);
+                        current->lAxis = lx;
+                    }
+
+                    if (libevdev_has_event_code(evdev, EV_ABS, ABS_RX) && libevdev_has_event_code(evdev, EV_ABS, ABS_RY) ) {
+                        FiniteJoystick rx = {0};
+                        const struct input_absinfo *rabsx = libevdev_get_abs_info(evdev, ABS_RX);
+                        const struct input_absinfo *rabsy = libevdev_get_abs_info(evdev, ABS_RY);
+                        
+                        rx.xAxis = ABS_RX;
+                        rx.yAxis = ABS_RY;
+                        rx.xMax = rabsx->maximum;
+                        rx.xMin = rabsx->minimum;
+                        rx.xFlat = rabsx->flat;
+                        rx.xValue = 0.0;
+                        rx.yMax = rabsy->maximum;
+                        rx.yMin = rabsy->minimum;
+                        rx.yFlat = rabsy->flat;
+                        rx.yValue = 0.0;
+                        strncpy(rx.name, "Right Joystick", 16);
+                        current->rAxis = rx;
+                    }
+
+                    // triggers are weird and can be any of the three
+                    if (libevdev_has_event_code(evdev, EV_ABS, ABS_Z) && libevdev_has_event_code(evdev, EV_ABS, ABS_RZ) ) {
+                        lt.axis = ABS_Z;
+                        lt.value = 0.0;
+                        rt.axis = ABS_RZ;
+                        rt.value = 0.0;
+                        current->lt = lt;
+                        current->rt = rt;
+                    } else if (libevdev_has_event_code(evdev, EV_ABS, ABS_HAT1X) && libevdev_has_event_code(evdev, EV_ABS, ABS_HAT1Y)) {
+                        lt.axis = ABS_HAT1X;
+                        lt.value = 0.0;
+                        rt.axis = ABS_HAT1Y;
+                        rt.value = 0.0;
+                        current->lt = lt;
+                        current->rt = rt;
+                    } else if (libevdev_has_event_code(evdev, EV_ABS, ABS_HAT2X) && libevdev_has_event_code(evdev, EV_ABS, ABS_HAT2Y)) {
+                        lt.axis = ABS_HAT2X;
+                        lt.value = 0.0;
+                        rt.axis = ABS_HAT2Y;
+                        rt.value = 0.0;
+                        current->lt = lt;
+                        current->rt = rt;
+                    }
+
+                    // dpad is usually hat0
+                    if (libevdev_has_event_code(evdev, EV_ABS, ABS_HAT0X) && libevdev_has_event_code(evdev, EV_ABS, ABS_HAT0Y) ) {
+                        FiniteDpad dpad = {0};
+                    
+                        dpad.xAxis = ABS_HAT0X;
+                        dpad.xValue = 0.0;
+                        dpad.yAxis = ABS_HAT0X;
+                        dpad.yValue = 0.0;
+
+                        current->dpad = dpad;
+                    }
+
+                    pthread_mutex_lock(&MonitorMutex);
+                    FINITE_LOG("Device Id: %d", server.info->_gamepads);
+                    server.info->gamepads[server.info->_gamepads] = current;
+                    server.info->_gamepads += 1;
+                    pthread_mutex_unlock(&MonitorMutex);
+                }
+            }
+        }
+    }
+
+
+    
+    return server.info;
+}
+
 FiniteGamepadInfo *get_gamepads() {
     FiniteGamepadInfo *info = calloc(1, sizeof(FiniteGamepadInfo));
     info->_gamepads = 0;
@@ -195,7 +349,7 @@ FiniteGamepadInfo *get_gamepads() {
             
 
             current->fd = fd;
-            strncpy(current->path, path, PATH_MAX);
+            strncpy(current->path, devnode, PATH_MAX);
             current->order = info->_gamepads;
             current->canInput = true;
             FiniteTrigger lt = {0};
@@ -295,18 +449,16 @@ FiniteGamepadInfo *get_gamepads() {
     udev_enumerate_unref(enumerate);
     udev_unref(ud);
 
+
+    pthread_t monitor;
+    pthread_create(&monitor, NULL, get_updates, NULL);
+    pthread_detach(monitor);
+
     return info;
 }
 
-FiniteGamepadInfo *get_updates() {
-    // TODO
-    // in mailman use inotify to get event details
-    return server.info;
-}
-
-
 FiniteGamepadInfo *poll_gamepads() {
-    FiniteGamepadInfo *info = get_updates();
+    FiniteGamepadInfo *info = server.info;
 
     struct input_event ev;
     struct timespec t;
@@ -314,6 +466,7 @@ FiniteGamepadInfo *poll_gamepads() {
 
     bool isEv = false;
 
+    pthread_mutex_lock(&MonitorMutex);
     for (int i = 0; i < info->_gamepads; i++) {
         FiniteGamepad *current = info->gamepads[i];
         ssize_t d;
@@ -414,6 +567,13 @@ FiniteGamepadInfo *poll_gamepads() {
             } else if (d == -1) {
                 if (errno == EAGAIN || errno == EWOULDBLOCK) {
                     break;
+                } else if (errno == ENODEV) {
+                    FINITE_LOG("Controller %d was disconnected");
+                    // we should do a send_signal here to say "hey a controller was disconnected btw"
+                    free(info->gamepads[i]);
+                    info->gamepads[i] = NULL;
+                    isEv = true; // set isEv to true so we know something happened
+                    break;
                 }
                 perror("read");
                 break;
@@ -431,12 +591,25 @@ FiniteGamepadInfo *poll_gamepads() {
             ._gamepad = info->_gamepads
         };
         
-        for (int i = 0; i < info->_gamepads; i++) {
-            memcpy(&res.gamepads[i], info->gamepads[i], sizeof(FiniteGamepad));
+        int i = 0;
+
+        for (int v = 0; v < info->_gamepads; v++) {
+            if (info->gamepads[v] != NULL) {
+
+                info->gamepads[i] = info->gamepads[v];
+                memcpy(&res.gamepads[i], info->gamepads[v], sizeof(FiniteGamepad));
+                i++;
+            }
         }
+
+        res._gamepad = i;
+        info->_gamepads = i;
+
         send_signal(server.client_fd, &res);
         isEv = false;
     }
+    pthread_mutex_unlock(&MonitorMutex);
+
 
     return info;
 }
@@ -517,8 +690,6 @@ void *handle_input() {
                         memcpy(&res.gamepads[i], info->gamepads[i], sizeof(FiniteGamepad));
                     }
 
-                    FINITE_LOG("Path: %s", info->gamepads[0]->path);
-                    FINITE_LOG("Path: %s", res.gamepads[0].path);
                     send_signal(client, &res);
                 } else {
                     FiniteGIPCResponse res = {
