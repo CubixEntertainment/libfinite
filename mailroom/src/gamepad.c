@@ -640,6 +640,7 @@ void *handle_input() {
                         FiniteGIPCResponse res = {
                             .msg = SERVER_ALREADY_GRANTED_FOCUS
                         };
+
                         send_signal(client, &res);
                         FINITE_LOG("Replying with signal (duplicate)");
 

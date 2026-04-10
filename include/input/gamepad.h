@@ -87,6 +87,8 @@ typedef struct {
     bool isHeld;
     bool isDown;
     bool isUp;
+    int heldSTime; // when did the keypress start
+    int heldETime; // when did the keypress end
 } FiniteGamepadKeyState;
 
 struct FiniteGamepad {
@@ -109,6 +111,7 @@ enum FiniteGIPCResponseMsg {
     SERVER_ALREADY_GRANTED_FOCUS,
     SERVER_REQUEST_DECLINED_FOCUS,
     SERVER_REQUEST_DECLINED_POLL,
+    SERVER_ERROR
 };
 
 typedef struct __attribute__((packed)) {
@@ -146,5 +149,7 @@ const char *finite_gamepad_key_string_from_key_debug(const char *file, const cha
 #define finite_gamepad_joystick_get_value(id, shell, type) finite_gamepad_joystick_get_value_debug(__FILE__, __func__, __LINE__, id, shell, type)
 double finite_gamepad_joystick_get_value_debug(const char *file, const char *func, int line, int id, FiniteShell *shell, FiniteJoystickType type);
 
+#define finite_gamepad_key_get_hold_time(id, shell, key) finite_gamepad_key_get_hold_time_debug(__FILE__, __func__, __LINE__, id, shell, key);
+double finite_gamepad_key_get_hold_time_debug(const char *file, const char *func, int line, int id, FiniteShell *shell, FiniteGamepadKey key);
 
 #endif

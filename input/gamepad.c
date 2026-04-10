@@ -78,6 +78,8 @@ static char *response_tostring(uint16_t msg) {
             return "Focus request declined";
         case SERVER_REQUEST_DECLINED_POLL:
             return "Poll request declined";
+        case SERVER_ERROR:
+            return "Unknown error occured.";
         default:
             return "Code unknown";
     }
@@ -321,26 +323,6 @@ static uint16_t finite_gamepad_key_to_evdev(FiniteGamepadKey key) {
     return UINT16_MAX; // Not found
 }
 
-// static const char *finite_gamepad_evdev_to_string(uint16_t code) {
-//     size_t count = sizeof(finite_gamepad_key_lookup) / sizeof(finite_gamepad_key_lookup[0]);
-//     for (size_t i = 0; i < count; i++) {
-//         if (finite_gamepad_key_lookup[i].evdev_code == code) {
-//             return finite_gamepad_key_lookup[i].name;
-//         }
-//     }
-//     return ""; // Not found
-// }
-
-static FiniteGamepadKey finite_gamepad_evdev_to_key(uint16_t code) {
-    size_t count = sizeof(finite_gamepad_key_lookup) / sizeof(finite_gamepad_key_lookup[0]);
-    for (size_t i = 0; i < count; i++) {
-        if (finite_gamepad_key_lookup[i].evdev_code == code) {
-            return finite_gamepad_key_lookup[i].key;
-        }
-    }
-    return FINITE_BTN_NONE; // Not found
-}
-
 FiniteGamepadKey finite_gamepad_key_from_string_debug(const char *file, const char *func, int line, const char *name) {
     size_t count = sizeof(finite_gamepad_key_lookup) / sizeof(finite_gamepad_key_lookup[0]);
     for (size_t i = 0; i < count; i++) {
@@ -494,6 +476,37 @@ double finite_gamepad_joystick_get_value_debug(const char *file, const char *fun
     }
 }
 
+double finite_gamepad_key_get_hold_time_debug(const char *file, const char *func, int line, int id, FiniteShell *shell, FiniteGamepadKey key) {
+    if (!shell) {
+        FINITE_LOG_ERROR("Unable to poll gamepads with null shell.");
+        return false;
+    }
+
+
+    if (shell->canInput && id < shell->_gamepads) {
+        FiniteGamepad gamepad = shell->gamepads[id];
+        uint16_t evdev_key = finite_gamepad_key_to_evdev(key);
+        if (evdev_key == UINT16_MAX) {
+            finite_log_internal(LOG_LEVEL_ERROR, file, line, func,  "Unable to get input state from invalid key");
+            return false;
+        }
+
+        if (gamepad.btns[evdev_key].isDown && gamepad.btns[evdev_key].heldSTime > 0) {
+            struct timespec c;
+            clock_gettime(CLOCK_REALTIME, &c);
+            return (double) c.tv_sec - gamepad.btns[evdev_key].heldSTime;
+        } else {
+            return 0;
+        }
+
+
+    } else {
+        finite_log_internal(LOG_LEVEL_WARN, file, line, func, "Gamepad %d unavailable | canInput=%d | _gamepads=%d | id<_gamepads=%d", id, shell->canInput, shell->_gamepads, id < shell->_gamepads);
+        return (double) 0;
+
+    }
+}
+
 // draw the No_Home popup and then destroy it after 3 seconds
 static void *finite_gamepad_no_way_home(void *data) {
     FiniteShell *shell = (FiniteShell *) data; // this shell has details we need to do math
@@ -552,6 +565,7 @@ void *finite_gamepad_poll_buttons_debug(const char *file, const char *func, int 
     }
 
     FINITE_LOG("Polling started...");
+    bool wasDown = shell->gamepads[0].btns[FINITE_BTN_HOME].isDown;
 
     send_signal(shell->client_fd, "CLIENT_REQUEST_POLL");
     FiniteGIPCResponse response = {0};
@@ -582,11 +596,14 @@ void *finite_gamepad_poll_buttons_debug(const char *file, const char *func, int 
         shell->gamepadAvailable = true;
         FINITE_LOG("Path: %s", shell->gamepads[0].path);
         FINITE_LOG("Path: %s", response.gamepads[0].path);
-        if (finite_gamepad_key_pressed(0, shell, FINITE_BTN_HOME)) {
+        // pressed is unavailable since it relies on running out of sync. we'll just do a state check
+        if (wasDown && finite_gamepad_key_up(0, shell, FINITE_BTN_HOME) && !shell->canHomeMenu) {
+            FINITE_LOG_INFO("No way home!");
             pthread_t noWayHome;
             pthread_create(&noWayHome, NULL, finite_gamepad_no_way_home, shell);
             pthread_detach(noWayHome);
-        }   
+        }
+        //  TODO: Request sidebar here if available and home is held.
     } else {
         shell->gamepadAvailable = false;
     }
