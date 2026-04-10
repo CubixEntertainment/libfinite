@@ -1,5 +1,3 @@
-#define JSMN_HEADER
-
 #include <string.h>
 #include <stdbool.h>
 #include <stdlib.h>

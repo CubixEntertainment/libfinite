@@ -1,7 +1,6 @@
 #include "../include/log.h"
 #include "../include/auth.h"
 #include <finite/jsmn.h>
-#define JSMN_HEADER
 
 
 static FiniteNIPCServer server = {0};

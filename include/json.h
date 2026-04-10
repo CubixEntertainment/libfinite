@@ -1,5 +1,6 @@
 #ifndef __JSON_H__
 #define __JSON_H__
+#define JSMN_HEADER
 
 // jsmn
 #include "jsmn.h"

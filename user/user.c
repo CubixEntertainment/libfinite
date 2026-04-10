@@ -1,4 +1,3 @@
-#define JSMN_HEADER
 #include "user.h"
 #include "log.h"
 #include "json.h"
@@ -124,20 +123,19 @@ FiniteUser *finite_user_get_by_id_debug(const char *file, const char *func, int 
     return usr;
 }
 
-FiniteUser *finite_user_get_by_index_id_debug(const char *file, const char *func, int line, int id, char* token, char *dev)  {
-    int fd = socket(AF_UNIX, SOCK_SEQPACKET, 0);
+// TODO
+// FiniteUser *finite_user_get_by_index_id_debug(const char *file, const char *func, int line, int id, char* token, char *dev)  {
+//     int fd = socket(AF_UNIX, SOCK_SEQPACKET, 0);
 
-    FiniteIPCRequest req = {
-        .write_mode = 1, // use USERDATA write mode to get data formatted correctly
-        .data_type = 0,
-        .cmd = "POST",
-        .adr = "https://api.cubixdev.org/user"
-    };
+//     FiniteIPCRequest req = {
+//         .write_mode = 1, // use USERDATA write mode to get data formatted correctly
+//         .data_type = 0,
+//         .cmd = "POST",
+//         .adr = "https://api.cubixdev.org/user"
+//     };
 
-    return NULL;
-
-    // TODO
-}
+//     return NULL;
+// }
 
 enum FiniteUserStatus finite_user_get_status_debug(const char *file, const char *func, int line, char *user_id, char* token, char *dev) {
     int fd = socket(AF_UNIX, SOCK_SEQPACKET, 0);
