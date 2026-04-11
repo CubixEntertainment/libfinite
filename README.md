@@ -44,6 +44,7 @@ You'll need the following packages in order to build libfinite.
 
 > [!IMPORTANT]
 > libfinite ships with an IPC client called mailroom that must be built **AFTER** building libfinite.
+> 
 > Additionally, libfinite is intended to be used in a Linux environment. We will not help resolve issues that may arise from attempting to run this on WSL or any other non-Linux environments.
 
 - Meson
