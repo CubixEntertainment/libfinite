@@ -48,5 +48,6 @@ src = [
 executable(
     'mailroom', 
     sources: src,
-    dependencies: deps
+    dependencies: deps,
+    install: true
 )
