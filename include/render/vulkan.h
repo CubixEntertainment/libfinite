@@ -2,6 +2,8 @@
 #define __VULKAN_H__
 #include "render-core.h"
 
+const char * VkResultToString(VkResult result);
+
 #define finite_render_init(shell, extensions, layers, _exts, _layers) finite_render_init_debug(__FILE__, __func__, __LINE__, shell, extensions, layers, _exts, _layers)
 FiniteRender *finite_render_init_debug(const char *file, const char *func, int line, FiniteShell *shell, char **extensions, char **layers, uint32_t _exts, uint32_t _layers);
 
