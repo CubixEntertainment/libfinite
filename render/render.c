@@ -424,24 +424,6 @@ bool finite_render_get_shader_module_debug(const char *file, const char *func, i
     return true;
 }
 
-uint32_t finite_render_get_memory_format_debug(const char *file, const char *func, int line, FiniteRender *render, uint32_t filter, VkMemoryPropertyFlags props) {
-    if (!render) {
-        finite_log_internal(LOG_LEVEL_FATAL, file, line, func, "Can not query memory format with NULL renderer.");
-    }
-
-    VkPhysicalDeviceMemoryProperties memProps;
-    vkGetPhysicalDeviceMemoryProperties(render->vk_pDevice, &memProps);
-
-    for (uint32_t i = 0; i < memProps.memoryTypeCount; i++) {
-        if ((filter & (1 << i)) && (memProps.memoryTypes[i].propertyFlags & props) == props) {
-            return i;
-        }
-    }
-
-    finite_log_internal(LOG_LEVEL_FATAL, file, line, func, "Could not find usable memory type with given filer.");
-    return 0; // this line never runs but we include it to silence errors.
-}
-
 void finite_render_copy_buffer(FiniteRender *render, VkBuffer src, VkBuffer dest, VkDeviceSize size) {
     FiniteRenderOneshotBuffer cmd_block = finite_render_begin_onshot_command(render);
     VkCommandBuffer cmd_buffet = cmd_block.buffer;

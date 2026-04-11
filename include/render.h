@@ -4,6 +4,7 @@
 #include "render/render-core.h"
 #include "render/render-image.h"
 #include "render/vulkan.h"
+#include "render/memory.h"
 
 
 #endif
