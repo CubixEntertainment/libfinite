@@ -13,25 +13,26 @@ The Infinite C Library
 - [x] Window Rendering Example
 - [x] Keyboard Input
 - [x] Textbox Input
-- [ ] Controller Input (being reworked)
+- [x] Controller Input
 - [x] Vulkan Rendering
 - [x] Vulkan Examples
 - [x] Vulkan Rendering (with basic 3D rendering)
 - [x] Vulkan Rendering (with texture loading)
 - [x] Vulkan Rendering (with mesh loading)
-- [ ] Vulkan Memory Allocation Integration
+- [ ] Vulkan Memory Allocation Integration (being worked on)
 - [x] Audio
 - [x] Audio Example
 - [ ] Audio Seeking (rewind,pausing)
 - [ ] Audio Effects
 - [x] Logging/Core Functions
 - [x] Auth API
-- [ ] User API
+- [x] User API
+- [x] JSON Utilites
+- [ ] File System Utilities
 - [ ] Avatar
 - [ ] GameShare
 - [ ] Notifications
-- [ ] Papernet Service Integration
-  
+- [ ] Papernet Service Integration (being worked on)  
 
 ## Project Goals
 
