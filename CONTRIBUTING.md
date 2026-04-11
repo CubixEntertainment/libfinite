@@ -30,7 +30,8 @@ While we don't enforce any specific naming convention, please attempt to briefly
 ## The Minimal System Rules
 
 1) In general, avoid new dependencies (within reason).
-2) Do not add conflicting dependencies that replicate behavior already implemented by libfinite or system functions directly. (For example, GLFW should not be used since FiniteRender achieves effectively the same thing.)
-3) Do not implement any dependency that is not Open Source or are not built with linux in mind.
-4) Avoid adding new dependencies that are not mentioned in the Beyond Linux From Scratch documentation
-5) Link the source code to any new dependencies in your pull requests.
+2) All implementations should be PURE C. No C++ or C# code will be accepted into the codebase.
+3) Do not add conflicting dependencies that replicate behavior already implemented by libfinite or system functions directly. (For example, GLFW should not be used since FiniteRender achieves effectively the same thing.)
+4) Do not implement any dependency that is not Open Source or are not built with linux in mind.
+5) Avoid adding new dependencies that are not mentioned in the Beyond Linux From Scratch documentation
+6) Link the source code to any new dependencies in your pull requests.
